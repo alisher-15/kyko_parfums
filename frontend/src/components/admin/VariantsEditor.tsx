@@ -57,6 +57,10 @@ function toBody(r: Row) {
   };
 }
 
+// Desktop (xl+) lays each volume out as one table-like row; smaller screens get a card per volume.
+const GRID =
+  "xl:grid xl:grid-cols-[112px_80px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
+
 /** Inline editor for volumes: each volume has its own stock and three price tiers. */
 export function VariantsEditor({
   productId,
@@ -69,8 +73,8 @@ export function VariantsEditor({
 }) {
   const [error, setError] = useState<string | null>(null);
   return (
-    <div className="card overflow-x-auto p-4">
-      <div className="mb-3 flex items-baseline justify-between">
+    <div className="card p-4">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-serif text-2xl font-semibold">Объёмы, цены и остатки</h2>
         <span className="text-xs text-muted">
           Пустая оптовая / крупнооптовая цена = берётся цена уровнем выше
@@ -81,51 +85,49 @@ export function VariantsEditor({
           <ErrorBox>{error}</ErrorBox>
         </div>
       )}
-      <table className="table-base min-w-[860px] [&_td]:px-1.5 [&_th]:px-1.5">
-        <thead>
-          <tr>
-            <th>Фото</th>
-            <th>Объём, мл</th>
-            <th>Артикул</th>
-            <th>Остаток</th>
-            <th>Розница, {CURRENCY}</th>
-            <th>Опт, {CURRENCY}</th>
-            <th>Кр. опт, {CURRENCY}</th>
-            <th>Активен</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {variants.map((v) => (
-            <VariantRow
-              key={v.id}
-              initial={toRow(v)}
-              seed={v.id}
-              onSave={async (row) => {
-                await api(`/admin/variants/${v.id}`, { method: "PATCH", body: toBody(row) });
-                onChanged();
-              }}
-              onDelete={async () => {
-                if (!confirm(`Удалить объём ${v.volume_ml} мл?`)) return;
-                await api(`/admin/variants/${v.id}`, { method: "DELETE" });
-                onChanged();
-              }}
-              onError={setError}
-            />
-          ))}
+      <div
+        className={`hidden border-b border-line pb-2 text-xs font-semibold tracking-wide text-muted uppercase ${GRID}`}
+      >
+        <span>Фото</span>
+        <span>Объём, мл</span>
+        <span>Артикул</span>
+        <span>Остаток</span>
+        <span>Розница, {CURRENCY}</span>
+        <span>Опт, {CURRENCY}</span>
+        <span>Кр. опт, {CURRENCY}</span>
+        <span>Активен</span>
+        <span></span>
+      </div>
+      <div className="space-y-3 xl:space-y-0">
+        {variants.map((v) => (
           <VariantRow
-            key={`new-${variants.length}`}
-            initial={EMPTY}
-            seed={0}
-            isNew
+            key={v.id}
+            initial={toRow(v)}
+            seed={v.id}
             onSave={async (row) => {
-              await api(`/admin/products/${productId}/variants`, { body: toBody(row) });
+              await api(`/admin/variants/${v.id}`, { method: "PATCH", body: toBody(row) });
+              onChanged();
+            }}
+            onDelete={async () => {
+              if (!confirm(`Удалить объём ${v.volume_ml} мл?`)) return;
+              await api(`/admin/variants/${v.id}`, { method: "DELETE" });
               onChanged();
             }}
             onError={setError}
           />
-        </tbody>
-      </table>
+        ))}
+        <VariantRow
+          key={`new-${variants.length}`}
+          initial={EMPTY}
+          seed={0}
+          isNew
+          onSave={async (row) => {
+            await api(`/admin/products/${productId}/variants`, { body: toBody(row) });
+            onChanged();
+          }}
+          onError={setError}
+        />
+      </div>
     </div>
   );
 }
@@ -164,71 +166,89 @@ function VariantRow({
     }
   };
 
-  const numInput = (key: keyof Row, required = false, width = "w-24") => (
-    <input
-      className={`input ${width}`}
-      inputMode="decimal"
-      required={required}
-      value={row[key] as string}
-      onChange={set(key)}
-    />
+  // The label is shown on cards (phones/tablets) and hidden in the desktop row, which has a header.
+  const field = (label: string, key: keyof Row, opts: { required?: boolean; numeric?: boolean } = {}) => (
+    <label className="block min-w-0">
+      <span className="mb-1 block text-[11px] font-semibold tracking-wide text-muted uppercase xl:hidden">
+        {label}
+      </span>
+      <input
+        className="input"
+        inputMode={opts.numeric === false ? "text" : "decimal"}
+        required={opts.required}
+        value={row[key] as string}
+        onChange={set(key)}
+      />
+    </label>
   );
 
   return (
-    <tr className={isNew ? "bg-cream/60" : ""}>
-      <td>
+    <div
+      className={`rounded-xl border border-line p-3 xl:rounded-none xl:border-0 xl:border-b xl:px-0 xl:py-2 ${
+        isNew ? "bg-cream/60 xl:bg-cream/60" : ""
+      } ${GRID}`}
+    >
+      {isNew && (
+        <div className="mb-2 text-sm font-semibold xl:hidden">Добавить объём</div>
+      )}
+      <div className="mb-3 xl:mb-0">
         <ImageUpload
           compact
           seed={seed}
           value={row.photo_url}
           onChange={(url) => setRow({ ...row, photo_url: url })}
         />
-      </td>
-      <td>{numInput("volume_ml", true, "w-20")}</td>
-      <td>
-        <input className="input w-28" value={row.sku} onChange={set("sku")} />
-      </td>
-      <td>{numInput("stock", false, "w-20")}</td>
-      <td>{numInput("retail_price", true)}</td>
-      <td>{numInput("wholesale_price")}</td>
-      <td>{numInput("bulk_price")}</td>
-      <td className="text-center">
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:contents">
+        {field(`Объём, мл`, "volume_ml", { required: true })}
+        {field("Артикул", "sku", { numeric: false })}
+        {field("Остаток, шт.", "stock")}
+        {field(`Розница, ${CURRENCY}`, "retail_price", { required: true })}
+        {field(`Опт, ${CURRENCY}`, "wholesale_price")}
+        {field(`Кр. опт, ${CURRENCY}`, "bulk_price")}
+      </div>
+      <label className="mt-3 flex items-center gap-2 text-sm xl:mt-0 xl:justify-center">
         <input
           type="checkbox"
           className="accent-gold"
           checked={row.is_active}
           onChange={(e) => setRow({ ...row, is_active: e.target.checked })}
         />
-      </td>
-      <td className="whitespace-nowrap">
+        <span className="xl:hidden">Показывать на сайте</span>
+      </label>
+      <div className="mt-3 flex gap-2 xl:mt-0">
         {isNew ? (
           <button
-            className="btn btn-gold btn-sm"
+            type="button"
+            className="btn btn-gold btn-sm flex-1 xl:flex-none"
             disabled={busy || !row.volume_ml || !row.retail_price}
             onClick={() => run(() => onSave(row))}
           >
             Добавить
           </button>
         ) : (
-          <div className="flex gap-1">
+          <>
             <button
-              className="btn btn-primary btn-sm"
+              type="button"
+              className="btn btn-primary btn-sm flex-1 xl:flex-none"
               disabled={busy || !dirty}
               onClick={() => run(() => onSave(row))}
             >
               Сохранить
             </button>
             <button
+              type="button"
               className="btn btn-danger btn-sm"
               disabled={busy}
               onClick={() => onDelete && run(onDelete)}
               title="Удалить объём"
             >
-              ✕
+              <span className="xl:hidden">Удалить</span>
+              <span className="hidden xl:inline">✕</span>
             </button>
-          </div>
+          </>
         )}
-      </td>
-    </tr>
+      </div>
+    </div>
   );
 }

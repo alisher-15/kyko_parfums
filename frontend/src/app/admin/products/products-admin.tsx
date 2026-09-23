@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
@@ -23,6 +24,7 @@ export function ProductsAdmin({
   const [active, setActive] = useState("");
   const [noVariants, setNoVariants] = useState(initialNoVariants);
   const [page, setPage] = useState(1);
+  const router = useRouter();
 
   const brands = useApi<Brand[]>("/admin/brands");
   const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
@@ -95,63 +97,113 @@ export function ProductsAdmin({
       {error && <ErrorBox>{error.message}</ErrorBox>}
       {loading && !data && <Spinner />}
       {data && (
-        <div className={`card overflow-x-auto ${loading ? "opacity-60" : ""}`}>
-          <table className="table-base">
-            <thead>
-              <tr>
-                <th className="w-14"></th>
-                <th>Товар</th>
-                <th>Тип / пол</th>
-                <th>Объёмы и цены (розн. / опт / кр. опт)</th>
-                <th>Остаток</th>
-                <th>Статус</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.items.map((p) => (
-                <tr key={p.id} className="hover:bg-cream">
-                  <td>
-                    <div className="h-10 w-10 overflow-hidden rounded-lg bg-white">
-                      <ProductImage src={p.image_url ?? p.variants[0]?.photo_url} alt={p.name} seed={p.id} />
+        <div className={loading ? "opacity-60" : ""}>
+          {/* Phones: each product is one big tappable card. */}
+          <div className="space-y-3 md:hidden">
+            {data.items.map((p) => (
+              <Link
+                key={p.id}
+                href={`/admin/products/${p.id}`}
+                className="card flex gap-3 p-3 active:bg-cream"
+              >
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white">
+                  <ProductImage src={p.image_url ?? p.variants[0]?.photo_url} alt={p.name} seed={p.id} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-xs text-muted">{p.brand.name}</div>
+                      <div className="font-semibold">{p.name}</div>
                     </div>
-                  </td>
-                  <td>
-                    <div className="text-xs text-muted">{p.brand.name}</div>
-                    <Link href={`/admin/products/${p.id}`} className="font-semibold hover:text-gold">
-                      {p.name}
-                    </Link>
-                  </td>
-                  <td className="text-xs">
-                    {[p.type, p.gender && GENDER_LABELS[p.gender], p.category].filter(Boolean).join(" · ")}
-                  </td>
-                  <td className="text-xs">
+                    <span className={`chip shrink-0 ${p.is_active ? "text-emerald-700" : ""}`}>
+                      {p.is_active ? "На сайте" : "Скрыт"}
+                    </span>
+                  </div>
+                  <div className="mt-1 space-y-0.5 text-xs">
                     {p.variants.length === 0 ? (
-                      <span className="text-amber-700">нет вариантов</span>
+                      <span className="text-amber-700">нет объёмов и цен</span>
                     ) : (
                       p.variants.map((v) => (
                         <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
-                          <b>{v.volume_ml} мл</b>: {money(v.retail_price)} / {money(v.wholesale_price)} /{" "}
-                          {money(v.bulk_price)}
+                          <b>{v.volume_ml} мл</b> · {money(v.retail_price)} ·{" "}
+                          <span className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
+                            {v.stock} шт.
+                          </span>
                         </div>
                       ))
                     )}
-                  </td>
-                  <td className="text-xs">
-                    {p.variants.map((v) => (
-                      <div key={v.id} className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
-                        {v.stock} шт.
-                      </div>
-                    ))}
-                  </td>
-                  <td>
-                    <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
-                      {p.is_active ? "На сайте" : "Скрыт"}
-                    </span>
-                  </td>
+                  </div>
+                </div>
+                <span className="self-center text-muted" aria-hidden="true">
+                  ›
+                </span>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop: the whole row opens the product. */}
+          <div className="card hidden overflow-x-auto md:block">
+            <table className="table-base">
+              <thead>
+                <tr>
+                  <th className="w-14"></th>
+                  <th>Товар</th>
+                  <th>Тип / пол</th>
+                  <th>Объёмы и цены (розн. / опт / кр. опт)</th>
+                  <th>Остаток</th>
+                  <th>Статус</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.items.map((p) => (
+                  <tr
+                    key={p.id}
+                    className="cursor-pointer hover:bg-cream"
+                    onClick={() => router.push(`/admin/products/${p.id}`)}
+                  >
+                    <td>
+                      <div className="h-10 w-10 overflow-hidden rounded-lg bg-white">
+                        <ProductImage src={p.image_url ?? p.variants[0]?.photo_url} alt={p.name} seed={p.id} />
+                      </div>
+                    </td>
+                    <td>
+                      <div className="text-xs text-muted">{p.brand.name}</div>
+                      <Link href={`/admin/products/${p.id}`} className="font-semibold text-ink hover:text-gold">
+                        {p.name}
+                      </Link>
+                    </td>
+                    <td className="text-xs">
+                      {[p.type, p.gender && GENDER_LABELS[p.gender], p.category].filter(Boolean).join(" · ")}
+                    </td>
+                    <td className="text-xs">
+                      {p.variants.length === 0 ? (
+                        <span className="text-amber-700">нет вариантов</span>
+                      ) : (
+                        p.variants.map((v) => (
+                          <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
+                            <b>{v.volume_ml} мл</b>: {money(v.retail_price)} / {money(v.wholesale_price)} /{" "}
+                            {money(v.bulk_price)}
+                          </div>
+                        ))
+                      )}
+                    </td>
+                    <td className="text-xs">
+                      {p.variants.map((v) => (
+                        <div key={v.id} className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
+                          {v.stock} шт.
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                        {p.is_active ? "На сайте" : "Скрыт"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {data && <Pagination page={page} total={data.total} pageSize={PAGE_SIZE} onChange={setPage} />}

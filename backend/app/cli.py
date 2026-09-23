@@ -8,13 +8,14 @@ python -m app.cli seed-demo
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import User, UserRole
+from app.models import Product, User, UserRole
 from app.security import hash_password
 from app.services.importer import build_template, import_catalog
 
@@ -45,6 +46,28 @@ def import_cmd(path: str, sheet: str | None, dry_run: bool) -> int:
     return 0
 
 
+def bootstrap() -> None:
+    email, password = os.environ.get("ADMIN_EMAIL"), os.environ.get("ADMIN_PASSWORD")
+    if email and password:
+        with SessionLocal() as db:
+            exists = db.scalar(select(User.id).where(User.email == email.strip().lower()))
+        if exists:
+            print(f"Admin {email} already exists — left unchanged")
+        elif len(password) < 8:
+            print("ADMIN_PASSWORD must be at least 8 characters — admin not created")
+        else:
+            create_admin(email, password)
+    if os.environ.get("SEED_DEMO", "").lower() in {"1", "true", "yes"}:
+        with SessionLocal() as db:
+            empty = db.scalar(select(Product.id).limit(1)) is None
+        if empty:
+            from app.seed import seed_demo
+
+            seed_demo()
+        else:
+            print("Catalog is not empty — demo data skipped")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -62,6 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("path")
 
     sub.add_parser("seed-demo", help="fill the catalog with demo products, prices and users")
+    sub.add_parser("bootstrap", help="create admin / demo data from environment variables")
 
     args = parser.parse_args(argv)
     if args.cmd == "create-admin":
@@ -78,6 +102,8 @@ def main(argv: list[str] | None = None) -> int:
         from app.seed import seed_demo
 
         seed_demo()
+    elif args.cmd == "bootstrap":
+        bootstrap()
     return 0
 
 

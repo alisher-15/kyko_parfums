@@ -325,3 +325,26 @@ def test_stats(client, auth, catalog, db):
     assert s["products_without_variants"] == 2
     assert s["users_by_role"]["admin"] == 1
     assert db.query(User).count() == 1
+
+
+def test_bootstrap_from_env(db, monkeypatch):
+    from app.cli import bootstrap
+
+    monkeypatch.setenv("ADMIN_EMAIL", "Owner@Example.com")
+    monkeypatch.setenv("ADMIN_PASSWORD", "ownerpass123")
+    monkeypatch.setenv("SEED_DEMO", "true")
+    bootstrap()
+    bootstrap()  # second start: nothing is duplicated or overwritten
+    admin = db.query(User).filter_by(email="owner@example.com").one()
+    assert admin.role == UserRole.admin
+    assert db.query(Product).count() == 20
+    assert db.query(User).count() == 4  # admin + 3 demo accounts
+
+
+def test_database_url_gets_psycopg_driver():
+    from app.config import Settings
+
+    s = Settings(database_url="postgres://u:p@h:5432/d")
+    assert s.database_url == "postgresql+psycopg://u:p@h:5432/d"
+    s = Settings(database_url="postgresql://u:p@h/d")
+    assert s.database_url == "postgresql+psycopg://u:p@h/d"

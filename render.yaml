@@ -1,0 +1,30 @@
+# Render Blueprint: one web service (site + API) + free PostgreSQL.
+# Dashboard → New → Blueprint → pick this repository/branch → fill ADMIN_EMAIL / ADMIN_PASSWORD.
+databases:
+  - name: kyko-db
+    plan: free
+    databaseName: kyko
+    user: kyko
+
+services:
+  - type: web
+    name: kyko-parfums
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kyko-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Fill the empty catalog with demo products and demo retail/wholesale accounts.
+      - key: SEED_DEMO
+        value: "true"

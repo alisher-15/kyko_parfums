@@ -5,7 +5,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { FilterIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
-import { CURRENCY, GENDER_LABELS, plural } from "@/lib/format";
+import { CURRENCY, GENDER_LABELS, money, plural } from "@/lib/format";
 import type { Filters, Page, ProductListItem } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -240,14 +240,14 @@ function FilterPanel({
           <input
             className="input"
             inputMode="numeric"
-            placeholder={filters.price_min !== null ? `от ${filters.price_min}` : "от"}
+            placeholder="от"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value.replace(/\D/g, ""))}
           />
           <input
             className="input"
             inputMode="numeric"
-            placeholder={filters.price_max !== null ? `до ${filters.price_max}` : "до"}
+            placeholder="до"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value.replace(/\D/g, ""))}
           />
@@ -255,6 +255,11 @@ function FilterPanel({
             OK
           </button>
         </form>
+        {filters.price_min !== null && filters.price_max !== null && (
+          <p className="mt-1.5 text-xs text-muted">
+            {money(filters.price_min)} — {money(filters.price_max)}
+          </p>
+        )}
       </FilterGroup>
 
       <FilterGroup title="Бренд">

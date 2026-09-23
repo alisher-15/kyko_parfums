@@ -34,6 +34,11 @@ export function OrderItemsTable({ order, admin = false }: { order: Order; admin?
               <td>{i.volume_ml} мл</td>
               <td>
                 {money(i.price_applied)}
+                {i.discount_percent > 0 && (
+                  <div className="text-[11px] text-muted">
+                    <span className="line-through">{money(i.list_price)}</span> −{i.discount_percent}%
+                  </div>
+                )}
                 <div className="text-[11px] text-gold">{TIER_LABELS[i.price_tier]}</div>
               </td>
               <td>{i.quantity}</td>
@@ -42,6 +47,14 @@ export function OrderItemsTable({ order, admin = false }: { order: Order; admin?
           ))}
         </tbody>
         <tfoot>
+          {order.discount_total > 0 && (
+            <tr>
+              <td colSpan={4} className="text-right text-muted">
+                Скидка
+              </td>
+              <td className="text-right text-muted">−{money(order.discount_total)}</td>
+            </tr>
+          )}
           <tr>
             <td colSpan={4} className="text-right font-semibold">
               Итого

@@ -1,4 +1,12 @@
-import type { Gender, OrderStatus, PriceTier, UserRole } from "./types";
+import type {
+  Gender,
+  OrderChannel,
+  OrderStatus,
+  PaymentMethod,
+  PriceTier,
+  StockReason,
+  UserRole,
+} from "./types";
 
 export const CURRENCY = process.env.NEXT_PUBLIC_CURRENCY || "₸";
 
@@ -69,3 +77,23 @@ export function plural(n: number, one: string, few: string, many: string): strin
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
   return many;
 }
+
+export const CHANNEL_LABELS: Record<OrderChannel, string> = {
+  online: "Сайт",
+  store: "Магазин",
+};
+
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  cash: "Наличные",
+  card: "Карта",
+  transfer: "Kaspi / перевод",
+  other: "Другое",
+};
+
+export const STOCK_REASON_LABELS: Record<StockReason, string> = {
+  online_order: "Заказ на сайте",
+  store_sale: "Продажа в магазине",
+  order_cancel: "Отмена / возврат",
+  manual: "Ручная правка",
+  import: "Импорт Excel",
+};

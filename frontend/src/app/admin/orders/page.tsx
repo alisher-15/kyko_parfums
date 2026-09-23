@@ -1,7 +1,12 @@
-import type { OrderStatus } from "@/lib/types";
+import type { OrderChannel, OrderStatus } from "@/lib/types";
 import { OrdersAdmin } from "./orders-admin";
 
 export default async function AdminOrdersPage(props: PageProps<"/admin/orders">) {
   const sp = await props.searchParams;
-  return <OrdersAdmin initialStatus={typeof sp.status === "string" ? (sp.status as OrderStatus) : ""} />;
+  return (
+    <OrdersAdmin
+      initialStatus={typeof sp.status === "string" ? (sp.status as OrderStatus) : ""}
+      initialChannel={typeof sp.channel === "string" ? (sp.channel as OrderChannel) : ""}
+    />
+  );
 }

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.db import get_db
 from app.deps import get_current_user, get_current_user_optional
-from app.models import Order, OrderItem, OrderStatus, User
+from app.models import Order, OrderChannel, OrderItem, OrderStatus, StockReason, User
 from app.pricing import Quote, QuoteItem, build_quote
 from app.schemas.common import Page
 from app.schemas.orders import (
@@ -18,6 +18,7 @@ from app.schemas.orders import (
 )
 from app.services.orders import change_status, load_sellable_variants
 from app.services.settings import get_pricing_settings
+from app.services.stock import move_stock
 
 router = APIRouter(tags=["cart & orders"])
 
@@ -104,6 +105,7 @@ def create_order(
     )
     order = Order(
         user_id=user.id,
+        channel=OrderChannel.online,
         status=OrderStatus.new,
         total_amount=quote.total,
         customer_role=user.role,
@@ -116,11 +118,13 @@ def create_order(
     )
     for line in quote.lines:
         v = line.variant
-        v.stock -= line.quantity
+        move_stock(db, v, -line.quantity, StockReason.online_order, order=order, user=user)
         order.items.append(
             OrderItem(
                 variant_id=v.id,
                 quantity=line.quantity,
+                list_price=line.unit_price,
+                discount_percent=0,
                 price_applied=line.unit_price,
                 price_tier=line.tier,
                 brand_name=v.product.brand.name,
@@ -158,6 +162,7 @@ def my_orders(
     items = [
         OrderBrief(
             id=o.id,
+            channel=o.channel,
             status=o.status,
             total_amount=o.total_amount,
             created_at=o.created_at,
@@ -192,7 +197,7 @@ def cancel_my_order(
         raise HTTPException(
             status.HTTP_409_CONFLICT, "Отменить можно только новый заказ — свяжитесь с менеджером"
         )
-    change_status(db, order, OrderStatus.cancelled)
+    change_status(db, order, OrderStatus.cancelled, user)
     db.commit()
     db.refresh(order)
     return order

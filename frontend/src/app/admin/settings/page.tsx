@@ -22,6 +22,7 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
     bulk_min_order_amount: String(initial.bulk_min_order_amount),
     wholesale_min_item_qty: String(initial.wholesale_min_item_qty),
     bulk_min_item_qty: String(initial.bulk_min_item_qty),
+    max_store_discount_percent: String(initial.max_store_discount_percent),
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -40,6 +41,7 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
           bulk_min_order_amount: Number(form.bulk_min_order_amount || 0),
           wholesale_min_item_qty: Number(form.wholesale_min_item_qty || 1),
           bulk_min_item_qty: Number(form.bulk_min_item_qty || 1),
+          max_store_discount_percent: Number(form.max_store_discount_percent.replace(",", ".") || 0),
         },
       });
       setMsg({ ok: true, text: "Настройки сохранены — новые правила уже действуют в корзине." });
@@ -51,7 +53,7 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
 
   return (
     <form onSubmit={submit} className="max-w-3xl space-y-6">
-      <AdminHeader title="Цены и пороги опта" />
+      <AdminHeader title="Цены, пороги и скидки" />
       <p className="text-sm text-muted">
         У каждого объёма три цены: розница, опт и крупный опт. Роль пользователя определяет лучшую
         доступную ему цену, а порог — когда она применяется. Если порог не достигнут, заказ
@@ -115,6 +117,21 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
             </Field>
           </>
         )}
+      </div>
+
+      <div className="card p-5">
+        <div className="mb-1 font-semibold">Продажи в магазине</div>
+        <p className="mb-3 text-sm text-muted">
+          Максимальная скидка, которую можно дать на позицию при продаже в магазине.
+        </p>
+        <Field label="Максимальная скидка, %" className="max-w-xs">
+          <input
+            className="input"
+            inputMode="decimal"
+            value={form.max_store_discount_percent}
+            onChange={set("max_store_discount_percent")}
+          />
+        </Field>
       </div>
 
       {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}

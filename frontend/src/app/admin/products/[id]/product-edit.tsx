@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ProductForm } from "@/components/admin/ProductForm";
+import { StockHistory } from "@/components/admin/StockHistory";
 import { VariantsEditor } from "@/components/admin/VariantsEditor";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -53,6 +54,10 @@ export function ProductEdit({ id }: { id: number }) {
       />
       <ProductForm key={product.updated_at} product={product} onSaved={reload} />
       <VariantsEditor productId={product.id} variants={product.variants} onChanged={reload} />
+      <StockHistory
+        productId={product.id}
+        version={product.variants.map((v) => `${v.id}:${v.stock}`).join(",")}
+      />
     </div>
   );
 }

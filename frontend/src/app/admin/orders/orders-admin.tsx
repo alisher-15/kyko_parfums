@@ -5,25 +5,60 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, Spinner, StatusBadge } from "@/components/ui";
-import { ROLE_LABELS, STATUS_LABELS, dateTime, money } from "@/lib/format";
-import type { AdminOrderBrief, OrderStatus, Page } from "@/lib/types";
+import {
+  CHANNEL_LABELS,
+  PAYMENT_LABELS,
+  ROLE_LABELS,
+  STATUS_LABELS,
+  dateTime,
+  money,
+} from "@/lib/format";
+import type { AdminOrderBrief, OrderChannel, OrderStatus, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
 
-export function OrdersAdmin({ initialStatus }: { initialStatus: OrderStatus | "" }) {
+export function OrdersAdmin({
+  initialStatus,
+  initialChannel,
+}: {
+  initialStatus: OrderStatus | "";
+  initialChannel: OrderChannel | "";
+}) {
   const [status, setStatus] = useState<OrderStatus | "">(initialStatus);
+  const [channel, setChannel] = useState<OrderChannel | "">(initialChannel);
   const [q, setQ] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const router = useRouter();
   const { data, error, loading } = useApi<Page<AdminOrderBrief>>("/admin/orders", {
-    query: { status, q: search, page, page_size: PAGE_SIZE },
+    query: { status, channel, q: search, page, page_size: PAGE_SIZE },
   });
 
   return (
     <>
-      <AdminHeader title={`Заказы${data ? ` · ${data.total}` : ""}`} />
+      <AdminHeader
+        title={`Заказы и продажи${data ? ` · ${data.total}` : ""}`}
+        actions={
+          <Link href="/admin/pos" className="btn btn-primary btn-sm">
+            + Продажа в магазине
+          </Link>
+        }
+      />
+      <div className="mb-2 flex flex-wrap gap-2">
+        {(["", "online", "store"] as (OrderChannel | "")[]).map((c) => (
+          <button
+            key={c || "all"}
+            onClick={() => {
+              setChannel(c);
+              setPage(1);
+            }}
+            className={`btn btn-sm ${channel === c ? "btn-gold" : "btn-outline"}`}
+          >
+            {c ? CHANNEL_LABELS[c] : "Все каналы"}
+          </button>
+        ))}
+      </div>
       <div className="mb-4 flex flex-wrap gap-2">
         {(["", ...Object.keys(STATUS_LABELS)] as (OrderStatus | "")[]).map((s) => (
           <button
@@ -70,12 +105,14 @@ export function OrdersAdmin({ initialStatus }: { initialStatus: OrderStatus | ""
                 className="card block p-3 active:bg-cream"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">№ {o.id}</span>
+                  <span className="font-semibold">
+                    № {o.id} <ChannelTag order={o} />
+                  </span>
                   <StatusBadge status={o.status} />
                 </div>
-                <div className="mt-1 text-sm">{o.contact_name}</div>
+                <div className="mt-1 text-sm">{o.contact_name ?? "Покупатель без имени"}</div>
                 <div className="text-xs text-muted">
-                  {o.contact_phone} · {ROLE_LABELS[o.customer_role]}
+                  {[o.contact_phone, ROLE_LABELS[o.customer_role]].filter(Boolean).join(" · ")}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span className="text-xs text-muted">
@@ -94,6 +131,7 @@ export function OrdersAdmin({ initialStatus }: { initialStatus: OrderStatus | ""
                 <thead>
                   <tr>
                     <th>№</th>
+                    <th>Канал</th>
                     <th>Дата</th>
                     <th>Покупатель</th>
                     <th>Тип клиента</th>
@@ -114,11 +152,14 @@ export function OrdersAdmin({ initialStatus }: { initialStatus: OrderStatus | ""
                           {o.id}
                         </Link>
                       </td>
+                      <td>
+                        <ChannelTag order={o} />
+                      </td>
                       <td className="text-xs">{dateTime(o.created_at)}</td>
                       <td>
-                        <div>{o.contact_name}</div>
+                        <div>{o.contact_name ?? <span className="text-muted">—</span>}</div>
                         <div className="text-xs text-muted">
-                          {o.contact_phone} · {o.user_email}
+                          {[o.contact_phone, o.user_email].filter(Boolean).join(" · ")}
                         </div>
                       </td>
                       <td className="text-xs">{ROLE_LABELS[o.customer_role]}</td>
@@ -137,5 +178,14 @@ export function OrdersAdmin({ initialStatus }: { initialStatus: OrderStatus | ""
       )}
       {data && <Pagination page={page} total={data.total} pageSize={PAGE_SIZE} onChange={setPage} />}
     </>
+  );
+}
+
+function ChannelTag({ order }: { order: AdminOrderBrief }) {
+  if (order.channel === "online") return <span className="chip">Сайт</span>;
+  return (
+    <span className="chip border-gold text-gold">
+      Магазин{order.payment_method ? ` · ${PAYMENT_LABELS[order.payment_method]}` : ""}
+    </span>
   );
 }

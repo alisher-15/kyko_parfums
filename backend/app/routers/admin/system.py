@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal
 from zipfile import BadZipFile
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -9,7 +10,17 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import get_settings
 from app.db import get_db
-from app.models import Brand, Order, OrderStatus, Product, ProductVariant, User, UserRole
+from app.deps import require_admin
+from app.models import (
+    Brand,
+    Order,
+    OrderChannel,
+    OrderStatus,
+    Product,
+    ProductVariant,
+    User,
+    UserRole,
+)
 from app.schemas.admin import (
     ImportReport,
     PricingSettingsIO,
@@ -88,6 +99,7 @@ async def import_catalog_file(
     dry_run: bool = Query(default=False),
     sheet: str | None = Query(default=None),
     db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
 ):
     filename = file.filename or ""
     if not filename.lower().endswith((".xlsx", ".xlsm", ".csv")):
@@ -96,7 +108,7 @@ async def import_catalog_file(
     try:
         # Parsing + DB work is blocking: keep it off the event loop.
         return await run_in_threadpool(
-            import_catalog, db, content, filename, sheet=sheet, dry_run=dry_run
+            import_catalog, db, content, filename, sheet=sheet, dry_run=dry_run, user=admin
         )
     except (ValueError, KeyError, BadZipFile, InvalidFileException) as e:
         db.rollback()
@@ -124,7 +136,29 @@ def stats(db: Session = Depends(get_db)):
     for st, cnt in db.execute(select(Order.status, func.count()).group_by(Order.status)):
         orders_by_status[st.value] = cnt
 
+    not_cancelled = Order.status != OrderStatus.cancelled
+    revenue_by_channel = {c.value: Decimal(0) for c in OrderChannel}
+    for ch, total in db.execute(
+        select(Order.channel, func.sum(Order.total_amount))
+        .where(not_cancelled)
+        .group_by(Order.channel)
+    ):
+        revenue_by_channel[ch.value] = total or Decimal(0)
+
+    tz = get_settings().timezone
+    today = func.date_trunc("day", func.timezone(tz, func.now()))
+    store_today = db.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0)).where(
+            not_cancelled,
+            Order.channel == OrderChannel.store,
+            func.timezone(tz, Order.created_at) >= today,
+        )
+    ).one()
+
     return StatsOut(
+        revenue_by_channel=revenue_by_channel,
+        store_sales_today=store_today[0],
+        store_revenue_today=store_today[1],
         users_by_role=users_by_role,
         wholesale_requests=db.scalar(
             select(func.count()).select_from(User).where(User.wholesale_requested)

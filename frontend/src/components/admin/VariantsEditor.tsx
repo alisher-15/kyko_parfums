@@ -104,8 +104,11 @@ export function VariantsEditor({
             key={v.id}
             initial={toRow(v)}
             seed={v.id}
-            onSave={async (row) => {
-              await api(`/admin/variants/${v.id}`, { method: "PATCH", body: toBody(row) });
+            onSave={async (row, stockNote) => {
+              await api(`/admin/variants/${v.id}`, {
+                method: "PATCH",
+                body: { ...toBody(row), stock_note: stockNote || null },
+              });
               onChanged();
             }}
             onDelete={async () => {
@@ -143,12 +146,14 @@ function VariantRow({
   initial: Row;
   seed: number;
   isNew?: boolean;
-  onSave: (row: Row) => Promise<void>;
+  onSave: (row: Row, stockNote: string) => Promise<void>;
   onDelete?: () => Promise<void>;
   onError: (msg: string | null) => void;
 }) {
   const [row, setRow] = useState<Row>(initial);
+  const [stockNote, setStockNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const stockChanged = !isNew && row.stock !== initial.stock;
   const dirty = JSON.stringify(row) !== JSON.stringify(initial);
 
   const set = (key: keyof Row) => (e: { target: { value: string } }) =>
@@ -207,6 +212,19 @@ function VariantRow({
         {field(`Опт, ${CURRENCY}`, "wholesale_price")}
         {field(`Кр. опт, ${CURRENCY}`, "bulk_price")}
       </div>
+      {stockChanged && (
+        <label className="mt-2 block xl:col-span-full xl:mt-1">
+          <span className="text-xs text-muted">
+            Остаток {initial.stock} → {row.stock || 0}. Причина (попадёт в журнал склада):
+          </span>
+          <input
+            className="input mt-1"
+            placeholder="Приход от поставщика, пересчёт, списание брака…"
+            value={stockNote}
+            onChange={(e) => setStockNote(e.target.value)}
+          />
+        </label>
+      )}
       <label className="mt-3 flex items-center gap-2 text-sm xl:mt-0 xl:justify-center">
         <input
           type="checkbox"
@@ -222,7 +240,7 @@ function VariantRow({
             type="button"
             className="btn btn-gold btn-sm flex-1 xl:flex-none"
             disabled={busy || !row.volume_ml || !row.retail_price}
-            onClick={() => run(() => onSave(row))}
+            onClick={() => run(() => onSave(row, ""))}
           >
             Добавить
           </button>
@@ -232,7 +250,12 @@ function VariantRow({
               type="button"
               className="btn btn-primary btn-sm flex-1 xl:flex-none"
               disabled={busy || !dirty}
-              onClick={() => run(() => onSave(row))}
+              onClick={() =>
+                run(async () => {
+                  await onSave(row, stockNote);
+                  setStockNote("");
+                })
+              }
             >
               Сохранить
             </button>

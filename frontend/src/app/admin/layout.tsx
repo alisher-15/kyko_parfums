@@ -8,12 +8,13 @@ import { useAuth } from "@/lib/auth";
 
 const NAV = [
   { href: "/admin", label: "Обзор" },
-  { href: "/admin/orders", label: "Заказы" },
+  { href: "/admin/pos", label: "Продажа в магазине" },
+  { href: "/admin/orders", label: "Заказы и продажи" },
   { href: "/admin/products", label: "Товары" },
   { href: "/admin/brands", label: "Бренды" },
   { href: "/admin/users", label: "Пользователи" },
   { href: "/admin/import", label: "Импорт Excel" },
-  { href: "/admin/settings", label: "Цены и пороги" },
+  { href: "/admin/settings", label: "Цены и скидки" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

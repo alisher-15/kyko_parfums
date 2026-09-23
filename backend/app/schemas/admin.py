@@ -1,8 +1,18 @@
 from datetime import datetime
+from decimal import Decimal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from app.models import Gender, OrderStatus, PricingMode, UserRole
+from app.models import (
+    Gender,
+    OrderChannel,
+    OrderStatus,
+    PaymentMethod,
+    PriceTier,
+    PricingMode,
+    StockReason,
+    UserRole,
+)
 from app.schemas.auth import Password, UserOut
 from app.schemas.common import Money, MoneyIn, ORMModel
 from app.schemas.orders import OrderOut
@@ -68,6 +78,8 @@ class VariantUpdate(BaseModel):
     volume_ml: int | None = Field(default=None, gt=0, le=100_000)
     sku: str | None = Field(default=None, max_length=64)
     stock: int | None = Field(default=None, ge=0)
+    # Why the stock changed ("приход от поставщика", "пересчёт") — saved in the stock journal.
+    stock_note: str | None = Field(default=None, max_length=255)
     retail_price: MoneyIn | None = None
     wholesale_price: MoneyIn | None = None
     bulk_price: MoneyIn | None = None
@@ -185,19 +197,22 @@ class AdminUserUpdate(BaseModel):
 
 
 class AdminOrderOut(OrderOut):
-    user_id: int
-    user_email: str
+    user_id: int | None
+    user_email: str | None
+    created_by_email: str | None
     admin_note: str | None
 
 
 class AdminOrderBrief(ORMModel):
     id: int
+    channel: OrderChannel
     status: OrderStatus
     total_amount: Money
     customer_role: str
-    contact_name: str
-    contact_phone: str
-    user_email: str
+    payment_method: PaymentMethod | None
+    contact_name: str | None
+    contact_phone: str | None
+    user_email: str | None
     items_count: int
     created_at: datetime
 
@@ -205,6 +220,100 @@ class AdminOrderBrief(ORMModel):
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus | None = None
     admin_note: str | None = Field(default=None, max_length=5000)
+
+
+# ---------- Store sales ----------
+
+
+class StoreSaleItemIn(BaseModel):
+    variant_id: int
+    quantity: int = Field(ge=1, le=10_000)
+    discount_percent: Decimal = Field(default=Decimal(0), ge=0, le=100, decimal_places=2)
+
+
+class StoreSaleIn(BaseModel):
+    items: list[StoreSaleItemIn] = Field(min_length=1, max_length=200)
+    # None => the linked customer's best tier, or retail for an anonymous buyer.
+    price_tier: PriceTier | None = None
+    customer_id: int | None = None
+    customer_name: str | None = Field(default=None, max_length=255)
+    customer_phone: str | None = Field(default=None, max_length=64)
+    payment_method: PaymentMethod = PaymentMethod.cash
+    comment: str | None = Field(default=None, max_length=2000)
+
+    _blank = field_validator("customer_name", "customer_phone", "comment", mode="before")(
+        _blank_to_none
+    )
+
+    @field_validator("items")
+    @classmethod
+    def unique_variants(cls, v: list[StoreSaleItemIn]) -> list[StoreSaleItemIn]:
+        ids = [i.variant_id for i in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Один и тот же вариант товара указан несколько раз")
+        return v
+
+
+class StoreQuoteIn(StoreSaleIn):
+    # The draft receipt may be empty while the admin is still scanning.
+    items: list[StoreSaleItemIn] = Field(default_factory=list, max_length=200)
+
+
+class StoreQuoteLine(BaseModel):
+    variant_id: int
+    product_id: int
+    brand_name: str
+    product_name: str
+    volume_ml: int
+    sku: str | None
+    image_url: str | None
+    quantity: int
+    stock: int
+    available: bool
+    list_price: Money
+    discount_percent: float
+    unit_price: Money
+    line_total: Money
+
+
+class StoreQuoteOut(BaseModel):
+    price_tier: PriceTier
+    max_discount_percent: float
+    lines: list[StoreQuoteLine]
+    unavailable_variant_ids: list[int]
+    subtotal: Money
+    discount_total: Money
+    total: Money
+    errors: list[str]
+    can_submit: bool
+
+
+class VariantSearchItem(BaseModel):
+    variant_id: int
+    product_id: int
+    brand_name: str
+    product_name: str
+    volume_ml: int
+    sku: str | None
+    image_url: str | None
+    stock: int
+    retail_price: Money
+    wholesale_price: Money | None
+    bulk_price: Money | None
+    product_active: bool
+
+
+class StockMovementOut(ORMModel):
+    id: int
+    variant_id: int
+    volume_ml: int
+    delta: int
+    stock_after: int
+    reason: StockReason
+    order_id: int | None
+    user_email: str | None
+    note: str | None
+    created_at: datetime
 
 
 # ---------- Pricing settings ----------
@@ -216,6 +325,7 @@ class PricingSettingsIO(ORMModel):
     bulk_min_order_amount: MoneyIn
     wholesale_min_item_qty: int = Field(ge=1)
     bulk_min_item_qty: int = Field(ge=1)
+    max_store_discount_percent: Decimal = Field(default=Decimal(10), ge=0, le=100)
 
     @model_validator(mode="after")
     def bulk_not_below_wholesale(self):
@@ -232,6 +342,7 @@ class PricingSettingsOut(BaseModel):
     bulk_min_order_amount: Money
     wholesale_min_item_qty: int
     bulk_min_item_qty: int
+    max_store_discount_percent: float
     updated_at: datetime
 
 
@@ -265,6 +376,9 @@ class StatsOut(BaseModel):
     wholesale_requests: int
     orders_by_status: dict[str, int]
     revenue_total: Money
+    revenue_by_channel: dict[str, Money]
+    store_sales_today: int
+    store_revenue_today: Money
     products_total: int
     products_without_variants: int
     variants_low_stock: int

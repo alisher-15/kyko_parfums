@@ -23,8 +23,9 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import Brand, Gender, Product, ProductVariant
+from app.models import Brand, Gender, Product, ProductVariant, StockReason, User
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
+from app.services.stock import set_stock
 
 # fmt: off
 COLUMN_ALIASES: dict[str, list[str]] = {
@@ -248,6 +249,7 @@ def import_catalog(
     filename: str,
     sheet: str | None = None,
     dry_run: bool = False,
+    user: User | None = None,
 ) -> ImportReport:
     rows, header_idx = read_rows(content, filename, sheet)
     header = rows[header_idx][1]
@@ -366,10 +368,11 @@ def import_catalog(
                 retail_price=retail,
                 wholesale_price=wholesale,
                 bulk_price=bulk,
-                stock=stock or 0,
+                stock=0,
                 sku=sku,
             )
             product.variants.append(variant)
+            set_stock(db, variant, stock or 0, StockReason.import_, user=user, note=filename[:255])
             st.variants_created += 1
         else:
             updates = {
@@ -389,6 +392,11 @@ def import_catalog(
                 st.errors.append(ImportRowError(row=row_no, error=f"объём {volume} мл: {e}"))
                 continue
             if any(getattr(variant, k) != v for k, v in new.items()):
+                new_stock = new.pop("stock", None)
+                if new_stock is not None:
+                    set_stock(
+                        db, variant, new_stock, StockReason.import_, user=user, note=filename[:255]
+                    )
                 for k, v in new.items():
                     setattr(variant, k, v)
                 st.variants_updated += 1

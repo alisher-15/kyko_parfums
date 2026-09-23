@@ -3,7 +3,8 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
-from app.models import Order, OrderItem, OrderStatus, User
+from app.deps import require_admin
+from app.models import Order, OrderChannel, OrderItem, OrderStatus, User
 from app.schemas.admin import AdminOrderBrief, AdminOrderOut, OrderStatusUpdate
 from app.schemas.common import Page
 from app.services.orders import change_status
@@ -15,7 +16,11 @@ def _load_order(db: Session, order_id: int, lock: bool = False) -> Order:
     stmt = select(Order).where(Order.id == order_id)
     if lock:
         stmt = stmt.with_for_update(of=Order)
-    order = db.scalar(stmt.options(selectinload(Order.items), joinedload(Order.user)))
+    order = db.scalar(
+        stmt.options(
+            selectinload(Order.items), joinedload(Order.user), joinedload(Order.created_by)
+        )
+    )
     if order is None:
         raise HTTPException(404, "Заказ не найден")
     return order
@@ -29,6 +34,7 @@ def _out(order: Order) -> AdminOrderOut:
 def list_orders(
     q: str | None = Query(default=None, max_length=200),
     status: OrderStatus | None = None,
+    channel: OrderChannel | None = None,
     user_id: int | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
@@ -37,6 +43,8 @@ def list_orders(
     conds = []
     if status is not None:
         conds.append(Order.status == status)
+    if channel is not None:
+        conds.append(Order.channel == channel)
     if user_id is not None:
         conds.append(Order.user_id == user_id)
     if q and q.strip():
@@ -49,7 +57,8 @@ def list_orders(
                 Order.contact_phone.ilike(like),
             )
         )
-    base = select(Order.id).join(User, User.id == Order.user_id).where(*conds)
+    # Outer join: store sales may have no customer account.
+    base = select(Order.id).outerjoin(User, User.id == Order.user_id).where(*conds)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
 
     items_count = (
@@ -59,7 +68,7 @@ def list_orders(
     )
     rows = db.execute(
         select(Order, User.email, items_count)
-        .join(User, User.id == Order.user_id)
+        .outerjoin(User, User.id == Order.user_id)
         .where(*conds)
         .order_by(Order.created_at.desc(), Order.id.desc())
         .offset((page - 1) * page_size)
@@ -68,9 +77,11 @@ def list_orders(
     items = [
         AdminOrderBrief(
             id=o.id,
+            channel=o.channel,
             status=o.status,
             total_amount=o.total_amount,
             customer_role=o.customer_role,
+            payment_method=o.payment_method,
             contact_name=o.contact_name,
             contact_phone=o.contact_phone,
             user_email=email,
@@ -88,11 +99,16 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/orders/{order_id}", response_model=AdminOrderOut)
-def update_order(order_id: int, data: OrderStatusUpdate, db: Session = Depends(get_db)):
+def update_order(
+    order_id: int,
+    data: OrderStatusUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
     order = _load_order(db, order_id, lock=True)
     changes = data.model_dump(exclude_unset=True)
     if changes.get("status") is not None:
-        change_status(db, order, changes["status"])
+        change_status(db, order, changes["status"], admin)
     if "admin_note" in changes:
         order.admin_note = changes["admin_note"]
     db.commit()

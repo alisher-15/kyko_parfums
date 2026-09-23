@@ -51,6 +51,26 @@ class PriceTier(enum.StrEnum):
     bulk = "bulk"
 
 
+class OrderChannel(enum.StrEnum):
+    online = "online"  # placed by the customer on the website
+    store = "store"  # sold in the physical shop and entered by an admin
+
+
+class PaymentMethod(enum.StrEnum):
+    cash = "cash"
+    card = "card"
+    transfer = "transfer"  # Kaspi / bank transfer
+    other = "other"
+
+
+class StockReason(enum.StrEnum):
+    online_order = "online_order"
+    store_sale = "store_sale"
+    order_cancel = "order_cancel"
+    manual = "manual"  # admin edited the stock number (receiving goods, write-off, recount)
+    import_ = "import"
+
+
 class PricingMode(enum.StrEnum):
     # Tier is chosen once for the whole order by its total amount.
     order_total = "order_total"
@@ -99,7 +119,7 @@ class User(TimestampMixin, Base):
     # Bumped on password change/reset to invalidate outstanding refresh tokens.
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
-    orders: Mapped[list[Order]] = relationship(back_populates="user")
+    orders: Mapped[list[Order]] = relationship(back_populates="user", foreign_keys="Order.user_id")
 
 
 class PasswordResetToken(Base):
@@ -185,7 +205,16 @@ class Order(TimestampMixin, Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    # NULL for an anonymous walk-in customer in the shop.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    channel: Mapped[OrderChannel] = mapped_column(
+        _enum(OrderChannel, "order_channel"),
+        default=OrderChannel.online,
+        server_default="online",
+        index=True,
+    )
     status: Mapped[OrderStatus] = mapped_column(
         _enum(OrderStatus, "order_status"),
         default=OrderStatus.new,
@@ -195,22 +224,37 @@ class Order(TimestampMixin, Base):
     total_amount: Mapped[Decimal] = mapped_column(MONEY)
     # Role of the buyer at checkout time (roles can change later).
     customer_role: Mapped[UserRole] = mapped_column(_enum(UserRole, "order_customer_role"))
-    contact_name: Mapped[str] = mapped_column(String(255))
-    contact_phone: Mapped[str] = mapped_column(String(64))
-    contact_email: Mapped[str] = mapped_column(String(255))
-    delivery_city: Mapped[str] = mapped_column(String(128))
-    delivery_address: Mapped[str] = mapped_column(Text)
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        _enum(PaymentMethod, "payment_method")
+    )
+    # Admin who entered a store sale.
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # Contacts and delivery are required for online orders (see CheckoutIn), optional in the shop.
+    contact_name: Mapped[str | None] = mapped_column(String(255))
+    contact_phone: Mapped[str | None] = mapped_column(String(64))
+    contact_email: Mapped[str | None] = mapped_column(String(255))
+    delivery_city: Mapped[str | None] = mapped_column(String(128))
+    delivery_address: Mapped[str | None] = mapped_column(Text)
     comment: Mapped[str | None] = mapped_column(Text)
     admin_note: Mapped[str | None] = mapped_column(Text)
 
-    user: Mapped[User] = relationship(back_populates="orders")
+    user: Mapped[User | None] = relationship(back_populates="orders", foreign_keys=[user_id])
+    created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
     items: Mapped[list[OrderItem]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
 
     @property
-    def user_email(self) -> str:
-        return self.user.email
+    def user_email(self) -> str | None:
+        return self.user.email if self.user else None
+
+    @property
+    def created_by_email(self) -> str | None:
+        return self.created_by.email if self.created_by else None
+
+    @property
+    def discount_total(self) -> Decimal:
+        return sum(((i.list_price - i.price_applied) * i.quantity for i in self.items), Decimal(0))
 
 
 class OrderItem(Base):
@@ -224,6 +268,9 @@ class OrderItem(Base):
         ForeignKey("product_variants.id", ondelete="SET NULL"), index=True
     )
     quantity: Mapped[int] = mapped_column(Integer)
+    # Price-list price of the chosen tier and the final unit price after the discount.
+    list_price: Mapped[Decimal] = mapped_column(MONEY)
+    discount_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, server_default="0")
     price_applied: Mapped[Decimal] = mapped_column(MONEY)
     price_tier: Mapped[PriceTier] = mapped_column(_enum(PriceTier, "price_tier"))
     # Snapshot of what was bought.
@@ -258,6 +305,36 @@ class PricingSettings(Base):
     bulk_min_order_amount: Mapped[Decimal] = mapped_column(MONEY, default=0, server_default="0")
     wholesale_min_item_qty: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     bulk_min_item_qty: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    # Largest discount an admin may give per line in a store sale.
+    max_store_discount_percent: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), default=10, server_default="10"
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class StockMovement(Base):
+    """Journal of every stock change, so the current number can always be explained."""
+
+    __tablename__ = "stock_movements"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), index=True
+    )
+    delta: Mapped[int] = mapped_column(Integer)
+    stock_after: Mapped[int] = mapped_column(Integer)
+    reason: Mapped[StockReason] = mapped_column(_enum(StockReason, "stock_reason"))
+    order_id: Mapped[int | None] = mapped_column(
+        ForeignKey("orders.id", ondelete="SET NULL"), index=True
+    )
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    note: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+
+    variant: Mapped[ProductVariant] = relationship()
+    order: Mapped[Order | None] = relationship()
+    user: Mapped[User | None] = relationship()

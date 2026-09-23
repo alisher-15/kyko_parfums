@@ -24,10 +24,24 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <AdminHeader title="Обзор" />
+      <AdminHeader
+        title="Обзор"
+        actions={
+          <Link href="/admin/pos" className="btn btn-primary btn-sm">
+            + Продажа в магазине
+          </Link>
+        }
+      />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label="Новые заказы" value={data.orders_by_status.new} href="/admin/orders?status=new" accent={data.orders_by_status.new > 0} />
         <Tile label="Выручка (без отменённых)" value={money(data.revenue_total)} />
+        <Tile
+          label={`Продажи в магазине сегодня · ${data.store_sales_today}`}
+          value={money(data.store_revenue_today)}
+          href="/admin/orders?channel=store"
+        />
+        <Tile label="Выручка сайта" value={money(data.revenue_by_channel.online)} href="/admin/orders?channel=online" />
+        <Tile label="Выручка магазина" value={money(data.revenue_by_channel.store)} href="/admin/orders?channel=store" />
         <Tile label="Заявки на опт" value={data.wholesale_requests} href="/admin/users?wholesale_requested=true" accent={data.wholesale_requests > 0} />
         <Tile label="Мало на складе (≤ 3 шт.)" value={data.variants_low_stock} />
         <Tile label="Товаров" value={data.products_total} href="/admin/products" />

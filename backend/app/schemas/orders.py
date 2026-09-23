@@ -2,7 +2,14 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.models import OrderStatus, PriceTier, PricingMode, UserRole
+from app.models import (
+    OrderChannel,
+    OrderStatus,
+    PaymentMethod,
+    PriceTier,
+    PricingMode,
+    UserRole,
+)
 from app.schemas.common import Money, ORMModel
 
 
@@ -77,6 +84,8 @@ class OrderItemOut(ORMModel):
     product_name: str
     volume_ml: int
     quantity: int
+    list_price: Money
+    discount_percent: float
     price_applied: Money
     price_tier: PriceTier
     line_total: Money
@@ -84,14 +93,17 @@ class OrderItemOut(ORMModel):
 
 class OrderOut(ORMModel):
     id: int
+    channel: OrderChannel
     status: OrderStatus
     total_amount: Money
+    discount_total: Money
     customer_role: UserRole
-    contact_name: str
-    contact_phone: str
-    contact_email: str
-    delivery_city: str
-    delivery_address: str
+    payment_method: PaymentMethod | None
+    contact_name: str | None
+    contact_phone: str | None
+    contact_email: str | None
+    delivery_city: str | None
+    delivery_address: str | None
     comment: str | None
     created_at: datetime
     updated_at: datetime
@@ -100,6 +112,7 @@ class OrderOut(ORMModel):
 
 class OrderBrief(ORMModel):
     id: int
+    channel: OrderChannel
     status: OrderStatus
     total_amount: Money
     created_at: datetime

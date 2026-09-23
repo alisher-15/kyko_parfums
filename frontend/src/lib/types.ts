@@ -3,6 +3,9 @@ export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";
 export type OrderStatus = "new" | "processing" | "shipped" | "delivered" | "cancelled";
+export type OrderChannel = "online" | "store";
+export type PaymentMethod = "cash" | "card" | "transfer" | "other";
+export type StockReason = "online_order" | "store_sale" | "order_cancel" | "manual" | "import";
 
 export interface Page<T> {
   items: T[];
@@ -137,6 +140,8 @@ export interface OrderItem {
   product_name: string;
   volume_ml: number;
   quantity: number;
+  list_price: number;
+  discount_percent: number;
   price_applied: number;
   price_tier: PriceTier;
   line_total: number;
@@ -144,14 +149,17 @@ export interface OrderItem {
 
 export interface Order {
   id: number;
+  channel: OrderChannel;
   status: OrderStatus;
   total_amount: number;
+  discount_total: number;
   customer_role: UserRole;
-  contact_name: string;
-  contact_phone: string;
-  contact_email: string;
-  delivery_city: string;
-  delivery_address: string;
+  payment_method: PaymentMethod | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  delivery_city: string | null;
+  delivery_address: string | null;
   comment: string | null;
   created_at: string;
   updated_at: string;
@@ -160,6 +168,7 @@ export interface Order {
 
 export interface OrderBrief {
   id: number;
+  channel: OrderChannel;
   status: OrderStatus;
   total_amount: number;
   created_at: string;
@@ -207,19 +216,22 @@ export interface AdminUser extends User {
 }
 
 export interface AdminOrder extends Order {
-  user_id: number;
-  user_email: string;
+  user_id: number | null;
+  user_email: string | null;
+  created_by_email: string | null;
   admin_note: string | null;
 }
 
 export interface AdminOrderBrief {
   id: number;
+  channel: OrderChannel;
   status: OrderStatus;
   total_amount: number;
   customer_role: UserRole;
-  contact_name: string;
-  contact_phone: string;
-  user_email: string;
+  payment_method: PaymentMethod | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  user_email: string | null;
   items_count: number;
   created_at: string;
 }
@@ -230,6 +242,7 @@ export interface PricingSettings {
   bulk_min_order_amount: number;
   wholesale_min_item_qty: number;
   bulk_min_item_qty: number;
+  max_store_discount_percent: number;
   updated_at?: string;
 }
 
@@ -251,8 +264,70 @@ export interface Stats {
   wholesale_requests: number;
   orders_by_status: Record<OrderStatus, number>;
   revenue_total: number;
+  revenue_by_channel: Record<OrderChannel, number>;
+  store_sales_today: number;
+  store_revenue_today: number;
   products_total: number;
   products_without_variants: number;
   variants_low_stock: number;
   brands_total: number;
+}
+
+// ---------- Store sales (POS) ----------
+
+export interface VariantSearchItem {
+  variant_id: number;
+  product_id: number;
+  brand_name: string;
+  product_name: string;
+  volume_ml: number;
+  sku: string | null;
+  image_url: string | null;
+  stock: number;
+  retail_price: number;
+  wholesale_price: number | null;
+  bulk_price: number | null;
+  product_active: boolean;
+}
+
+export interface StoreQuoteLine {
+  variant_id: number;
+  product_id: number;
+  brand_name: string;
+  product_name: string;
+  volume_ml: number;
+  sku: string | null;
+  image_url: string | null;
+  quantity: number;
+  stock: number;
+  available: boolean;
+  list_price: number;
+  discount_percent: number;
+  unit_price: number;
+  line_total: number;
+}
+
+export interface StoreQuote {
+  price_tier: PriceTier;
+  max_discount_percent: number;
+  lines: StoreQuoteLine[];
+  unavailable_variant_ids: number[];
+  subtotal: number;
+  discount_total: number;
+  total: number;
+  errors: string[];
+  can_submit: boolean;
+}
+
+export interface StockMovement {
+  id: number;
+  variant_id: number;
+  volume_ml: number;
+  delta: number;
+  stock_after: number;
+  reason: StockReason;
+  order_id: number | null;
+  user_email: string | null;
+  note: string | null;
+  created_at: string;
 }

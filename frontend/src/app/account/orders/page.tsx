@@ -46,6 +46,9 @@ export default function MyOrdersPage() {
                   <Link href={`/account/orders/${o.id}`} className="font-semibold text-gold">
                     № {o.id}
                   </Link>
+                  {o.channel === "store" && (
+                    <span className="ml-2 text-xs text-muted">в магазине</span>
+                  )}
                 </td>
                 <td>{dateTime(o.created_at)}</td>
                 <td>{o.items_count} шт.</td>

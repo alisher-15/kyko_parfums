@@ -28,6 +28,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FRONTEND_URL", "RENDER_EXTERNAL_URL"),
     )
 
+    # Business day boundaries for "today" figures on the dashboard.
+    timezone: str = "Asia/Almaty"
+
     # Media (uploaded product photos / brand logos)
     media_dir: Path = BASE_DIR / "media"
     media_url_prefix: str = "/media"

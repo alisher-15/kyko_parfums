@@ -53,11 +53,15 @@ export function LoginForm() {
       }
     >
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Email">
+        <Field label="Email или логин">
+          {/* Plain text: accounts created by the admin bootstrap may use a login like "admin". */}
           <input
             className="input"
-            type="email"
-            autoComplete="email"
+            type="text"
+            inputMode="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            spellCheck={false}
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}

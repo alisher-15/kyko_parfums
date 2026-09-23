@@ -29,7 +29,8 @@ function Checkout() {
   const [form, setForm] = useState({
     contact_name: user.full_name ?? "",
     contact_phone: user.phone ?? "",
-    contact_email: user.email,
+    // A login like "admin" is not a deliverable address — don't prefill it into an email field.
+    contact_email: user.email.includes("@") ? user.email : "",
     delivery_city: "",
     delivery_address: "",
     comment: "",

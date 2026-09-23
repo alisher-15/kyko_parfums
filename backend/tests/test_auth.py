@@ -135,3 +135,18 @@ def test_profile_and_wholesale_request(client, db):
     body = r.json()
     assert body["wholesale_requested"] is True
     assert body["role"] == UserRole.retail.value
+
+
+def test_login_with_plain_admin_login(client, monkeypatch):
+    """ADMIN_EMAIL on Render may be a bare login like "admin" — it must still be able to sign in."""
+    from app.cli import bootstrap
+
+    monkeypatch.setenv("ADMIN_EMAIL", "admin")
+    monkeypatch.setenv("ADMIN_PASSWORD", "admin123")
+    monkeypatch.delenv("SEED_DEMO", raising=False)
+    bootstrap()
+    r = client.post("/api/auth/login", json={"email": "Admin", "password": "admin123"})
+    assert r.status_code == 200, r.text
+    assert r.json()["user"]["role"] == "admin"
+    headers = {"Authorization": f"Bearer {r.json()['access_token']}"}
+    assert client.get("/api/admin/stats", headers=headers).status_code == 200

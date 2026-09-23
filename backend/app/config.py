@@ -30,6 +30,8 @@ class Settings(BaseSettings):
 
     # Business day boundaries for "today" figures on the dashboard.
     timezone: str = "Asia/Almaty"
+    # Used in human-readable order history messages.
+    currency_sign: str = "₸"
 
     # Media (uploaded product photos / brand logos)
     media_dir: Path = BASE_DIR / "media"

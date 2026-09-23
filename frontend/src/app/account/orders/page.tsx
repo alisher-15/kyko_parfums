@@ -52,7 +52,14 @@ export default function MyOrdersPage() {
                 </td>
                 <td>{dateTime(o.created_at)}</td>
                 <td>{o.items_count} шт.</td>
-                <td className="font-semibold">{money(o.total_amount)}</td>
+                <td className="font-semibold">
+                  {money(o.total_amount)}
+                  {o.returned_amount > 0 && (
+                    <div className="text-xs font-normal text-red-600">
+                      возврат −{money(o.returned_amount)}
+                    </div>
+                  )}
+                </td>
                 <td>
                   <StatusBadge status={o.status} />
                 </td>

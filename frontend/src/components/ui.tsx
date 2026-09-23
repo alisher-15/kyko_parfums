@@ -82,7 +82,7 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 export function StatusBadge({ status }: { status: OrderStatus }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[status]}`}
+      className={`inline-flex rounded-full border px-2.5 py-0.5 align-middle font-sans text-xs font-semibold ${STATUS_COLORS[status]}`}
     >
       {STATUS_LABELS[status]}
     </span>

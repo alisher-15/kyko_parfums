@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { EditItemsPanel, ReturnPanel } from "@/components/admin/OrderActions";
+import { OrderHistory } from "@/components/OrderHistory";
 import { OrderItemsTable } from "@/components/OrderItemsTable";
 import { ErrorBox, Spinner, StatusBadge, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -10,7 +12,7 @@ import { CHANNEL_LABELS, PAYMENT_LABELS, ROLE_LABELS, STATUS_LABELS, dateTime } 
 import type { AdminOrder, OrderStatus } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
-// Mirrors backend TRANSITIONS / allowed_transitions (app/services/orders.py).
+// Mirrors backend TRANSITIONS (app/services/orders.py).
 const NEXT: Record<OrderStatus, OrderStatus[]> = {
   new: ["processing", "shipped", "cancelled"],
   processing: ["new", "shipped", "cancelled"],
@@ -20,7 +22,6 @@ const NEXT: Record<OrderStatus, OrderStatus[]> = {
 };
 
 function nextStatuses(order: AdminOrder): OrderStatus[] {
-  if (order.channel === "store" && order.status === "delivered") return ["cancelled"];
   return NEXT[order.status];
 }
 
@@ -30,6 +31,7 @@ export function OrderAdmin({ id }: { id: number }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [panel, setPanel] = useState<"edit" | "return" | null>(null);
 
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!order) return <Spinner />;
@@ -58,7 +60,13 @@ export function OrderAdmin({ id }: { id: number }) {
     patch({ status: s }, `Статус изменён: ${STATUS_LABELS[s]}`);
   };
 
-  const cancelLabel = isStore ? "Оформить возврат" : STATUS_LABELS.cancelled;
+  const canEdit = order.status === "new" || order.status === "processing";
+  const canReturn = order.status === "delivered" && !order.fully_returned;
+  const panelDone = (text: string) => () => {
+    setPanel(null);
+    setMsg({ ok: true, text });
+    reload();
+  };
 
   return (
     <div className="space-y-6">
@@ -83,9 +91,7 @@ export function OrderAdmin({ id }: { id: number }) {
           {isStore && order.status === "delivered" ? "Товар выдан покупателю." : "Сменить статус:"}
         </span>
         {nextStatuses(order).length === 0 && (
-          <span className="text-sm">
-            {order.status === "cancelled" && isStore ? "Возврат оформлен" : "Заказ в финальном статусе"}
-          </span>
+          <span className="text-sm">Заказ в финальном статусе</span>
         )}
         {nextStatuses(order).map((s) => (
           <button
@@ -94,26 +100,48 @@ export function OrderAdmin({ id }: { id: number }) {
             onClick={() => changeStatus(s)}
             className={`btn btn-sm ${s === "cancelled" ? "btn-danger" : "btn-outline"}`}
           >
-            {s === "cancelled" ? cancelLabel : STATUS_LABELS[s]}
+            {STATUS_LABELS[s]}
           </button>
         ))}
+        <span className="flex-1" />
+        {canEdit && (
+          <button className="btn btn-gold btn-sm" onClick={() => setPanel("edit")}>
+            Изменить состав
+          </button>
+        )}
+        {canReturn && (
+          <button className="btn btn-danger btn-sm" onClick={() => setPanel("return")}>
+            Оформить возврат
+          </button>
+        )}
+        {order.fully_returned && <span className="chip text-red-600">Возвращён полностью</span>}
       </div>
+      {panel === "edit" && (
+        <EditItemsPanel
+          order={order}
+          onDone={panelDone("Состав заказа изменён")}
+          onClose={() => setPanel(null)}
+        />
+      )}
+      {panel === "return" && (
+        <ReturnPanel
+          order={order}
+          onDone={panelDone("Возврат оформлен")}
+          onClose={() => setPanel(null)}
+        />
+      )}
       {confirmCancel && (
         <div className="card flex flex-wrap items-center gap-3 border-red-200 bg-red-50 p-4 text-sm">
-          <span className="flex-1">
-            {isStore
-              ? "Оформить возврат? Товары вернутся на склад, продажа будет отменена."
-              : "Отменить заказ? Товары вернутся на склад."}
-          </span>
+          <span className="flex-1">Отменить заказ? Товары вернутся на склад.</span>
           <button
             className="btn btn-danger btn-sm"
             disabled={busy}
             onClick={() => {
               setConfirmCancel(false);
-              patch({ status: "cancelled" }, isStore ? "Возврат оформлен" : "Заказ отменён");
+              patch({ status: "cancelled" }, "Заказ отменён");
             }}
           >
-            Да, {isStore ? "оформить возврат" : "отменить"}
+            Да, отменить
           </button>
           <button className="btn btn-outline btn-sm" onClick={() => setConfirmCancel(false)}>
             Нет
@@ -123,6 +151,7 @@ export function OrderAdmin({ id }: { id: number }) {
       {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
 
       <OrderItemsTable order={order} admin />
+      <OrderHistory order={order} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="card p-5 text-sm">

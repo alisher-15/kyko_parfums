@@ -150,7 +150,7 @@ def test_store_sale_of_hidden_product_is_allowed(client, auth, catalog, db):
     assert r.status_code == 201
 
 
-def test_store_sale_return_restocks(client, auth, catalog, db):
+def test_store_sale_full_return_restocks(client, auth, catalog, db):
     h = auth(UserRole.admin)
     vid = catalog["coco50"].id
     order = client.post(
@@ -158,17 +158,19 @@ def test_store_sale_return_restocks(client, auth, catalog, db):
         json={"items": [{"variant_id": vid, "quantity": 3}]},
         headers=h,
     ).json()
-    r = client.patch(f"/api/admin/orders/{order['id']}", json={"status": "cancelled"}, headers=h)
-    assert r.status_code == 200, r.text
-    assert stock(db, vid) == 10
-    assert journal(db, vid) == [("store_sale", -3, 7), ("order_cancel", 3, 10)]
-    # A returned sale is final.
-    assert (
-        client.patch(
-            f"/api/admin/orders/{order['id']}", json={"status": "new"}, headers=h
-        ).status_code
-        == 409
+    item_id = order["items"][0]["id"]
+    r = client.post(
+        f"/api/admin/orders/{order['id']}/returns",
+        json={"items": [{"order_item_id": item_id, "quantity": 3}], "refund_method": "cash"},
+        headers=h,
     )
+    assert r.status_code == 201, r.text
+    assert r.json()["fully_returned"] is True
+    assert stock(db, vid) == 10
+    assert journal(db, vid) == [("store_sale", -3, 7), ("return", 3, 10)]
+    # A delivered sale is returned, not cancelled.
+    r = client.patch(f"/api/admin/orders/{order['id']}", json={"status": "cancelled"}, headers=h)
+    assert r.status_code == 409
 
 
 def test_orders_list_filters_by_channel(client, auth, catalog):

@@ -1,13 +1,21 @@
 from collections.abc import Iterable
+from dataclasses import dataclass
+from decimal import Decimal
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.config import get_settings
 from app.models import (
     Order,
-    OrderChannel,
+    OrderEvent,
+    OrderEventKind,
+    OrderItem,
+    OrderReturn,
+    OrderReturnItem,
     OrderStatus,
+    PaymentMethod,
     Product,
     ProductVariant,
     StockReason,
@@ -55,12 +63,51 @@ def load_sellable_variants(
     return {v.id: v for v in db.scalars(stmt)}
 
 
+def order_load_options():
+    """Eager-load everything an order page shows (items, returns, history).
+
+    Use with ``.execution_options(populate_existing=True)`` after a commit in the same session,
+    so rows created in this request get their database defaults (ids, timestamps).
+    """
+    return (
+        selectinload(Order.items).selectinload(OrderItem.return_items),
+        selectinload(Order.returns)
+        .selectinload(OrderReturn.items)
+        .joinedload(OrderReturnItem.order_item),
+        selectinload(Order.events),
+        joinedload(Order.user),
+        joinedload(Order.created_by),
+    )
+
+
+def add_event(order: Order, kind: OrderEventKind, message: str, user: User | None = None) -> None:
+    order.events.append(OrderEvent(kind=kind, message=message, user_id=user.id if user else None))
+
+
+def fmt_money(amount: Decimal) -> str:
+    whole = f"{amount:,.2f}".replace(",", " ").removesuffix(".00")
+    return f"{whole} {get_settings().currency_sign}"
+
+
+def _label(item: OrderItem) -> str:
+    return f"{item.product_name}, {item.volume_ml} мл"
+
+
+def _lock_variants(db: Session, items: Iterable[OrderItem]) -> dict[int, ProductVariant]:
+    ids = sorted({i.variant_id for i in items if i.variant_id is not None})
+    if not ids:
+        return {}
+    stmt = (
+        select(ProductVariant)
+        .where(ProductVariant.id.in_(ids))
+        .order_by(ProductVariant.id)
+        .with_for_update()
+    )
+    return {v.id: v for v in db.scalars(stmt)}
+
+
 def allowed_transitions(order: Order) -> set[OrderStatus]:
-    allowed = set(TRANSITIONS[order.status])
-    # A store sale is handed over immediately; cancelling it later means a return.
-    if order.channel == OrderChannel.store and order.status == OrderStatus.delivered:
-        allowed.add(OrderStatus.cancelled)
-    return allowed
+    return set(TRANSITIONS[order.status])
 
 
 def change_status(
@@ -76,23 +123,153 @@ def change_status(
         )
     if new_status == OrderStatus.cancelled:
         restock(db, order, user)
+    add_event(
+        order,
+        OrderEventKind.status,
+        f"Статус: {STATUS_LABELS[order.status]} → {STATUS_LABELS[new_status]}",
+        user,
+    )
     order.status = new_status
 
 
 def restock(db: Session, order: Order, user: User | None = None) -> None:
-    ids = [i.variant_id for i in order.items if i.variant_id is not None]
-    if not ids:
-        return
-    variants = {
-        v.id: v
-        for v in db.scalars(
-            select(ProductVariant)
-            .where(ProductVariant.id.in_(ids))
-            .order_by(ProductVariant.id)
-            .with_for_update()
-        )
-    }
+    variants = _lock_variants(db, order.items)
     for item in order.items:
         v = variants.get(item.variant_id)
         if v is not None:
             move_stock(db, v, item.quantity, StockReason.order_cancel, order=order, user=user)
+
+
+EDITABLE = {OrderStatus.new, OrderStatus.processing}
+
+
+def edit_items(
+    db: Session, order: Order, quantities: dict[int, int], reason: str | None, user: User
+) -> None:
+    """Reduce quantities / remove lines of an order that hasn't been shipped yet.
+
+    Prices of the remaining lines stay as they were at checkout.
+    """
+    if order.status not in EDITABLE:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Состав можно менять только у нового заказа или в обработке"
+        )
+    by_id = {i.id: i for i in order.items}
+    unknown = set(quantities) - set(by_id)
+    if unknown:
+        raise HTTPException(422, "Позиция не относится к этому заказу")
+    for item_id, qty in quantities.items():
+        if qty < 0 or qty > by_id[item_id].quantity:
+            raise HTTPException(
+                422,
+                f"{_label(by_id[item_id])}: количество можно только уменьшить "
+                f"(сейчас {by_id[item_id].quantity})",
+            )
+    if all(quantities.get(i.id, i.quantity) == 0 for i in order.items):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Нельзя убрать все позиции — отмените заказ целиком"
+        )
+
+    changed = [by_id[i] for i, q in quantities.items() if q != by_id[i].quantity]
+    if not changed:
+        return
+    variants = _lock_variants(db, changed)
+    parts = []
+    for item in changed:
+        new_qty = quantities[item.id]
+        removed = item.quantity - new_qty
+        v = variants.get(item.variant_id)
+        if v is not None:
+            move_stock(db, v, removed, StockReason.order_edit, order=order, user=user, note=reason)
+        parts.append(
+            f"{_label(item)} — убрано"
+            if new_qty == 0
+            else f"{_label(item)}: {item.quantity} → {new_qty}"
+        )
+        item.quantity = new_qty
+    order.total_amount = sum((i.price_applied * i.quantity for i in order.items), Decimal(0))
+    message = (
+        "Менеджер изменил состав: "
+        + "; ".join(parts)
+        + f". Новая сумма: {fmt_money(order.total_amount)}"
+    )
+    if reason:
+        message += f". Причина: {reason}"
+    add_event(order, OrderEventKind.edited, message, user)
+
+
+@dataclass
+class ReturnLine:
+    order_item_id: int
+    quantity: int
+    restock: bool = True
+
+
+def create_return(
+    db: Session,
+    order: Order,
+    lines: list[ReturnLine],
+    refund_method: PaymentMethod | None,
+    reason: str | None,
+    user: User,
+) -> OrderReturn:
+    """Register goods brought back after the order was handed over (partial or full)."""
+    if order.status != OrderStatus.delivered:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Возврат оформляется по выданному заказу. Невыданный заказ можно изменить или отменить",
+        )
+    by_id = {i.id: i for i in order.items}
+    for ln in lines:
+        item = by_id.get(ln.order_item_id)
+        if item is None:
+            raise HTTPException(422, "Позиция не относится к этому заказу")
+        left = item.quantity - item.returned_quantity
+        if ln.quantity > left:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"{_label(item)}: можно вернуть не больше {left} шт.",
+            )
+        if ln.restock and item.variant_id is None:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"{_label(item)}: товар удалён из каталога — отметьте его как брак",
+            )
+
+    ret = OrderReturn(
+        order=order,
+        refund_method=refund_method,
+        reason=reason,
+        created_by_id=user.id,
+        refund_amount=Decimal(0),
+    )
+    # SQLAlchemy 2 doesn't cascade via the many-to-one backref: add it explicitly.
+    db.add(ret)
+    variants = _lock_variants(db, [by_id[ln.order_item_id] for ln in lines if ln.restock])
+    parts = []
+    for ln in lines:
+        item = by_id[ln.order_item_id]
+        amount = item.price_applied * ln.quantity
+        ret.items.append(
+            OrderReturnItem(
+                order_item=item, quantity=ln.quantity, restock=ln.restock, amount=amount
+            )
+        )
+        ret.refund_amount += amount
+        if ln.restock:
+            move_stock(
+                db,
+                variants[item.variant_id],
+                ln.quantity,
+                StockReason.order_return,
+                order=order,
+                user=user,
+                note=reason,
+            )
+        parts.append(f"{_label(item)} × {ln.quantity}" + ("" if ln.restock else " (брак, списано)"))
+
+    message = f"Возврат на {fmt_money(ret.refund_amount)}: " + "; ".join(parts)
+    if reason:
+        message += f". Причина: {reason}"
+    add_event(order, OrderEventKind.returned, message, user)
+    return ret

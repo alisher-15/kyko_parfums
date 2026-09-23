@@ -5,7 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, case, or_, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
 from app.deps import require_admin
@@ -13,6 +13,7 @@ from app.models import (
     Brand,
     Order,
     OrderChannel,
+    OrderEventKind,
     OrderItem,
     OrderStatus,
     PriceTier,
@@ -31,6 +32,7 @@ from app.schemas.admin import (
     StoreSaleIn,
     VariantSearchItem,
 )
+from app.services.orders import add_event, order_load_options
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
 
@@ -222,6 +224,7 @@ def create_sale(
             OrderItem(
                 variant_id=v.id,
                 quantity=ln.quantity,
+                original_quantity=ln.quantity,
                 list_price=ln.list_price,
                 discount_percent=ln.discount_percent,
                 price_applied=ln.unit_price,
@@ -233,11 +236,13 @@ def create_sale(
             )
         )
         move_stock(db, v, -ln.quantity, StockReason.store_sale, order=order, user=admin)
+    add_event(order, OrderEventKind.created, "Продажа в магазине проведена", admin)
     db.commit()
 
     order = db.scalar(
         select(Order)
         .where(Order.id == order.id)
-        .options(selectinload(Order.items), joinedload(Order.user), joinedload(Order.created_by))
+        .options(*order_load_options())
+        .execution_options(populate_existing=True)
     )
     return AdminOrderOut.model_validate(order)

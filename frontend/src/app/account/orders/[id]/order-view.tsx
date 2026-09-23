@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { OrderHistory } from "@/components/OrderHistory";
 import { OrderItemsTable } from "@/components/OrderItemsTable";
 import { ErrorBox, Spinner, StatusBadge, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -58,6 +59,7 @@ export function OrderView({ id, created }: { id: number; created: boolean }) {
       {cancelError && <ErrorBox>{cancelError}</ErrorBox>}
 
       <OrderItemsTable order={order} />
+      <OrderHistory order={order} />
 
       {order.channel === "store" ? (
         <div className="card p-5 text-sm">

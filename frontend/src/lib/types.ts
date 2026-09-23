@@ -140,11 +140,34 @@ export interface OrderItem {
   product_name: string;
   volume_ml: number;
   quantity: number;
+  original_quantity: number;
+  returned_quantity: number;
   list_price: number;
   discount_percent: number;
   price_applied: number;
   price_tier: PriceTier;
   line_total: number;
+}
+
+export interface OrderReturn {
+  id: number;
+  created_at: string;
+  refund_amount: number;
+  refund_method: PaymentMethod | null;
+  reason: string | null;
+  items: {
+    order_item_id: number;
+    product_label: string;
+    quantity: number;
+    restock: boolean;
+    amount: number;
+  }[];
+}
+
+export interface OrderEvent {
+  kind: "created" | "status" | "edited" | "returned";
+  message: string;
+  created_at: string;
 }
 
 export interface Order {
@@ -164,6 +187,11 @@ export interface Order {
   created_at: string;
   updated_at: string;
   items: OrderItem[];
+  returned_amount: number;
+  net_total: number;
+  fully_returned: boolean;
+  returns: OrderReturn[];
+  events: OrderEvent[];
 }
 
 export interface OrderBrief {
@@ -171,6 +199,7 @@ export interface OrderBrief {
   channel: OrderChannel;
   status: OrderStatus;
   total_amount: number;
+  returned_amount: number;
   created_at: string;
   items_count: number;
 }
@@ -227,6 +256,7 @@ export interface AdminOrderBrief {
   channel: OrderChannel;
   status: OrderStatus;
   total_amount: number;
+  returned_amount: number;
   customer_role: UserRole;
   payment_method: PaymentMethod | null;
   contact_name: string | null;
@@ -264,6 +294,7 @@ export interface Stats {
   wholesale_requests: number;
   orders_by_status: Record<OrderStatus, number>;
   revenue_total: number;
+  refunds_total: number;
   revenue_by_channel: Record<OrderChannel, number>;
   store_sales_today: number;
   store_revenue_today: number;

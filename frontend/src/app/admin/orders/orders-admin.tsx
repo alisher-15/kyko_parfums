@@ -118,7 +118,14 @@ export function OrdersAdmin({
                   <span className="text-xs text-muted">
                     {dateTime(o.created_at)} · {o.items_count} шт.
                   </span>
-                  <span className="font-semibold">{money(o.total_amount)}</span>
+                  <span className="text-right font-semibold">
+                    {money(o.total_amount)}
+                    {o.returned_amount > 0 && (
+                      <span className="block text-xs font-normal text-red-600">
+                        возврат −{money(o.returned_amount)}
+                      </span>
+                    )}
+                  </span>
                 </div>
               </Link>
             ))}
@@ -164,7 +171,14 @@ export function OrdersAdmin({
                       </td>
                       <td className="text-xs">{ROLE_LABELS[o.customer_role]}</td>
                       <td>{o.items_count}</td>
-                      <td className="font-semibold">{money(o.total_amount)}</td>
+                      <td className="font-semibold">
+                        {money(o.total_amount)}
+                        {o.returned_amount > 0 && (
+                          <div className="text-xs font-normal text-red-600">
+                            возврат −{money(o.returned_amount)}
+                          </div>
+                        )}
+                      </td>
                       <td>
                         <StatusBadge status={o.status} />
                       </td>

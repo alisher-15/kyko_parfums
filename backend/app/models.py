@@ -69,6 +69,15 @@ class StockReason(enum.StrEnum):
     order_cancel = "order_cancel"
     manual = "manual"  # admin edited the stock number (receiving goods, write-off, recount)
     import_ = "import"
+    order_edit = "order_edit"  # items removed from an order before it was handed over
+    order_return = "return"  # goods brought back after the sale
+
+
+class OrderEventKind(enum.StrEnum):
+    created = "created"
+    status = "status"
+    edited = "edited"
+    returned = "returned"
 
 
 class PricingMode(enum.StrEnum):
@@ -243,6 +252,25 @@ class Order(TimestampMixin, Base):
     items: Mapped[list[OrderItem]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
+    returns: Mapped[list[OrderReturn]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", order_by="OrderReturn.id"
+    )
+    events: Mapped[list[OrderEvent]] = relationship(
+        back_populates="order", cascade="all, delete-orphan", order_by="OrderEvent.id"
+    )
+
+    @property
+    def returned_amount(self) -> Decimal:
+        return sum((r.refund_amount for r in self.returns), Decimal(0))
+
+    @property
+    def fully_returned(self) -> bool:
+        return bool(self.returns) and all(i.quantity == i.returned_quantity for i in self.items)
+
+    @property
+    def net_total(self) -> Decimal:
+        """What the customer finally paid: order total minus refunds."""
+        return self.total_amount - self.returned_amount
 
     @property
     def user_email(self) -> str | None:
@@ -259,7 +287,8 @@ class Order(TimestampMixin, Base):
 
 class OrderItem(Base):
     __tablename__ = "order_items"
-    __table_args__ = (CheckConstraint("quantity > 0", name="ck_order_item_quantity"),)
+    # 0 = the line was removed by a manager before the order was handed over.
+    __table_args__ = (CheckConstraint("quantity >= 0", name="ck_order_item_quantity"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
@@ -268,6 +297,8 @@ class OrderItem(Base):
         ForeignKey("product_variants.id", ondelete="SET NULL"), index=True
     )
     quantity: Mapped[int] = mapped_column(Integer)
+    # Quantity at checkout, before any manager edits.
+    original_quantity: Mapped[int] = mapped_column(Integer)
     # Price-list price of the chosen tier and the final unit price after the discount.
     list_price: Mapped[Decimal] = mapped_column(MONEY)
     discount_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, server_default="0")
@@ -281,10 +312,15 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(back_populates="items")
     variant: Mapped[ProductVariant | None] = relationship()
+    return_items: Mapped[list[OrderReturnItem]] = relationship(back_populates="order_item")
 
     @property
     def line_total(self) -> Decimal:
         return self.price_applied * self.quantity
+
+    @property
+    def returned_quantity(self) -> int:
+        return sum(r.quantity for r in self.return_items)
 
 
 class PricingSettings(Base):
@@ -338,3 +374,73 @@ class StockMovement(Base):
     variant: Mapped[ProductVariant] = relationship()
     order: Mapped[Order | None] = relationship()
     user: Mapped[User | None] = relationship()
+
+
+class OrderReturn(Base):
+    """Goods brought back after a sale. An order can have several partial returns."""
+
+    __tablename__ = "order_returns"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+    refund_amount: Mapped[Decimal] = mapped_column(MONEY)
+    refund_method: Mapped[PaymentMethod | None] = mapped_column(
+        _enum(PaymentMethod, "refund_method")
+    )
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    order: Mapped[Order] = relationship(back_populates="returns")
+    created_by: Mapped[User | None] = relationship()
+    items: Mapped[list[OrderReturnItem]] = relationship(
+        back_populates="order_return", cascade="all, delete-orphan", order_by="OrderReturnItem.id"
+    )
+
+    @property
+    def created_by_email(self) -> str | None:
+        return self.created_by.email if self.created_by else None
+
+
+class OrderReturnItem(Base):
+    __tablename__ = "order_return_items"
+    __table_args__ = (CheckConstraint("quantity > 0", name="ck_return_item_quantity"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    return_id: Mapped[int] = mapped_column(
+        ForeignKey("order_returns.id", ondelete="CASCADE"), index=True
+    )
+    order_item_id: Mapped[int] = mapped_column(
+        ForeignKey("order_items.id", ondelete="CASCADE"), index=True
+    )
+    quantity: Mapped[int] = mapped_column(Integer)
+    # False = defective / damaged: written off instead of going back on sale.
+    restock: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    amount: Mapped[Decimal] = mapped_column(MONEY)
+
+    order_return: Mapped[OrderReturn] = relationship(back_populates="items")
+    order_item: Mapped[OrderItem] = relationship(back_populates="return_items")
+
+    @property
+    def product_label(self) -> str:
+        i = self.order_item
+        return f"{i.brand_name} {i.product_name}, {i.volume_ml} мл"
+
+
+class OrderEvent(Base):
+    """Human-readable order history shown to the admin and the customer."""
+
+    __tablename__ = "order_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[OrderEventKind] = mapped_column(_enum(OrderEventKind, "order_event_kind"))
+    message: Mapped[str] = mapped_column(Text)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    order: Mapped[Order] = relationship(back_populates="events")

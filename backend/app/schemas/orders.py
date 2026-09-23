@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.models import (
     OrderChannel,
+    OrderEventKind,
     OrderStatus,
     PaymentMethod,
     PriceTier,
@@ -84,11 +85,36 @@ class OrderItemOut(ORMModel):
     product_name: str
     volume_ml: int
     quantity: int
+    original_quantity: int
+    returned_quantity: int
     list_price: Money
     discount_percent: float
     price_applied: Money
     price_tier: PriceTier
     line_total: Money
+
+
+class OrderReturnItemOut(ORMModel):
+    order_item_id: int
+    product_label: str
+    quantity: int
+    restock: bool
+    amount: Money
+
+
+class OrderReturnOut(ORMModel):
+    id: int
+    created_at: datetime
+    refund_amount: Money
+    refund_method: PaymentMethod | None
+    reason: str | None
+    items: list[OrderReturnItemOut]
+
+
+class OrderEventOut(ORMModel):
+    kind: OrderEventKind
+    message: str
+    created_at: datetime
 
 
 class OrderOut(ORMModel):
@@ -108,6 +134,11 @@ class OrderOut(ORMModel):
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemOut]
+    returned_amount: Money
+    net_total: Money
+    fully_returned: bool
+    returns: list[OrderReturnOut]
+    events: list[OrderEventOut]
 
 
 class OrderBrief(ORMModel):
@@ -115,5 +146,6 @@ class OrderBrief(ORMModel):
     channel: OrderChannel
     status: OrderStatus
     total_amount: Money
+    returned_amount: Money
     created_at: datetime
     items_count: int

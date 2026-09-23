@@ -1,10 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_current_user, get_current_user_optional
-from app.models import Order, OrderChannel, OrderItem, OrderStatus, StockReason, User
+from app.models import (
+    Order,
+    OrderChannel,
+    OrderEventKind,
+    OrderItem,
+    OrderReturn,
+    OrderStatus,
+    StockReason,
+    User,
+)
 from app.pricing import Quote, QuoteItem, build_quote
 from app.schemas.common import Page
 from app.schemas.orders import (
@@ -16,7 +25,12 @@ from app.schemas.orders import (
     QuoteOut,
     TierHintOut,
 )
-from app.services.orders import change_status, load_sellable_variants
+from app.services.orders import (
+    add_event,
+    change_status,
+    load_sellable_variants,
+    order_load_options,
+)
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
 
@@ -123,6 +137,7 @@ def create_order(
             OrderItem(
                 variant_id=v.id,
                 quantity=line.quantity,
+                original_quantity=line.quantity,
                 list_price=line.unit_price,
                 discount_percent=0,
                 price_applied=line.unit_price,
@@ -133,10 +148,10 @@ def create_order(
                 volume_ml=v.volume_ml,
             )
         )
+    add_event(order, OrderEventKind.created, "Заказ оформлен на сайте", user)
     db.add(order)
     db.commit()
-    db.refresh(order)
-    return order
+    return _own_order(db, order.id, user)
 
 
 @router.get("/orders", response_model=Page[OrderBrief])
@@ -152,8 +167,13 @@ def my_orders(
         .where(OrderItem.order_id == Order.id)
         .scalar_subquery()
     )
+    returned = (
+        select(func.coalesce(func.sum(OrderReturn.refund_amount), 0))
+        .where(OrderReturn.order_id == Order.id)
+        .scalar_subquery()
+    )
     rows = db.execute(
-        select(Order, items_count.label("items_count"))
+        select(Order, items_count.label("items_count"), returned)
         .where(Order.user_id == user.id)
         .order_by(Order.created_at.desc(), Order.id.desc())
         .offset((page - 1) * page_size)
@@ -165,10 +185,11 @@ def my_orders(
             channel=o.channel,
             status=o.status,
             total_amount=o.total_amount,
+            returned_amount=ret,
             created_at=o.created_at,
             items_count=cnt,
         )
-        for o, cnt in rows
+        for o, cnt, ret in rows
     ]
     return Page(items=items, total=total, page=page, page_size=page_size)
 
@@ -176,8 +197,8 @@ def my_orders(
 def _own_order(db: Session, order_id: int, user: User, lock: bool = False) -> Order:
     stmt = select(Order).where(Order.id == order_id, Order.user_id == user.id)
     if lock:
-        stmt = stmt.with_for_update()
-    order = db.scalar(stmt.options(selectinload(Order.items)))
+        stmt = stmt.with_for_update(of=Order)
+    order = db.scalar(stmt.options(*order_load_options()).execution_options(populate_existing=True))
     if order is None:
         raise HTTPException(404, "Заказ не найден")
     return order
@@ -199,5 +220,4 @@ def cancel_my_order(
         )
     change_status(db, order, OrderStatus.cancelled, user)
     db.commit()
-    db.refresh(order)
-    return order
+    return _own_order(db, order_id, user)

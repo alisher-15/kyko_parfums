@@ -208,6 +208,7 @@ class AdminOrderBrief(ORMModel):
     channel: OrderChannel
     status: OrderStatus
     total_amount: Money
+    returned_amount: Money
     customer_role: str
     payment_method: PaymentMethod | None
     contact_name: str | None
@@ -220,6 +221,40 @@ class AdminOrderBrief(ORMModel):
 class OrderStatusUpdate(BaseModel):
     status: OrderStatus | None = None
     admin_note: str | None = Field(default=None, max_length=5000)
+
+
+class OrderItemQty(BaseModel):
+    order_item_id: int
+    quantity: int = Field(ge=0)
+
+
+class OrderItemsEditIn(BaseModel):
+    items: list[OrderItemQty] = Field(min_length=1, max_length=200)
+    reason: str | None = Field(default=None, max_length=500)
+
+    _blank = field_validator("reason", mode="before")(_blank_to_none)
+
+
+class ReturnItemIn(BaseModel):
+    order_item_id: int
+    quantity: int = Field(ge=1)
+    restock: bool = True
+
+
+class ReturnIn(BaseModel):
+    items: list[ReturnItemIn] = Field(min_length=1, max_length=200)
+    refund_method: PaymentMethod | None = None
+    reason: str | None = Field(default=None, max_length=1000)
+
+    _blank = field_validator("reason", mode="before")(_blank_to_none)
+
+    @field_validator("items")
+    @classmethod
+    def unique_items(cls, v: list[ReturnItemIn]) -> list[ReturnItemIn]:
+        ids = [i.order_item_id for i in v]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Позиция указана несколько раз")
+        return v
 
 
 # ---------- Store sales ----------
@@ -375,7 +410,9 @@ class StatsOut(BaseModel):
     users_by_role: dict[str, int]
     wholesale_requests: int
     orders_by_status: dict[str, int]
+    # Net of refunds.
     revenue_total: Money
+    refunds_total: Money
     revenue_by_channel: dict[str, Money]
     store_sales_today: int
     store_revenue_today: Money

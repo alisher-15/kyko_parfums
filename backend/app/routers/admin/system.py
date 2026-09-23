@@ -15,6 +15,7 @@ from app.models import (
     Brand,
     Order,
     OrderChannel,
+    OrderReturn,
     OrderStatus,
     Product,
     ProductVariant,
@@ -136,6 +137,7 @@ def stats(db: Session = Depends(get_db)):
     for st, cnt in db.execute(select(Order.status, func.count()).group_by(Order.status)):
         orders_by_status[st.value] = cnt
 
+    # Revenue is net of refunds: sales of non-cancelled orders minus returns on them.
     not_cancelled = Order.status != OrderStatus.cancelled
     revenue_by_channel = {c.value: Decimal(0) for c in OrderChannel}
     for ch, total in db.execute(
@@ -143,7 +145,16 @@ def stats(db: Session = Depends(get_db)):
         .where(not_cancelled)
         .group_by(Order.channel)
     ):
-        revenue_by_channel[ch.value] = total or Decimal(0)
+        revenue_by_channel[ch.value] += total or Decimal(0)
+    refunds_total = Decimal(0)
+    for ch, refunds in db.execute(
+        select(Order.channel, func.sum(OrderReturn.refund_amount))
+        .join(Order, Order.id == OrderReturn.order_id)
+        .where(not_cancelled)
+        .group_by(Order.channel)
+    ):
+        revenue_by_channel[ch.value] -= refunds or Decimal(0)
+        refunds_total += refunds or Decimal(0)
 
     tz = get_settings().timezone
     today = func.date_trunc("day", func.timezone(tz, func.now()))
@@ -154,22 +165,27 @@ def stats(db: Session = Depends(get_db)):
             func.timezone(tz, Order.created_at) >= today,
         )
     ).one()
+    store_refunds_today = db.scalar(
+        select(func.coalesce(func.sum(OrderReturn.refund_amount), 0))
+        .join(Order, Order.id == OrderReturn.order_id)
+        .where(
+            Order.channel == OrderChannel.store,
+            func.timezone(tz, OrderReturn.created_at) >= today,
+        )
+    )
 
     return StatsOut(
         revenue_by_channel=revenue_by_channel,
         store_sales_today=store_today[0],
-        store_revenue_today=store_today[1],
+        store_revenue_today=store_today[1] - store_refunds_today,
         users_by_role=users_by_role,
         wholesale_requests=db.scalar(
             select(func.count()).select_from(User).where(User.wholesale_requested)
         )
         or 0,
         orders_by_status=orders_by_status,
-        revenue_total=db.scalar(
-            select(func.coalesce(func.sum(Order.total_amount), 0)).where(
-                Order.status != OrderStatus.cancelled
-            )
-        ),
+        revenue_total=sum(revenue_by_channel.values(), Decimal(0)),
+        refunds_total=refunds_total,
         products_total=db.scalar(select(func.count(Product.id))) or 0,
         products_without_variants=db.scalar(
             select(func.count(Product.id)).where(~Product.variants.any())

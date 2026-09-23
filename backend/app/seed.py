@@ -146,11 +146,12 @@ def seed_demo() -> None:
                 )
 
         settings = get_pricing_settings(db)
+        # Wholesale prices depend on the role only; no order-size thresholds.
         settings.mode = PricingMode.order_total
-        settings.wholesale_min_order_amount = Decimal("150000")
-        settings.bulk_min_order_amount = Decimal("500000")
-        settings.wholesale_min_item_qty = 3
-        settings.bulk_min_item_qty = 10
+        settings.wholesale_min_order_amount = Decimal(0)
+        settings.bulk_min_order_amount = Decimal(0)
+        settings.wholesale_min_item_qty = 1
+        settings.bulk_min_item_qty = 1
         db.commit()
 
     print(f"Seeded {len(DEMO_PRODUCTS)} demo products and demo users:")

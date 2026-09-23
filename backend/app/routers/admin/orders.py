@@ -1,13 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import String, cast, func, or_, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Order, OrderChannel, OrderItem, OrderStatus, User
-from app.schemas.admin import AdminOrderBrief, AdminOrderOut, OrderStatusUpdate
+from app.models import Order, OrderChannel, OrderItem, OrderReturn, OrderStatus, User
+from app.schemas.admin import (
+    AdminOrderBrief,
+    AdminOrderOut,
+    OrderItemsEditIn,
+    OrderStatusUpdate,
+    ReturnIn,
+)
 from app.schemas.common import Page
-from app.services.orders import change_status
+from app.services.orders import (
+    ReturnLine,
+    change_status,
+    create_return,
+    edit_items,
+    order_load_options,
+)
 
 router = APIRouter()
 
@@ -16,11 +28,7 @@ def _load_order(db: Session, order_id: int, lock: bool = False) -> Order:
     stmt = select(Order).where(Order.id == order_id)
     if lock:
         stmt = stmt.with_for_update(of=Order)
-    order = db.scalar(
-        stmt.options(
-            selectinload(Order.items), joinedload(Order.user), joinedload(Order.created_by)
-        )
-    )
+    order = db.scalar(stmt.options(*order_load_options()).execution_options(populate_existing=True))
     if order is None:
         raise HTTPException(404, "Заказ не найден")
     return order
@@ -66,8 +74,13 @@ def list_orders(
         .where(OrderItem.order_id == Order.id)
         .scalar_subquery()
     )
+    returned = (
+        select(func.coalesce(func.sum(OrderReturn.refund_amount), 0))
+        .where(OrderReturn.order_id == Order.id)
+        .scalar_subquery()
+    )
     rows = db.execute(
-        select(Order, User.email, items_count)
+        select(Order, User.email, items_count, returned)
         .outerjoin(User, User.id == Order.user_id)
         .where(*conds)
         .order_by(Order.created_at.desc(), Order.id.desc())
@@ -80,6 +93,7 @@ def list_orders(
             channel=o.channel,
             status=o.status,
             total_amount=o.total_amount,
+            returned_amount=ret,
             customer_role=o.customer_role,
             payment_method=o.payment_method,
             contact_name=o.contact_name,
@@ -88,7 +102,7 @@ def list_orders(
             items_count=cnt,
             created_at=o.created_at,
         )
-        for o, email, cnt in rows
+        for o, email, cnt, ret in rows
     ]
     return Page(items=items, total=total, page=page, page_size=page_size)
 
@@ -111,5 +125,44 @@ def update_order(
         change_status(db, order, changes["status"], admin)
     if "admin_note" in changes:
         order.admin_note = changes["admin_note"]
+    db.commit()
+    return _out(_load_order(db, order_id))
+
+
+@router.patch("/orders/{order_id}/items", response_model=AdminOrderOut)
+def edit_order_items(
+    order_id: int,
+    data: OrderItemsEditIn,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Remove lines / reduce quantities before the order is shipped. Freed stock goes back."""
+    order = _load_order(db, order_id, lock=True)
+    edit_items(db, order, {i.order_item_id: i.quantity for i in data.items}, data.reason, admin)
+    db.commit()
+    return _out(_load_order(db, order_id))
+
+
+@router.post(
+    "/orders/{order_id}/returns",
+    response_model=AdminOrderOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_order_return(
+    order_id: int,
+    data: ReturnIn,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Partial or full return of a delivered order (store sale or website order)."""
+    order = _load_order(db, order_id, lock=True)
+    create_return(
+        db,
+        order,
+        [ReturnLine(i.order_item_id, i.quantity, i.restock) for i in data.items],
+        data.refund_method,
+        data.reason,
+        admin,
+    )
     db.commit()
     return _out(_load_order(db, order_id))

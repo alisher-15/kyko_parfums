@@ -16,6 +16,9 @@ revision: str = "0004"
 down_revision: str | Sequence[str] | None = "0003"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+# Can the code from before this migration run on the schema after it? See app/migrations.py.
+# Only nullable columns and columns with a server default.
+backward_compatible = True
 
 
 def upgrade() -> None:

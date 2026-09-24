@@ -16,6 +16,9 @@ revision: str = "0002"
 down_revision: str | Sequence[str] | None = "0001"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+# Can the code from before this migration run on the schema after it? See app/migrations.py.
+# order_items.list_price is NOT NULL without a default: older code can't create orders.
+backward_compatible = False
 
 
 def _enum(name: str, *values: str) -> sa.Enum:

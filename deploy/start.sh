@@ -3,7 +3,8 @@
 set -e
 
 cd /app/backend
-alembic upgrade head
+# `alembic upgrade head` that also copes with a database a newer deploy already migrated.
+python -m app.cli migrate
 python -m app.cli bootstrap
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers &
 API_PID=$!

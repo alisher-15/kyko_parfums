@@ -13,4 +13,4 @@ RUN mkdir -p /app/media
 
 EXPOSE 8000
 # Apply migrations on start, then serve the API.
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]
+CMD ["sh", "-c", "python -m app.cli migrate && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"]

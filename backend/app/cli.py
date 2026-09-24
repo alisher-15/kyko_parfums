@@ -4,6 +4,7 @@ python -m app.cli create-admin admin@example.com 'password'
 python -m app.cli import-catalog ../data/catalog.xlsx [--sheet NAME] [--dry-run]
 python -m app.cli template ../data/catalog_template.xlsx
 python -m app.cli seed-demo
+python -m app.cli migrate
 """
 
 import argparse
@@ -15,6 +16,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.db import SessionLocal
+from app.migrations import migrate
 from app.models import Product, User, UserRole
 from app.security import hash_password
 from app.services.importer import build_template, import_catalog
@@ -86,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("seed-demo", help="fill the catalog with demo products, prices and users")
     sub.add_parser("bootstrap", help="create admin / demo data from environment variables")
+    sub.add_parser("migrate", help="apply migrations; check a database newer than the code")
 
     args = parser.parse_args(argv)
     if args.cmd == "create-admin":
@@ -104,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         seed_demo()
     elif args.cmd == "bootstrap":
         bootstrap()
+    elif args.cmd == "migrate":
+        return migrate()
     return 0
 
 

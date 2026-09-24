@@ -23,6 +23,8 @@ ruff check . && ruff format --check .
 
 Other CLI subcommands: `import-catalog <file> [--dry-run]`, `template <file>`, `bootstrap` (admin/demo data from the ADMIN_EMAIL / ADMIN_PASSWORD / SEED_DEMO env vars; used on deploy).
 
+Product photos: `python scripts/normalize_photos.py ../frontend/public/bottles [--dry-run]` (needs Pillow, in requirements-dev) makes every bottle photo a 600×600 white square with the bottle at the same scale. Run it after adding photos; processed files are marked and skipped next time.
+
 Frontend (run from `frontend/`):
 
 ```bash

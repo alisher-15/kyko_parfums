@@ -58,7 +58,7 @@ Full stack: `docker compose up -d --build`.
 
 ## Workflow
 
-Work on a branch and open a PR into `main`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the backend and frontend checks above.
+Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend and frontend checks above on every PR and on `main`; merge only when both jobs are green. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
 ## Migrations: required rule
 

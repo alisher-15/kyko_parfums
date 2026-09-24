@@ -1,4 +1,4 @@
-import { api, expect, productLinks, test } from "./support";
+import { adminToken, api, ensureStock, expect, product, productLinks, test, volume } from "./support";
 
 test.describe("Витрина для гостя", () => {
   test("главная показывает подборки и товары", async ({ page }) => {
@@ -37,6 +37,20 @@ test.describe("Витрина для гостя", () => {
   test("страница брендов", async ({ page }) => {
     await page.goto("/brands");
     await expect(page.getByText("Chanel").first()).toBeVisible();
+  });
+
+  test("точные остатки видны только когда товара мало", async ({ page }) => {
+    const admin = await adminToken();
+    const coco = await product(admin, "coco");
+    await ensureStock(admin, volume(coco, 50), 12);
+    for (const v of (await api("GET", `/products/${coco.id}`)).variants) {
+      expect(["in_stock", "low", "out"]).toContain(v.availability);
+      if (v.availability === "in_stock") expect(v.stock, `${v.volume_ml} мл: count hidden`).toBeNull();
+      else expect(v.stock).toBeLessThanOrEqual(5);
+    }
+    await page.goto(`/products/${coco.id}`);
+    await page.getByRole("button", { name: /^50 мл/ }).click();
+    await expect(page.getByText("В наличии", { exact: true })).toBeVisible();
   });
 
   test("карточка товара и корзина гостя", async ({ page }) => {

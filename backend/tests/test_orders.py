@@ -136,6 +136,22 @@ def test_checkout_rejects_insufficient_stock(client, catalog, auth, db):
     assert db.get(ProductVariant, catalog["coco100"].id).stock == 2
 
 
+def test_quote_and_checkout_do_not_reveal_large_stock(client, catalog, auth):
+    item = [{"variant_id": catalog["coco50"].id, "quantity": 11}]  # 10 in stock
+    retail, wholesale = auth(), auth(UserRole.wholesale)
+
+    def quoted(headers):
+        line = client.post("/api/cart/quote", json={"items": item}, headers=headers).json()
+        return line["lines"][0]["available"], line["lines"][0]["stock"]
+
+    assert quoted(retail) == (False, None)
+    assert quoted(wholesale) == (False, 10)
+
+    r = client.post("/api/orders", json={**CHECKOUT, "items": item}, headers=retail)
+    assert r.status_code == 409
+    assert r.json()["detail"]["items"][0]["stock"] is None
+
+
 def test_checkout_rejects_duplicate_and_hidden_variants(client, catalog, auth, db):
     headers = auth()
     vid = catalog["coco50"].id

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.availability import availability, visible_stock
 from app.db import get_db
 from app.deps import get_current_user_optional
 from app.models import Brand, Gender, PriceTier, Product, ProductVariant, User
@@ -67,7 +68,8 @@ def variant_public(
         id=variant.id,
         volume_ml=variant.volume_ml,
         sku=variant.sku,
-        stock=variant.stock,
+        stock=visible_stock(variant.stock, role),
+        availability=availability(variant.stock),
         photo_url=variant.photo_url,
         price=price,
         price_tier=tier,

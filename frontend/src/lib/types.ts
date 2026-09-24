@@ -54,11 +54,15 @@ export interface Brand extends BrandBrief {
   product_count: number;
 }
 
+export type Availability = "in_stock" | "low" | "out";
+
 export interface VariantPublic {
   id: number;
   volume_ml: number;
   sku: string | null;
-  stock: number;
+  /** Hidden (null) from guests and retail buyers unless few units are left. */
+  stock: number | null;
+  availability: Availability;
   photo_url: string | null;
   price: number;
   price_tier: PriceTier;
@@ -122,7 +126,8 @@ export interface QuoteLine {
   volume_ml: number;
   image_url: string | null;
   quantity: number;
-  stock: number;
+  /** Hidden (null) from guests and retail buyers unless few units are left. */
+  stock: number | null;
   available: boolean;
   price_tier: PriceTier;
   unit_price: number;
@@ -321,6 +326,9 @@ export interface Stats {
   revenue_by_channel: Record<OrderChannel, number>;
   store_sales_today: number;
   store_revenue_today: number;
+  /** Placed but not delivered yet: not counted as revenue. */
+  pending_orders: number;
+  pending_total: number;
   gross_profit: number;
   costed_revenue: number;
   stock_value: number;

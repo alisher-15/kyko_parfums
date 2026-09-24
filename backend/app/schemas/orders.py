@@ -31,7 +31,8 @@ class QuoteLineOut(BaseModel):
     volume_ml: int
     image_url: str | None
     quantity: int
-    stock: int
+    # Hidden (None) from guests and retail buyers unless few units are left: see availability.py.
+    stock: int | None
     available: bool
     price_tier: PriceTier
     unit_price: Money

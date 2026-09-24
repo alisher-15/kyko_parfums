@@ -428,12 +428,16 @@ class StatsOut(BaseModel):
     users_by_role: dict[str, int]
     wholesale_requests: int
     orders_by_status: dict[str, int]
-    # Net of refunds.
+    # Revenue is money actually taken: delivered orders (store sales are delivered at once),
+    # net of refunds. Orders still in progress are counted separately.
     revenue_total: Money
     refunds_total: Money
     revenue_by_channel: dict[str, Money]
     store_sales_today: int
     store_revenue_today: Money
+    # Placed but not delivered yet (new, processing, shipped): not revenue until handed over.
+    pending_orders: int
+    pending_total: Money
     # Gross profit of sales with a known cost, and the revenue it was earned on.
     gross_profit: Money
     costed_revenue: Money

@@ -50,6 +50,7 @@ IMAGE_SIGNATURES = {
     ".webp": (b"RIFF",),
 }
 LOW_STOCK = 3
+IN_PROGRESS = (OrderStatus.new, OrderStatus.processing, OrderStatus.shipped)
 
 
 # ---------- Pricing settings ----------
@@ -139,20 +140,19 @@ def stats(db: Session = Depends(get_db)):
     for st, cnt in db.execute(select(Order.status, func.count()).group_by(Order.status)):
         orders_by_status[st.value] = cnt
 
-    # Revenue is net of refunds: sales of non-cancelled orders minus returns on them.
-    not_cancelled = Order.status != OrderStatus.cancelled
+    # Revenue is money taken: delivered orders (store sales are delivered at once) minus
+    # returns. Orders placed but not handed over yet can still be cancelled or changed.
+    delivered = Order.status == OrderStatus.delivered
     revenue_by_channel = {c.value: Decimal(0) for c in OrderChannel}
     for ch, total in db.execute(
-        select(Order.channel, func.sum(Order.total_amount))
-        .where(not_cancelled)
-        .group_by(Order.channel)
+        select(Order.channel, func.sum(Order.total_amount)).where(delivered).group_by(Order.channel)
     ):
         revenue_by_channel[ch.value] += total or Decimal(0)
     refunds_total = Decimal(0)
     for ch, refunds in db.execute(
         select(Order.channel, func.sum(OrderReturn.refund_amount))
         .join(Order, Order.id == OrderReturn.order_id)
-        .where(not_cancelled)
+        .where(delivered)
         .group_by(Order.channel)
     ):
         revenue_by_channel[ch.value] -= refunds or Decimal(0)
@@ -162,7 +162,7 @@ def stats(db: Session = Depends(get_db)):
     today = func.date_trunc("day", func.timezone(tz, func.now()))
     store_today = db.execute(
         select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0)).where(
-            not_cancelled,
+            delivered,
             Order.channel == OrderChannel.store,
             func.timezone(tz, Order.created_at) >= today,
         )
@@ -193,7 +193,12 @@ def stats(db: Session = Depends(get_db)):
         )
         .join(Order, Order.id == OrderItem.order_id)
         .outerjoin(returned, returned.c.item_id == OrderItem.id)
-        .where(not_cancelled, OrderItem.cost_price.is_not(None))
+        .where(delivered, OrderItem.cost_price.is_not(None))
+    ).one()
+    pending_orders, pending_total = db.execute(
+        select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0)).where(
+            Order.status.in_(IN_PROGRESS)
+        )
     ).one()
     in_stock = ProductVariant.stock > 0
     stock_value = db.scalar(
@@ -215,6 +220,8 @@ def stats(db: Session = Depends(get_db)):
         revenue_by_channel=revenue_by_channel,
         store_sales_today=store_today[0],
         store_revenue_today=store_today[1] - store_refunds_today,
+        pending_orders=pending_orders,
+        pending_total=pending_total,
         users_by_role=users_by_role,
         wholesale_requests=db.scalar(
             select(func.count()).select_from(User).where(User.wholesale_requested)

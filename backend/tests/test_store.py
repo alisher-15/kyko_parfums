@@ -195,8 +195,32 @@ def test_orders_list_filters_by_channel(client, auth, catalog):
     assert client.get("/api/admin/orders", headers=h).json()["total"] == 2
 
     stats = client.get("/api/admin/stats", headers=h).json()
-    assert stats["revenue_by_channel"] == {"online": 100, "store": 100}
+    # The online order is not handed over yet: it is not revenue, it is in progress.
+    assert stats["revenue_by_channel"] == {"online": 0, "store": 100}
+    assert (stats["pending_orders"], stats["pending_total"]) == (1, 100)
     assert (stats["store_sales_today"], stats["store_revenue_today"]) == (1, 100)
+
+
+def test_revenue_counts_delivered_orders_only(client, auth, catalog):
+    h = auth(UserRole.admin)
+    buyer = auth()
+
+    def order(quantity):
+        item = {"variant_id": catalog["coco50"].id, "quantity": quantity}
+        return client.post("/api/orders", json={**CHECKOUT, "items": [item]}, headers=buyer).json()
+
+    def stats():
+        s = client.get("/api/admin/stats", headers=h).json()
+        return s["revenue_total"], s["pending_orders"], s["pending_total"]
+
+    delivered, shipped, cancelled = order(1), order(2), order(3)
+    assert stats() == (0, 3, 600)
+    for status in ("processing", "shipped", "delivered"):
+        client.patch(f"/api/admin/orders/{delivered['id']}", json={"status": status}, headers=h)
+    client.patch(f"/api/admin/orders/{shipped['id']}", json={"status": "shipped"}, headers=h)
+    client.patch(f"/api/admin/orders/{cancelled['id']}", json={"status": "cancelled"}, headers=h)
+    # Delivered: revenue. Shipped: still in progress. Cancelled: neither.
+    assert stats() == (100, 1, 200)
 
 
 def test_every_stock_change_is_journaled(client, auth, catalog, db):

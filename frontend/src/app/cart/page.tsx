@@ -65,14 +65,20 @@ export default function CartPage() {
                   {gone && <div className="text-sm text-red-600">Товар больше недоступен</div>}
                   {line && !line.available && (
                     <div className="text-sm text-red-600">
-                      На складе только {line.stock} шт.
-                      {line.stock > 0 && (
-                        <button
-                          className="ml-2 underline"
-                          onClick={() => setQuantity(item.variantId, line.stock)}
-                        >
-                          Исправить
-                        </button>
+                      {line.stock === null ? (
+                        "Столько нет в наличии, уменьшите количество"
+                      ) : (
+                        <>
+                          На складе только {line.stock} шт.
+                          {line.stock > 0 && (
+                            <button
+                              className="ml-2 underline"
+                              onClick={() => setQuantity(item.variantId, line.stock ?? 0)}
+                            >
+                              Исправить
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   )}

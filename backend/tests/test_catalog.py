@@ -107,3 +107,20 @@ def test_pricing_rules_visibility(client, catalog, auth):
     assert r["max_tier"] == "wholesale"
     assert r["wholesale_min_order_amount"] == 0
     assert r["bulk_min_order_amount"] is None
+
+
+def test_exact_stock_is_hidden_from_guests_and_retail(client, catalog, auth):
+    def volumes(headers=None):
+        r = client.get(f"/api/products/{catalog['coco'].id}", headers=headers)
+        return {v["volume_ml"]: (v["availability"], v["stock"]) for v in r.json()["variants"]}
+
+    # 10 in stock: a level only; 2 left: "few left" with the count, as the storefront says.
+    expected_public = {50: ("in_stock", None), 100: ("low", 2)}
+    assert volumes() == expected_public
+    assert volumes(auth(UserRole.retail)) == expected_public
+    # Wholesale partners order in bulk and see the count.
+    assert volumes(auth(UserRole.wholesale)) == {50: ("in_stock", 10), 100: ("low", 2)}
+    assert volumes(auth(UserRole.bulk_wholesale))[50] == ("in_stock", 10)
+
+    sauvage = client.get(f"/api/products/{catalog['sauvage'].id}").json()["variants"][0]
+    assert (sauvage["availability"], sauvage["stock"]) == ("out", 0)

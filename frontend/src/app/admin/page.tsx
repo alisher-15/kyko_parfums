@@ -42,7 +42,12 @@ export default function AdminDashboard() {
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label="Новые заказы" value={data.orders_by_status.new} href="/admin/orders?status=new" accent={data.orders_by_status.new > 0} />
-        <Tile label="Выручка за вычетом возвратов" value={money(data.revenue_total)} />
+        <Tile label="Выручка · выданные заказы" value={money(data.revenue_total)} />
+        <Tile
+          label={`В работе, ещё не выдано · ${data.pending_orders}`}
+          value={money(data.pending_total)}
+          href="/admin/orders"
+        />
         <Tile label="Возвраты" value={money(data.refunds_total)} />
         <Tile
           label={`Продажи в магазине сегодня · ${data.store_sales_today}`}

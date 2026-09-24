@@ -11,8 +11,12 @@ import {
 } from "./support";
 
 type Variant = { stock: number };
+// Exact stock is admin data (customers see a level): read it through the admin API.
 const totalStock = async (productId: number) =>
-  (await api("GET", `/products/${productId}`)).variants.reduce((s: number, v: Variant) => s + v.stock, 0);
+  (await api("GET", `/admin/products/${productId}`, await adminToken())).variants.reduce(
+    (s: number, v: Variant) => s + v.stock,
+    0,
+  );
 
 test("новый покупатель: регистрация, заказ, отмена, профиль, пароль, заявка на опт", async ({ page }) => {
   const admin = await adminToken();

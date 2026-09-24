@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { CameraScanner, type ScanResult } from "@/components/admin/CameraScanner";
+import { CameraScanner } from "@/components/admin/CameraScanner";
+import { ScanResultCard, type ScanResult } from "@/components/admin/ScanResultCard";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money } from "@/lib/format";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
+import { useMedia } from "@/lib/use-media";
 import type {
   AdminOrder,
   AdminUser,
@@ -41,6 +43,8 @@ export default function PosPage() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<AdminOrder | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  // The latest receipt right away: scans can come faster than re-renders.
+  const linesRef = useRef<Line[]>([]);
 
   const payload = {
     items: lines.map((l) => ({
@@ -72,25 +76,69 @@ export default function PosPage() {
     };
   }, [quoteKey]);
 
+  const commit = (next: Line[]) => {
+    linesRef.current = next;
+    setLines(next);
+  };
+
+  const focusSearch = () => {
+    // On phones focusing the field would pop up the keyboard over the receipt.
+    if (!window.matchMedia("(pointer: coarse)").matches) searchRef.current?.focus();
+  };
+
   const add = (item: VariantSearchItem) => {
     setDone(null);
-    setLines((prev) => {
-      const existing = prev.find((l) => l.item.variant_id === item.variant_id);
-      if (existing) {
-        return prev.map((l) =>
-          l === existing ? { ...l, quantity: Math.min(l.quantity + 1, Math.max(item.stock, 1)) } : l,
-        );
-      }
-      return [...prev, { item, quantity: 1, discount: "" }];
-    });
-    searchRef.current?.focus();
+    const prev = linesRef.current;
+    const existing = prev.find((l) => l.item.variant_id === item.variant_id);
+    commit(
+      existing
+        ? prev.map((l) =>
+            l === existing ? { ...l, quantity: Math.min(l.quantity + 1, Math.max(item.stock, 1)) } : l,
+          )
+        : [...prev, { item, quantity: 1, discount: "" }],
+    );
+    focusSearch();
   };
 
   const update = (variantId: number, patch: Partial<Line>) =>
-    setLines((prev) => prev.map((l) => (l.item.variant_id === variantId ? { ...l, ...patch } : l)));
+    commit(linesRef.current.map((l) => (l.item.variant_id === variantId ? { ...l, ...patch } : l)));
+
+  const remove = (variantId: number) =>
+    commit(linesRef.current.filter((l) => l.item.variant_id !== variantId));
+
+  /** A scanned product goes to the receipt; the result offers −/+ and undo. */
+  const scanned = (item: VariantSearchItem): ScanResult => {
+    const name = `${item.brand_name} ${item.product_name}, ${item.volume_ml} мл`;
+    const before = linesRef.current.find((l) => l.item.variant_id === item.variant_id)?.quantity ?? 0;
+    if (before >= item.stock) {
+      return item.stock > 0
+        ? { ok: false, title: `Больше нет на складе: ${name}`, detail: `На складе ${item.stock} шт., все уже в чеке` }
+        : { ok: false, title: `Нет на складе: ${name}` };
+    }
+    add(item);
+    return {
+      ok: true,
+      title: name,
+      detail: "Добавлено в чек",
+      quantity: {
+        label: "В чеке, шт.",
+        value: before + 1,
+        min: 1,
+        max: item.stock,
+        set: async (n) => {
+          update(item.variant_id, { quantity: n });
+          return n;
+        },
+      },
+      undo: async () => {
+        if (before > 0) update(item.variant_id, { quantity: before });
+        else remove(item.variant_id);
+      },
+    };
+  };
 
   const reset = () => {
-    setLines([]);
+    commit([]);
     setTier("");
     setCustomer(null);
     setCustomerName("");
@@ -98,7 +146,7 @@ export default function PosPage() {
     setPayment("cash");
     setComment("");
     setError(null);
-    searchRef.current?.focus();
+    focusSearch();
   };
 
   const submit = async () => {
@@ -140,7 +188,7 @@ export default function PosPage() {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
-          <ProductSearch inputRef={searchRef} onPick={add} />
+          <ProductSearch inputRef={searchRef} onPick={add} onScanned={scanned} />
 
           <div className="card p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -215,11 +263,7 @@ export default function PosPage() {
                         </div>
                         <button
                           className="text-muted hover:text-red-600"
-                          onClick={() =>
-                            setLines((prev) =>
-                              prev.filter((x) => x.item.variant_id !== l.item.variant_id),
-                            )
-                          }
+                          onClick={() => remove(l.item.variant_id)}
                           aria-label="Убрать из чека"
                         >
                           <TrashIcon width={16} height={16} />
@@ -284,7 +328,7 @@ export default function PosPage() {
             <DiscountAll
               max={maxDiscount}
               disabled={lines.length === 0}
-              onApply={(d) => setLines((prev) => prev.map((l) => ({ ...l, discount: d })))}
+              onApply={(d) => commit(linesRef.current.map((l) => ({ ...l, discount: d })))}
             />
             <label className="block">
               <span className="label">Комментарий</span>
@@ -360,19 +404,23 @@ function Choice({
 }
 
 /** Search by name/brand, or scan a barcode: the scanner types the code and presses Enter, or use
- * the phone camera. A scanned product goes straight to the receipt. */
+ * the phone camera (on phones it comes first). A scanned product goes straight to the receipt. */
 function ProductSearch({
   inputRef,
   onPick,
+  onScanned,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
   onPick: (item: VariantSearchItem) => void;
+  onScanned: (item: VariantSearchItem) => ScanResult;
 }) {
+  const phone = useMedia("(pointer: coarse)");
   const [q, setQ] = useState("");
   const [results, setResults] = useState<VariantSearchItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [camera, setCamera] = useState(false);
-  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [scanResult, setScanResult] = useState<{ seq: number; value: ScanResult } | null>(null);
+  const seq = useRef(0);
 
   useEffect(() => {
     const term = q.trim();
@@ -403,39 +451,40 @@ function ProductSearch({
     setResults([]);
   };
 
-  /** A barcode first; if it is not one, a name search that picks a single hit. */
-  const findAndPick = async (term: string): Promise<ScanResult> => {
+  /** A barcode first; if it is not one, a name search that takes a single hit. */
+  const findAndAdd = async (term: string): Promise<ScanResult> => {
     const code = term.replace(/\s+/g, "");
     try {
       const item = await api<VariantSearchItem>(`/admin/barcodes/${encodeURIComponent(code)}`);
-      const name = `${item.brand_name} ${item.product_name}, ${item.volume_ml} мл`;
-      if (item.stock <= 0) return { ok: false, text: `Нет на складе: ${name}` };
-      pick(item);
-      return { ok: true, text: `+1 · ${name}` };
+      setQ("");
+      setResults([]);
+      return onScanned(item);
     } catch (e) {
       if (!(e instanceof ApiError && e.status === 404)) throw e;
     }
     const found = await api<VariantSearchItem[]>("/admin/store/variants", { query: { q: term } });
-    if (found.length === 1 && found[0].stock > 0) {
-      pick(found[0]);
-      return { ok: true, text: `+1 · ${found[0].brand_name} ${found[0].product_name}` };
+    if (found.length === 1) {
+      setQ("");
+      setResults([]);
+      return onScanned(found[0]);
     }
     setResults(found);
-    return {
-      ok: false,
-      text: found.length ? "Выберите товар из списка" : `Не найдено: ${term}`,
-    };
+    return found.length
+      ? { ok: false, title: "Найдено несколько товаров", detail: "Выберите нужный в списке" }
+      : { ok: false, title: `Не найдено: ${term}` };
   };
 
-  const report = async (term: string) => {
+  /** Run a scan and keep its result under the field (also after the camera is closed). */
+  const scan = async (term: string): Promise<ScanResult> => {
     let res: ScanResult;
     try {
-      res = await findAndPick(term);
+      res = await findAndAdd(term);
     } catch (e) {
-      res = { ok: false, text: e instanceof Error ? e.message : String(e) };
+      res = { ok: false, title: e instanceof Error ? e.message : String(e) };
     }
-    scanFeedback(res.ok);
-    setScanResult(res);
+    seq.current += 1;
+    setScanResult({ seq: seq.current, value: res });
+    return res;
   };
 
   const onKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
@@ -443,51 +492,49 @@ function ProductSearch({
     e.preventDefault();
     const term = q.trim();
     if (!term) return;
-    await report(term);
+    scanFeedback((await scan(term)).ok);
+  };
+
+  const openCamera = () => {
+    unlockAudio();
+    setCamera(true);
   };
 
   return (
-    <div className="card p-4">
-      <label className="block">
-        <span className="label">Товар</span>
-        <div className="flex gap-2">
-          <input
-            ref={inputRef}
-            autoFocus
-            className="input py-3 text-base"
-            placeholder="Название, бренд или штрихкод"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={onKeyDown}
-            autoComplete="off"
-            enterKeyHint="search"
-          />
-          <button
-            type="button"
-            className="btn btn-outline shrink-0"
-            onClick={() => {
-              unlockAudio();
-              setCamera(true);
-            }}
-          >
+    <div className="card space-y-2 p-4">
+      <span className="label">Товар</span>
+      {phone && (
+        <button type="button" className="btn btn-primary w-full py-4 text-base" onClick={openCamera}>
+          Сканировать камерой
+        </button>
+      )}
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          autoFocus={!phone}
+          className="input py-3 text-base"
+          placeholder={phone ? "или название, бренд, штрихкод" : "Название, бренд или штрихкод"}
+          aria-label="Название, бренд или штрихкод"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={onKeyDown}
+          autoComplete="off"
+          enterKeyHint="search"
+        />
+        {!phone && (
+          <button type="button" className="btn btn-outline shrink-0" onClick={openCamera}>
             Камера
           </button>
-        </div>
-      </label>
-      {scanResult && (
-        <p
-          className={`mt-2 text-sm font-semibold ${scanResult.ok ? "text-emerald-700" : "text-red-600"}`}
-        >
-          {scanResult.text}
-        </p>
-      )}
+        )}
+      </div>
+      {scanResult && <ScanResultCard key={scanResult.seq} result={scanResult.value} />}
       {camera && (
         <CameraScanner
-          onScan={report}
-          result={scanResult}
+          title="Продажа в магазине"
+          onScan={scan}
           onClose={() => {
             setCamera(false);
-            inputRef.current?.focus();
+            if (!phone) inputRef.current?.focus();
           }}
         />
       )}

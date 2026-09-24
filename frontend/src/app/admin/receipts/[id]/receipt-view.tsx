@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ScanField, type ScanResult } from "@/components/admin/ScanField";
-import { UnknownBarcode } from "@/components/admin/UnknownBarcode";
+import { UnknownBarcode, showUnknown } from "@/components/admin/UnknownBarcode";
 import { VariantPicker } from "@/components/admin/VariantPicker";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, Spinner, SuccessBox } from "@/components/ui";
@@ -50,19 +50,53 @@ export function ReceiptView({ id }: { id: number }) {
   };
 
   const scan = async (code: string): Promise<ScanResult> => {
+    let r: Receipt;
     try {
-      const r = await api<Receipt>(`${base}/scan`, { body: { code } });
-      setDoc(r);
-      setUnknown(null);
-      const line = r.items.find((i) => i.id === r.touched_line_id);
-      return { ok: true, text: `+1 · ${line?.label} — в приёмке ${line?.quantity} шт.` };
+      r = await api<Receipt>(`${base}/scan`, { body: { code } });
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         setUnknown(code);
-        return { ok: false, text: `Штрихкод ${code} не найден — привяжите его к товару` };
+        return {
+          ok: false,
+          title: `Штрихкод ${code} не найден`,
+          detail: "Его нет в каталоге. Привяжите код к товару — в следующий раз он найдётся сам.",
+          action: { label: "Привязать к товару", run: () => showUnknown() },
+        };
       }
       throw e;
     }
+    setDoc(r);
+    setUnknown(null);
+    const line = r.items.find((i) => i.id === r.touched_line_id);
+    if (!line) return { ok: true, title: "Добавлено в приёмку" };
+    const lineUrl = `${base}/lines/${line.id}`;
+    const before = line.quantity - 1; // a scan adds one unit
+    return {
+      ok: true,
+      title: line.label,
+      detail:
+        line.cost_price !== null
+          ? `Закупочная цена ${money(line.cost_price)}`
+          : "Закупочная цена не указана",
+      quantity: {
+        label: "В приёмке, шт.",
+        value: line.quantity,
+        min: 1,
+        set: async (n) => {
+          const updated = await api<Receipt>(lineUrl, { method: "PATCH", body: { quantity: n } });
+          setDoc(updated);
+          return updated.items.find((i) => i.id === line.id)?.quantity ?? n;
+        },
+      },
+      undo: async () => {
+        setDoc(
+          await api<Receipt>(
+            lineUrl,
+            before > 0 ? { method: "PATCH", body: { quantity: before } } : { method: "DELETE" },
+          ),
+        );
+      },
+    };
   };
 
   const withoutCost = receipt.items.filter((i) => i.cost_price === null).length;
@@ -89,9 +123,9 @@ export function ReceiptView({ id }: { id: number }) {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="card p-4">
             <div className="label">Сканер</div>
-            <ScanField onScan={scan} />
+            <ScanField onScan={scan} cameraTitle={`Приёмка № ${receipt.id}`} />
             <p className="mt-2 text-xs text-muted">
-              Каждый скан добавляет 1 шт. Количество можно поправить в таблице.
+              Один скан — одна штука. Несколько одинаковых коробок проще добавить кнопкой «+».
             </p>
           </div>
           <div className="card p-4">
@@ -110,6 +144,7 @@ export function ReceiptView({ id }: { id: number }) {
 
       {unknown && draft && (
         <UnknownBarcode
+          id="unknown-barcode"
           code={unknown}
           onCancel={() => setUnknown(null)}
           onAttached={(item) =>

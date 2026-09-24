@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ScanField, type ScanResult } from "@/components/admin/ScanField";
-import { UnknownBarcode } from "@/components/admin/UnknownBarcode";
+import { UnknownBarcode, showUnknown } from "@/components/admin/UnknownBarcode";
 import { VariantPicker } from "@/components/admin/VariantPicker";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, Spinner, SuccessBox } from "@/components/ui";
@@ -17,6 +17,8 @@ import { useApi } from "@/lib/use-api";
 export function CountView({ id }: { id: number }) {
   const { data, error } = useApi<StockCount>(`/admin/counts/${id}`);
   const [doc, setDoc] = useState<StockCount | null>(null);
+  // The latest document right away (state lags a render behind fast consecutive scans).
+  const latest = useRef<StockCount | null>(null);
   const [unknown, setUnknown] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
@@ -30,12 +32,17 @@ export function CountView({ id }: { id: number }) {
   const draft = count.status === "draft";
   const base = `/admin/counts/${id}`;
 
+  const apply = (c: StockCount) => {
+    latest.current = c;
+    setDoc(c);
+  };
+
   const run = async (fn: () => Promise<StockCount | void>, okText?: string) => {
     setBusy(true);
     setMsg(null);
     try {
       const c = await fn();
-      if (c) setDoc(c);
+      if (c) apply(c);
       if (okText) setMsg({ ok: true, text: okText });
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) });
@@ -45,19 +52,53 @@ export function CountView({ id }: { id: number }) {
   };
 
   const scan = async (code: string): Promise<ScanResult> => {
+    const before = latest.current ?? count;
+    let c: StockCount;
     try {
-      const c = await api<StockCount>(`${base}/scan`, { body: { code } });
-      setDoc(c);
-      setUnknown(null);
-      const line = c.items.find((i) => i.id === c.touched_line_id);
-      return { ok: true, text: `${line?.label} — посчитано ${line?.counted} шт.` };
+      c = await api<StockCount>(`${base}/scan`, { body: { code } });
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
         setUnknown(code);
-        return { ok: false, text: `Штрихкод ${code} не найден — привяжите его к товару` };
+        return {
+          ok: false,
+          title: `Штрихкод ${code} не найден`,
+          detail: "Его нет в каталоге. Привяжите код к товару — в следующий раз он найдётся сам.",
+          action: { label: "Привязать к товару", run: () => showUnknown() },
+        };
       }
       throw e;
     }
+    apply(c);
+    setUnknown(null);
+    const line = c.items.find((i) => i.id === c.touched_line_id);
+    if (!line) return { ok: true, title: "Посчитано" };
+    const lineUrl = `${base}/lines/${line.id}`;
+    // Undo removes a line this scan created; otherwise it puts the old count back.
+    const existed = before.items.some((i) => i.id === line.id);
+    const counted = line.counted - 1;
+    return {
+      ok: true,
+      title: line.label,
+      detail: line.expected !== null ? `В системе ${line.expected} шт.` : undefined,
+      quantity: {
+        label: "Посчитано, шт.",
+        value: line.counted,
+        min: 0,
+        set: async (n) => {
+          const updated = await api<StockCount>(lineUrl, { method: "PATCH", body: { counted: n } });
+          apply(updated);
+          return updated.items.find((i) => i.id === line.id)?.counted ?? n;
+        },
+      },
+      undo: async () => {
+        apply(
+          await api<StockCount>(
+            lineUrl,
+            existed ? { method: "PATCH", body: { counted } } : { method: "DELETE" },
+          ),
+        );
+      },
+    };
   };
 
   const mismatches = count.items.filter((i) => i.expected !== null && i.counted !== i.expected);
@@ -77,15 +118,15 @@ export function CountView({ id }: { id: number }) {
           </>
         }
       />
-      <NoteField key={`${count.id}-${draft}`} count={count} onSaved={setDoc} />
+      <NoteField key={`${count.id}-${draft}`} count={count} onSaved={(c) => apply(c)} />
 
       {draft && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="card p-4">
             <div className="label">Сканер</div>
-            <ScanField onScan={scan} />
+            <ScanField onScan={scan} cameraTitle={`Инвентаризация № ${count.id}`} />
             <p className="mt-2 text-xs text-muted">
-              Сканируйте каждую единицу товара: один скан — одна штука.
+              Один скан — одна штука. Несколько одинаковых проще посчитать кнопками −/+.
             </p>
           </div>
           <div className="card p-4">
@@ -107,6 +148,7 @@ export function CountView({ id }: { id: number }) {
 
       {unknown && draft && (
         <UnknownBarcode
+          id="unknown-barcode"
           code={unknown}
           onCancel={() => setUnknown(null)}
           onAttached={(item) =>

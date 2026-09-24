@@ -19,7 +19,16 @@ export function BarcodeList({
   const add = async (code: string): Promise<ScanResult> => {
     await api(`/admin/variants/${variantId}/barcodes`, { body: { code } });
     onChanged();
-    return { ok: true, text: `Штрихкод ${code} добавлен` };
+    return {
+      ok: true,
+      title: `Штрихкод ${code} добавлен`,
+      undo: async () => {
+        await api(`/admin/variants/${variantId}/barcodes/${encodeURIComponent(code)}`, {
+          method: "DELETE",
+        });
+        onChanged();
+      },
+    };
   };
 
   const remove = async (code: string) => {
@@ -58,6 +67,7 @@ export function BarcodeList({
       )}
       <ScanField
         compact
+        single
         autoFocus={false}
         onScan={add}
         placeholder="Отсканируйте или введите штрихкод"

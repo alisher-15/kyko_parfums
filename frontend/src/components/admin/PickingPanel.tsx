@@ -60,6 +60,8 @@ export function PickingPanel({
     savePicked(order.id, next);
     setPicked(next);
   };
+  const totalPickedNow = () =>
+    lines.reduce((s, i) => s + Math.min(pickedRef.current[i.id] ?? 0, i.quantity), 0);
   const change = (itemId: number, delta: number) => {
     const prev = pickedRef.current;
     update({ ...prev, [itemId]: Math.max(0, (prev[itemId] ?? 0) + delta) });
@@ -71,7 +73,7 @@ export function PickingPanel({
       found = await api<VariantSearchItem>(`/admin/barcodes/${encodeURIComponent(code)}`);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) {
-        return { ok: false, text: `Штрихкод ${code} не найден в каталоге` };
+        return { ok: false, title: `Штрихкод ${code} не найден в каталоге` };
       }
       throw e;
     }
@@ -79,19 +81,30 @@ export function PickingPanel({
     const line = lines.find((i) => i.variant_id === found.variant_id);
     if (!line) {
       const sameProduct = lines.find((i) => i.product_id === found.product_id);
-      return {
-        ok: false,
-        text: sameProduct
-          ? `Не тот объём: ${found.volume_ml} мл, в заказе ${sameProduct.volume_ml} мл`
-          : `Этого товара нет в заказе: ${name}`,
-      };
+      return sameProduct
+        ? {
+            ok: false,
+            title: `Не тот объём: ${found.volume_ml} мл`,
+            detail: `В заказе ${label(sameProduct)}`,
+          }
+        : { ok: false, title: "Этого товара нет в заказе", detail: name };
     }
     const have = pickedRef.current[line.id] ?? 0;
     if (have >= line.quantity) {
-      return { ok: false, text: `Лишняя штука: ${name} — нужно ${line.quantity}, уже собрано` };
+      return {
+        ok: false,
+        title: `Лишняя штука: ${name}`,
+        detail: `Нужно ${line.quantity}, уже собрано`,
+      };
     }
     change(line.id, 1);
-    return { ok: true, text: `${name} — ${have + 1} из ${line.quantity}` };
+    const left = totalNeeded - totalPickedNow();
+    return {
+      ok: true,
+      title: name,
+      detail: `Собрано ${have + 1} из ${line.quantity}${left > 0 ? ` · по заказу осталось ${left} шт.` : " · заказ собран"}`,
+      undo: async () => change(line.id, -1),
+    };
   };
 
   return (
@@ -112,7 +125,11 @@ export function PickingPanel({
           </button>
         </div>
       </div>
-      <ScanField onScan={scan} placeholder="Сканируйте товары заказа" />
+      <ScanField
+        onScan={scan}
+        placeholder="Сканируйте товары заказа"
+        cameraTitle={`Сборка заказа № ${order.id}`}
+      />
       <ul className="divide-y divide-line">
         {lines.map((i) => {
           const have = picked[i.id] ?? 0;

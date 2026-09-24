@@ -7,12 +7,19 @@ import { api } from "@/lib/api";
 import type { AdminVariant, VariantSearchItem } from "@/lib/types";
 import { VariantPicker } from "./VariantPicker";
 
+/** Scroll to the «attach an unknown barcode» panel once it is on the page. */
+export function showUnknown(elementId = "unknown-barcode") {
+  setTimeout(() => document.getElementById(elementId)?.scrollIntoView({ behavior: "smooth" }), 50);
+}
+
 /** A scanned code that is not in the catalog: attach it to a volume, or create the product. */
 export function UnknownBarcode({
+  id,
   code,
   onAttached,
   onCancel,
 }: {
+  id?: string;
   code: string;
   onAttached: (item: VariantSearchItem) => void;
   onCancel: () => void;
@@ -34,7 +41,7 @@ export function UnknownBarcode({
   };
 
   return (
-    <div className="card border-gold/60 bg-amber-50/60 p-4">
+    <div id={id} className="card scroll-mt-4 border-gold/60 bg-amber-50/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="font-semibold">

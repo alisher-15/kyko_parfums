@@ -13,13 +13,10 @@ import os
 import sys
 from pathlib import Path
 
-from alembic.config import Config
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
 from sqlalchemy import select
 
-from alembic import command
-from app.db import SessionLocal, engine
+from app.db import SessionLocal
+from app.migrations import migrate
 from app.models import Product, User, UserRole
 from app.security import hash_password
 from app.services.importer import build_template, import_catalog
@@ -49,28 +46,6 @@ def import_cmd(path: str, sheet: str | None, dry_run: bool) -> int:
         report = import_catalog(db, p.read_bytes(), p.name, sheet=sheet, dry_run=dry_run)
     print(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
     return 0
-
-
-def migrate() -> None:
-    """`alembic upgrade head` that still lets the app start when the database is ahead of the code.
-
-    A failed deploy can leave the database migrated by the new version while the platform keeps
-    running the previous one. Migrations only add tables, columns and looser constraints, so the
-    previous version works on the newer schema; refusing to start would take the site down.
-    """
-    cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
-    known = {script.revision for script in ScriptDirectory.from_config(cfg).walk_revisions()}
-    with engine.connect() as conn:
-        current = MigrationContext.configure(conn).get_current_heads()
-    unknown = [rev for rev in current if rev not in known]
-    if unknown:
-        print(
-            f"Database is at revision {', '.join(unknown)}, newer than this code — "
-            "migrations skipped, starting anyway",
-            file=sys.stderr,
-        )
-        return
-    command.upgrade(cfg, "head")
 
 
 def bootstrap() -> None:
@@ -113,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("seed-demo", help="fill the catalog with demo products, prices and users")
     sub.add_parser("bootstrap", help="create admin / demo data from environment variables")
-    sub.add_parser("migrate", help="apply migrations; skip if the database is newer than the code")
+    sub.add_parser("migrate", help="apply migrations; check a database newer than the code")
 
     args = parser.parse_args(argv)
     if args.cmd == "create-admin":
@@ -133,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd == "bootstrap":
         bootstrap()
     elif args.cmd == "migrate":
-        migrate()
+        return migrate()
     return 0
 
 

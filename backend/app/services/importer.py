@@ -23,7 +23,7 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import Brand, Gender, Product, ProductVariant, StockReason, User
+from app.models import Brand, Gender, Product, ProductVariant, StockReason, User, VariantBarcode
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
 from app.services.stock import set_stock
 
@@ -62,7 +62,13 @@ COLUMN_ALIASES: dict[str, list[str]] = {
         "bulk_price", "крупный опт", "цена крупный опт", "цена крупного опта", "крупнооптовая цена",
     ],
     "stock": ["stock", "остаток", "остатки", "количество", "кол во", "наличие", "склад"],
-    "sku": ["sku", "артикул", "код", "штрихкод", "barcode"],
+    "sku": ["sku", "артикул", "код"],
+    "barcode": [
+        "barcode", "barcodes", "штрихкод", "штрихкоды", "штрих код", "ean", "ean13", "ean 13",
+    ],
+    "cost_price": [
+        "cost_price", "cost", "себестоимость", "закупочная цена", "цена закупки", "закупка",
+    ],
     "is_active": ["is_active", "активен", "активный", "опубликован"],
 }
 # fmt: on
@@ -85,6 +91,8 @@ TEMPLATE_COLUMNS = [
     ("bulk_price", "Цена крупный опт"),
     ("stock", "Остаток"),
     ("sku", "Артикул"),
+    ("barcode", "Штрихкод"),
+    ("cost_price", "Себестоимость"),
 ]
 
 PRODUCT_TEXT_FIELDS = (
@@ -172,6 +180,14 @@ def parse_decimal(value: Any) -> Decimal | None:
     if d < 0:
         raise ValueError(f"отрицательное значение: «{value}»")
     return d
+
+
+def parse_barcodes(value: Any) -> list[str]:
+    """One or several barcodes in a cell, separated by commas, semicolons or spaces."""
+    text = _text(value)
+    if not text:
+        return []
+    return list(dict.fromkeys(code[:64] for code in re.split(r"[,;\s]+", text) if code))
 
 
 def parse_int(value: Any) -> int | None:
@@ -271,6 +287,10 @@ def import_catalog(
     sku_owner: dict[str, ProductVariant] = {
         v.sku: v for v in db.scalars(select(ProductVariant).where(ProductVariant.sku.is_not(None)))
     }
+    barcode_owner: dict[str, ProductVariant] = {
+        b.code: b.variant
+        for b in db.scalars(select(VariantBarcode).options(joinedload(VariantBarcode.variant)))
+    }
     touched_products: set[int] = set()  # id() of products updated in this run
 
     st = _Stats()
@@ -304,6 +324,8 @@ def import_catalog(
             bulk = parse_decimal(cell(cells, "bulk_price"))
             stock = parse_int(cell(cells, "stock"))
             sku = _text(cell(cells, "sku"), 64)
+            barcodes = parse_barcodes(cell(cells, "barcode"))
+            cost = parse_decimal(cell(cells, "cost_price"))
             if volume is not None and volume <= 0:
                 raise ValueError("объём должен быть больше нуля")
         except ValueError as e:
@@ -368,6 +390,7 @@ def import_catalog(
                 retail_price=retail,
                 wholesale_price=wholesale,
                 bulk_price=bulk,
+                cost_price=cost,
                 stock=0,
                 sku=sku,
             )
@@ -381,6 +404,7 @@ def import_catalog(
                 "bulk_price": bulk,
                 "stock": stock,
                 "sku": sku,
+                "cost_price": cost,
             }
             new = {k: v for k, v in updates.items() if v is not None}
             merged = {k: new.get(k, getattr(variant, k)) for k in updates}
@@ -402,6 +426,17 @@ def import_catalog(
                 st.variants_updated += 1
         if sku:
             sku_owner[sku] = variant
+        for code in barcodes:
+            owner = barcode_owner.get(code)
+            if owner is None:
+                variant.barcodes.append(VariantBarcode(code=code))
+                barcode_owner[code] = variant
+            elif owner is not variant:
+                st.errors.append(
+                    ImportRowError(
+                        row=row_no, error=f"штрихкод {code} уже у другого товара — не сохранён"
+                    )
+                )
 
     if dry_run:
         db.rollback()

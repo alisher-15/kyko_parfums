@@ -2,8 +2,9 @@
 
 Every migration declares `backward_compatible`: whether the code from before it still works on
 the schema after it. True for new tables, nullable columns, columns with a server default and
-looser constraints; False for NOT NULL columns without a default, drops, renames, stricter
-constraints or new enum values that older code would read.
+looser constraints (new allowed values included); False for NOT NULL columns without a default,
+drops, renames and stricter constraints. It is a question about the schema only: the case it
+guards is a deploy that failed after migrating, when the new code has not written any data yet.
 
 After every Alembic run (see alembic/env.py) the database stores in `schema_compat` the revision
 of the newest breaking migration: the oldest code that can run on it. On start `migrate()` upgrades

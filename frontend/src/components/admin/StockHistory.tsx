@@ -6,7 +6,7 @@ import { STOCK_REASON_LABELS, dateTime } from "@/lib/format";
 import type { StockMovement } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
-/** Stock journal of one product: every sale, return, manual edit and import. */
+/** Stock journal of one product: every sale, return, receipt, stock count, edit and import. */
 export function StockHistory({ productId, version }: { productId: number; version: string }) {
   const { data, error } = useApi<StockMovement[]>(`/admin/products/${productId}/stock-movements`, {
     query: { v: version },
@@ -50,6 +50,22 @@ export function StockHistory({ productId, version }: { productId: number; versio
                         {" · "}
                         <Link href={`/admin/orders/${m.order_id}`} className="text-gold">
                           № {m.order_id}
+                        </Link>
+                      </>
+                    )}
+                    {m.receipt_id && (
+                      <>
+                        {" · "}
+                        <Link href={`/admin/receipts/${m.receipt_id}`} className="text-gold">
+                          документ
+                        </Link>
+                      </>
+                    )}
+                    {m.count_id && (
+                      <>
+                        {" · "}
+                        <Link href={`/admin/inventory/${m.count_id}`} className="text-gold">
+                          документ
                         </Link>
                       </>
                     )}

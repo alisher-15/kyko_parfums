@@ -5,6 +5,7 @@ import { ErrorBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CURRENCY } from "@/lib/format";
 import type { AdminVariant } from "@/lib/types";
+import { BarcodeList } from "./BarcodeList";
 import { ImageUpload } from "./ImageUpload";
 
 type Row = {
@@ -14,6 +15,7 @@ type Row = {
   retail_price: string;
   wholesale_price: string;
   bulk_price: string;
+  cost_price: string;
   photo_url: string | null;
   is_active: boolean;
 };
@@ -25,6 +27,7 @@ const EMPTY: Row = {
   retail_price: "",
   wholesale_price: "",
   bulk_price: "",
+  cost_price: "",
   photo_url: null,
   is_active: true,
 };
@@ -38,6 +41,7 @@ function toRow(v: AdminVariant): Row {
     retail_price: String(v.retail_price),
     wholesale_price: s(v.wholesale_price),
     bulk_price: s(v.bulk_price),
+    cost_price: s(v.cost_price),
     photo_url: v.photo_url,
     is_active: v.is_active,
   };
@@ -52,6 +56,7 @@ function toBody(r: Row) {
     retail_price: num(r.retail_price),
     wholesale_price: num(r.wholesale_price),
     bulk_price: num(r.bulk_price),
+    cost_price: num(r.cost_price),
     photo_url: r.photo_url,
     is_active: r.is_active,
   };
@@ -104,6 +109,7 @@ export function VariantsEditor({
             key={v.id}
             initial={toRow(v)}
             seed={v.id}
+            extra={<BarcodeList variantId={v.id} barcodes={v.barcodes} onChanged={onChanged} />}
             onSave={async (row, stockNote) => {
               await api(`/admin/variants/${v.id}`, {
                 method: "PATCH",
@@ -139,6 +145,7 @@ function VariantRow({
   initial,
   seed,
   isNew = false,
+  extra,
   onSave,
   onDelete,
   onError,
@@ -146,6 +153,7 @@ function VariantRow({
   initial: Row;
   seed: number;
   isNew?: boolean;
+  extra?: React.ReactNode;
   onSave: (row: Row, stockNote: string) => Promise<void>;
   onDelete?: () => Promise<void>;
   onError: (msg: string | null) => void;
@@ -211,15 +219,18 @@ function VariantRow({
         {field(`Розница, ${CURRENCY}`, "retail_price", { required: true })}
         {field(`Опт, ${CURRENCY}`, "wholesale_price")}
         {field(`Кр. опт, ${CURRENCY}`, "bulk_price")}
+        {/* Phones and tablets: next to the prices, above "Save". Desktop: in the row below. */}
+        <div className="xl:hidden">{field(`Себестоимость, ${CURRENCY}`, "cost_price")}</div>
       </div>
       {stockChanged && (
         <label className="mt-2 block xl:col-span-full xl:mt-1">
           <span className="text-xs text-muted">
-            Остаток {initial.stock} → {row.stock || 0}. Причина (попадёт в журнал склада):
+            Остаток {initial.stock} → {row.stock || 0}. Причина (попадёт в журнал склада). Приход
+            от поставщика удобнее оформлять через «Приёмку»:
           </span>
           <input
             className="input mt-1"
-            placeholder="Приход от поставщика, пересчёт, списание брака…"
+            placeholder="Списание брака, пересчёт…"
             value={stockNote}
             onChange={(e) => setStockNote(e.target.value)}
           />
@@ -271,6 +282,21 @@ function VariantRow({
             </button>
           </>
         )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-start gap-3 xl:col-span-full xl:mt-1 xl:pb-1">
+        <label className="hidden w-40 shrink-0 xl:block">
+          <span className="mb-1 block text-[11px] font-semibold tracking-wide text-muted uppercase">
+            Себестоимость, {CURRENCY}
+          </span>
+          <input
+            className="input"
+            inputMode="decimal"
+            placeholder="не указана"
+            value={row.cost_price}
+            onChange={set("cost_price")}
+          />
+        </label>
+        {extra}
       </div>
     </div>
   );

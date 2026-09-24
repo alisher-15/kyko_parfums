@@ -63,6 +63,8 @@ class VariantIn(BaseModel):
     retail_price: MoneyIn
     wholesale_price: MoneyIn | None = None
     bulk_price: MoneyIn | None = None
+    # Average purchase cost; normally kept up to date by stock receipts.
+    cost_price: MoneyIn | None = None
     photo_url: str | None = Field(default=None, max_length=1024)
     is_active: bool = True
 
@@ -83,6 +85,7 @@ class VariantUpdate(BaseModel):
     retail_price: MoneyIn | None = None
     wholesale_price: MoneyIn | None = None
     bulk_price: MoneyIn | None = None
+    cost_price: MoneyIn | None = None
     photo_url: str | None = Field(default=None, max_length=1024)
     is_active: bool | None = None
 
@@ -98,8 +101,15 @@ class AdminVariantOut(ORMModel):
     retail_price: Money
     wholesale_price: Money | None
     bulk_price: Money | None
+    cost_price: Money | None = None
+    barcodes: list[str] = []
     photo_url: str | None
     is_active: bool
+
+    @field_validator("barcodes", mode="before")
+    @classmethod
+    def barcode_codes(cls, v):
+        return [getattr(b, "code", b) for b in v or []]
 
 
 # ---------- Products ----------
@@ -335,6 +345,8 @@ class VariantSearchItem(BaseModel):
     retail_price: Money
     wholesale_price: Money | None
     bulk_price: Money | None
+    cost_price: Money | None = None
+    is_active: bool = True
     product_active: bool
 
 
@@ -346,6 +358,8 @@ class StockMovementOut(ORMModel):
     stock_after: int
     reason: StockReason
     order_id: int | None
+    receipt_id: int | None = None
+    count_id: int | None = None
     user_email: str | None
     note: str | None
     created_at: datetime
@@ -420,6 +434,12 @@ class StatsOut(BaseModel):
     revenue_by_channel: dict[str, Money]
     store_sales_today: int
     store_revenue_today: Money
+    # Gross profit of sales with a known cost, and the revenue it was earned on.
+    gross_profit: Money
+    costed_revenue: Money
+    # Stock at average cost; volumes in stock whose cost is unknown.
+    stock_value: Money
+    variants_without_cost: int
     products_total: int
     products_without_variants: int
     variants_low_stock: int

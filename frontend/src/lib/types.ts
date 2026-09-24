@@ -5,7 +5,17 @@ export type PricingMode = "order_total" | "item_quantity";
 export type OrderStatus = "new" | "processing" | "shipped" | "delivered" | "cancelled";
 export type OrderChannel = "online" | "store";
 export type PaymentMethod = "cash" | "card" | "transfer" | "other";
-export type StockReason = "online_order" | "store_sale" | "order_cancel" | "manual" | "import";
+export type StockReason =
+  | "online_order"
+  | "store_sale"
+  | "order_cancel"
+  | "manual"
+  | "import"
+  | "order_edit"
+  | "return"
+  | "receipt"
+  | "inventory";
+export type DocumentStatus = "draft" | "posted";
 
 export interface Page<T> {
   items: T[];
@@ -224,6 +234,8 @@ export interface AdminVariant {
   retail_price: number;
   wholesale_price: number | null;
   bulk_price: number | null;
+  cost_price: number | null;
+  barcodes: string[];
   photo_url: string | null;
   is_active: boolean;
 }
@@ -309,6 +321,10 @@ export interface Stats {
   revenue_by_channel: Record<OrderChannel, number>;
   store_sales_today: number;
   store_revenue_today: number;
+  gross_profit: number;
+  costed_revenue: number;
+  stock_value: number;
+  variants_without_cost: number;
   products_total: number;
   products_without_variants: number;
   variants_low_stock: number;
@@ -329,6 +345,8 @@ export interface VariantSearchItem {
   retail_price: number;
   wholesale_price: number | null;
   bulk_price: number | null;
+  cost_price: number | null;
+  is_active: boolean;
   product_active: boolean;
 }
 
@@ -369,7 +387,68 @@ export interface StockMovement {
   stock_after: number;
   reason: StockReason;
   order_id: number | null;
+  receipt_id: number | null;
+  count_id: number | null;
   user_email: string | null;
   note: string | null;
   created_at: string;
+}
+
+// ---------- Warehouse: receipts and stock counts ----------
+
+export interface ReceiptLine {
+  id: number;
+  variant_id: number | null;
+  label: string;
+  sku: string | null;
+  quantity: number;
+  cost_price: number | null;
+  stock: number | null;
+  current_cost: number | null;
+}
+
+export interface ReceiptBrief {
+  id: number;
+  status: DocumentStatus;
+  supplier: string | null;
+  number: string | null;
+  total_quantity: number;
+  total_cost: number;
+  lines: number;
+  created_at: string;
+  posted_at: string | null;
+}
+
+export interface Receipt extends ReceiptBrief {
+  note: string | null;
+  created_by_email: string | null;
+  posted_by_email: string | null;
+  items: ReceiptLine[];
+  touched_line_id: number | null;
+}
+
+export interface CountLine {
+  id: number;
+  variant_id: number | null;
+  label: string;
+  sku: string | null;
+  counted: number;
+  expected: number | null;
+}
+
+export interface CountBrief {
+  id: number;
+  status: DocumentStatus;
+  note: string | null;
+  lines: number;
+  difference: number;
+  created_at: string;
+  posted_at: string | null;
+}
+
+export interface StockCount extends CountBrief {
+  created_by_email: string | null;
+  posted_by_email: string | null;
+  items: CountLine[];
+  touched_line_id: number | null;
 }

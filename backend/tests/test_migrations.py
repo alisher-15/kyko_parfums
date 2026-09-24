@@ -51,12 +51,12 @@ def test_migrate_at_head_does_nothing():
 
 def test_starts_on_a_newer_database_that_still_works_with_this_code(newer_database, capsys):
     # A deploy added backward compatible migrations, failed, and the platform kept this build.
-    newer_database("0007", "0003")
+    newer_database("9999", "0003")
     assert migrate() == 0
     assert "starting without migrations" in capsys.readouterr().err
 
 
 def test_refuses_a_newer_database_that_needs_newer_code(newer_database, capsys):
-    newer_database("0007", "0006")
+    newer_database("9999", "9998")
     assert migrate() == 1
     assert "not starting" in capsys.readouterr().err

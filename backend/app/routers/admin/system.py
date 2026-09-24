@@ -15,7 +15,9 @@ from app.models import (
     Brand,
     Order,
     OrderChannel,
+    OrderItem,
     OrderReturn,
+    OrderReturnItem,
     OrderStatus,
     Product,
     ProductVariant,
@@ -174,7 +176,42 @@ def stats(db: Session = Depends(get_db)):
         )
     )
 
+    # Margin of sold units with a known cost: (price - cost) × (sold - returned).
+    returned = (
+        select(
+            OrderReturnItem.order_item_id.label("item_id"),
+            func.sum(OrderReturnItem.quantity).label("qty"),
+        )
+        .group_by(OrderReturnItem.order_item_id)
+        .subquery()
+    )
+    kept = OrderItem.quantity - func.coalesce(returned.c.qty, 0)
+    profit, costed_revenue = db.execute(
+        select(
+            func.coalesce(func.sum(kept * (OrderItem.price_applied - OrderItem.cost_price)), 0),
+            func.coalesce(func.sum(kept * OrderItem.price_applied), 0),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .outerjoin(returned, returned.c.item_id == OrderItem.id)
+        .where(not_cancelled, OrderItem.cost_price.is_not(None))
+    ).one()
+    in_stock = ProductVariant.stock > 0
+    stock_value = db.scalar(
+        select(func.coalesce(func.sum(ProductVariant.stock * ProductVariant.cost_price), 0)).where(
+            in_stock, ProductVariant.cost_price.is_not(None)
+        )
+    )
+
     return StatsOut(
+        gross_profit=profit,
+        costed_revenue=costed_revenue,
+        stock_value=stock_value,
+        variants_without_cost=db.scalar(
+            select(func.count(ProductVariant.id)).where(
+                in_stock, ProductVariant.cost_price.is_(None)
+            )
+        )
+        or 0,
         revenue_by_channel=revenue_by_channel,
         store_sales_today=store_today[0],
         store_revenue_today=store_today[1] - store_refunds_today,

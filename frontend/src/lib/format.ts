@@ -96,4 +96,8 @@ export const STOCK_REASON_LABELS: Record<StockReason, string> = {
   order_cancel: "Отмена / возврат",
   manual: "Ручная правка",
   import: "Импорт Excel",
+  order_edit: "Изменение заказа",
+  return: "Возврат покупателя",
+  receipt: "Приёмка",
+  inventory: "Инвентаризация",
 };

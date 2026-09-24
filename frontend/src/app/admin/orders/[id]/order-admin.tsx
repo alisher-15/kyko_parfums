@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { EditItemsPanel, ReturnPanel } from "@/components/admin/OrderActions";
+import { PickingPanel } from "@/components/admin/PickingPanel";
 import { OrderHistory } from "@/components/OrderHistory";
 import { OrderItemsTable } from "@/components/OrderItemsTable";
 import { ErrorBox, Spinner, StatusBadge, SuccessBox } from "@/components/ui";
@@ -31,7 +32,7 @@ export function OrderAdmin({ id }: { id: number }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
-  const [panel, setPanel] = useState<"edit" | "return" | null>(null);
+  const [panel, setPanel] = useState<"edit" | "return" | "pick" | null>(null);
 
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!order) return <Spinner />;
@@ -61,6 +62,7 @@ export function OrderAdmin({ id }: { id: number }) {
   };
 
   const canEdit = order.status === "new" || order.status === "processing";
+  const canPick = !isStore && canEdit;
   const canReturn = order.status === "delivered" && !order.fully_returned;
   const panelDone = (text: string) => () => {
     setPanel(null);
@@ -104,6 +106,11 @@ export function OrderAdmin({ id }: { id: number }) {
           </button>
         ))}
         <span className="flex-1" />
+        {canPick && (
+          <button className="btn btn-primary btn-sm" onClick={() => setPanel("pick")}>
+            Собрать заказ
+          </button>
+        )}
         {canEdit && (
           <button className="btn btn-gold btn-sm" onClick={() => setPanel("edit")}>
             Изменить состав
@@ -116,6 +123,17 @@ export function OrderAdmin({ id }: { id: number }) {
         )}
         {order.fully_returned && <span className="chip text-red-600">Возвращён полностью</span>}
       </div>
+      {panel === "pick" && (
+        <PickingPanel
+          order={order}
+          canShip={nextStatuses(order).includes("shipped")}
+          onShip={() => {
+            setPanel(null);
+            patch({ status: "shipped" }, `Заказ собран. Статус изменён: ${STATUS_LABELS.shipped}`);
+          }}
+          onClose={() => setPanel(null)}
+        />
+      )}
       {panel === "edit" && (
         <EditItemsPanel
           order={order}

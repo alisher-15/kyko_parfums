@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
@@ -174,7 +175,7 @@ function Purchase({
           </div>
         )}
 
-        {discounted && rules && <ThresholdNote rules={rules} />}
+        {discounted && rules && hasThresholds(rules) && <ThresholdNote rules={rules} />}
 
         <div className="mt-4 text-sm">
           {outOfStock ? (
@@ -201,16 +202,49 @@ function Purchase({
             </Link>
           </div>
         )}
-        {!user && (
-          <p className="mt-4 text-xs text-muted">
-            Оптовые цены доступны после{" "}
-            <Link href="/register" className="text-gold underline">
-              регистрации
-            </Link>{" "}
-            и подтверждения статуса менеджером.
-          </p>
-        )}
       </div>
+
+      {variant.next_tier_price !== null && (
+        <div className="mt-4 rounded-2xl border border-gold/40 bg-amber-50/60 p-5">
+          <div className="text-xs font-semibold tracking-widest text-gold uppercase">
+            Ваша следующая цена
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-2">
+            <span className="text-2xl font-bold">{money(variant.next_tier_price)}</span>
+            <span className="text-sm text-muted">
+              на крупном опте · −{Math.round((1 - variant.next_tier_price / variant.price) * 100)}% к
+              вашей цене
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-muted">
+            {rules?.next_tier_terms || "Условия перехода на крупный опт уточнит менеджер."}
+          </p>
+          <div className="mt-3">
+            <UpgradeRequest compact />
+          </div>
+        </div>
+      )}
+
+      {(!user || user.role === "retail") && (
+        <div className="mt-4 rounded-2xl bg-ink p-5 text-white">
+          <div className="font-serif text-xl font-semibold">Для магазинов и салонов</div>
+          <p className="mt-1 text-sm text-stone-300">
+            Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит статус, и цены в
+            каталоге обновятся.
+          </p>
+          <div className="mt-3">
+            {user ? (
+              <Link href="/account" className="btn btn-gold btn-sm">
+                Оставить заявку
+              </Link>
+            ) : (
+              <Link href="/register?next=/account" className="btn btn-gold btn-sm">
+                Зарегистрироваться и оставить заявку
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -234,6 +268,12 @@ function thresholdHint(rules: PricingRules | undefined, tier: "wholesale" | "bul
   }
   const qty = tier === "wholesale" ? rules.wholesale_min_item_qty : rules.bulk_min_item_qty;
   return qty && qty > 1 ? `от ${qty} шт.` : null;
+}
+
+function hasThresholds(rules: PricingRules): boolean {
+  return rules.mode === "order_total"
+    ? !!(rules.wholesale_min_order_amount || rules.bulk_min_order_amount)
+    : (rules.wholesale_min_item_qty ?? 1) > 1 || (rules.bulk_min_item_qty ?? 1) > 1;
 }
 
 function ThresholdNote({ rules }: { rules: PricingRules }) {

@@ -46,6 +46,31 @@ def visible_tiers(role: UserRole | None) -> list[PriceTier]:
     return [t for t in PriceTier if TIER_RANK[t] <= top]
 
 
+ROLE_RANK = {
+    UserRole.retail: 0,
+    UserRole.wholesale: 1,
+    UserRole.bulk_wholesale: 2,
+}
+
+
+def next_role(role: UserRole | None) -> UserRole | None:
+    """The price level a customer can ask to be upgraded to (None: nothing above / not a buyer)."""
+    return {UserRole.retail: UserRole.wholesale, UserRole.wholesale: UserRole.bulk_wholesale}.get(
+        role  # type: ignore[arg-type]
+    )
+
+
+def teaser_tier(role: UserRole | None, settings: PricingSettings) -> PriceTier | None:
+    """Tier whose price is shown to the customer as "your next price" (upsell), if any.
+
+    Only wholesale customers get a teaser (the bulk price). Retail customers and guests never
+    see trade prices: resellers' end customers would see their purchase price.
+    """
+    if role == UserRole.wholesale and settings.show_next_tier:
+        return PriceTier.bulk
+    return None
+
+
 def price_for_tier(variant: ProductVariant, tier: PriceTier) -> Decimal:
     """Unit price for a tier, falling back to the next tier when a price is not set."""
     if tier == PriceTier.bulk and variant.bulk_price is not None:

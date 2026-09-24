@@ -120,10 +120,13 @@ class User(TimestampMixin, Base):
     full_name: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(64))
     company_name: Mapped[str | None] = mapped_column(String(255))
-    # User asked to be upgraded to wholesale; an admin reviews and changes the role manually.
+    # User asked for a better price level (retail -> wholesale, wholesale -> bulk);
+    # an admin reviews and changes the role manually. requested_role says which one.
     wholesale_requested: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )
+    requested_role: Mapped[UserRole | None] = mapped_column(_enum(UserRole, "requested_role"))
+    upgrade_request_note: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Bumped on password change/reset to invalidate outstanding refresh tokens.
     token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -341,6 +344,10 @@ class PricingSettings(Base):
     bulk_min_order_amount: Mapped[Decimal] = mapped_column(MONEY, default=0, server_default="0")
     wholesale_min_item_qty: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     bulk_min_item_qty: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    # Show wholesale customers the bulk price as their "next price" (upsell teaser).
+    show_next_tier: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Conditions for getting bulk prices, shown next to the teaser.
+    next_tier_terms: Mapped[str | None] = mapped_column(Text)
     # Largest discount an admin may give per line in a store sale.
     max_store_discount_percent: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), default=10, server_default="10"

@@ -114,6 +114,17 @@ export default function CartPage() {
 
         <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
           {quote && <QuoteHints quote={quote} />}
+          {quote?.next_tier_total != null && quote.next_tier_total < quote.total && (
+            <div className="rounded-xl border border-gold/40 bg-amber-50/60 px-4 py-3 text-sm">
+              <div>
+                На крупном опте этот заказ стоил бы <b>{money(quote.next_tier_total)}</b> —
+                экономия {money(quote.total - quote.next_tier_total)}.
+              </div>
+              <Link href="/account#upgrade" className="mt-1 inline-block font-semibold text-gold">
+                Запросить крупный опт →
+              </Link>
+            </div>
+          )}
           <div className={`card p-5 ${loading ? "opacity-70" : ""}`}>
             <div className="flex justify-between text-sm">
               <span className="text-muted">По розничным ценам</span>

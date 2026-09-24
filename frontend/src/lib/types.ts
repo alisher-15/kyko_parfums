@@ -22,6 +22,8 @@ export interface User {
   phone: string | null;
   company_name: string | null;
   wholesale_requested: boolean;
+  requested_role: UserRole | null;
+  upgrade_request_note: string | null;
   created_at: string;
 }
 
@@ -53,6 +55,8 @@ export interface VariantPublic {
   retail_price: number;
   wholesale_price: number | null;
   bulk_price: number | null;
+  next_tier: PriceTier | null;
+  next_tier_price: number | null;
 }
 
 export interface ProductListItem {
@@ -95,6 +99,9 @@ export interface PricingRules {
   bulk_min_order_amount: number | null;
   wholesale_min_item_qty: number | null;
   bulk_min_item_qty: number | null;
+  next_role: UserRole | null;
+  next_tier: PriceTier | null;
+  next_tier_terms: string | null;
 }
 
 export interface QuoteLine {
@@ -130,6 +137,8 @@ export interface Quote {
   price_tier: PriceTier | null;
   hints: TierHint[];
   can_checkout: boolean;
+  next_tier: PriceTier | null;
+  next_tier_total: number | null;
 }
 
 export interface OrderItem {
@@ -273,6 +282,8 @@ export interface PricingSettings {
   wholesale_min_item_qty: number;
   bulk_min_item_qty: number;
   max_store_discount_percent: number;
+  show_next_tier: boolean;
+  next_tier_terms: string | null;
   updated_at?: string;
 }
 

@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { FilterIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 import { CURRENCY, GENDER_LABELS, money, plural } from "@/lib/format";
 import type { Filters, Page, ProductListItem } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
@@ -24,6 +26,7 @@ export function CatalogView() {
   const router = useRouter();
   const pathname = usePathname();
   const [showFilters, setShowFilters] = useState(false);
+  const { user } = useAuth();
 
   const query = useMemo(
     () => ({
@@ -122,6 +125,22 @@ export function CatalogView() {
         </aside>
 
         <section>
+          {(!user || user.role === "retail") && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-ink px-5 py-4 text-white">
+              <div>
+                <div className="font-semibold">Для магазинов и салонов — оптовые цены</div>
+                <div className="text-sm text-stone-300">
+                  Оставьте заявку: после проверки цены в каталоге станут оптовыми.
+                </div>
+              </div>
+              <Link
+                href={user ? "/account" : "/register?next=/account"}
+                className="btn btn-gold btn-sm"
+              >
+                Оставить заявку
+              </Link>
+            </div>
+          )}
           {products.error && <ErrorBox>{products.error.message}</ErrorBox>}
           {products.loading && !products.data && <Spinner />}
           {products.data && products.data.items.length === 0 && (

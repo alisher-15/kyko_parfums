@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { ErrorBox, Field, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -20,26 +21,13 @@ export default function AccountPage() {
 }
 
 function StatusCard({ user }: { user: User }) {
-  const { setUser } = useAuth();
   const { data: rules } = useApi<PricingRules>("/pricing/rules");
-  const [company, setCompany] = useState(user.company_name ?? "");
-  const [phone, setPhone] = useState(user.phone ?? "");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const isWholesale = user.role === "wholesale" || user.role === "bulk_wholesale";
-
-  const requestWholesale = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      setUser(await api<User>("/me/wholesale-request", { body: { company_name: company, phone } }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const thresholds =
+    rules &&
+    (rules.mode === "order_total"
+      ? !!(rules.wholesale_min_order_amount || rules.bulk_min_order_amount)
+      : (rules.wholesale_min_item_qty ?? 1) > 1 || (rules.bulk_min_item_qty ?? 1) > 1);
 
   return (
     <div className="card p-6 md:row-span-2">
@@ -53,12 +41,18 @@ function StatusCard({ user }: { user: User }) {
         <div className="mt-5 rounded-xl bg-cream p-4 text-sm">
           <div className="font-semibold">Ваши условия</div>
           <ul className="mt-2 space-y-1 text-muted">
-            {rules.mode === "order_total" ? (
+            {!thresholds ? (
+              <li>
+                {user.role === "bulk_wholesale" ? "Цены крупного опта" : "Оптовые цены"} действуют
+                на любой заказ.
+              </li>
+            ) : rules.mode === "order_total" ? (
               <>
                 <li>Оптовые цены — при заказе от {money(rules.wholesale_min_order_amount)}</li>
                 {rules.bulk_min_order_amount !== null && (
                   <li>Цены крупного опта — при заказе от {money(rules.bulk_min_order_amount)}</li>
                 )}
+                <li>Ниже порога заказ считается по розничным ценам.</li>
               </>
             ) : (
               <>
@@ -66,51 +60,34 @@ function StatusCard({ user }: { user: User }) {
                 {rules.bulk_min_item_qty !== null && (
                   <li>Крупный опт — от {rules.bulk_min_item_qty} шт. одной позиции</li>
                 )}
+                <li>Ниже порога заказ считается по розничным ценам.</li>
               </>
             )}
-            <li>Ниже порога заказ считается по розничным ценам.</li>
           </ul>
         </div>
       )}
 
-      {user.role === "retail" &&
-        (user.wholesale_requested ? (
-          <div className="mt-5">
-            <SuccessBox>
-              Заявка на оптовый статус отправлена. Менеджер проверит данные и сменит статус —
-              новые цены появятся автоматически.
-            </SuccessBox>
-          </div>
-        ) : (
-          <form onSubmit={requestWholesale} className="mt-6 space-y-3">
-            <div className="font-semibold">Хотите покупать оптом?</div>
-            <p className="text-sm text-muted">
-              Оставьте данные компании — после проверки менеджер присвоит статус «Опт» или «Крупный
-              опт».
-            </p>
-            <Field label="Компания / ИП">
-              <input
-                className="input"
-                required
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-              />
-            </Field>
-            <Field label="Телефон для связи">
-              <input
-                className="input"
-                required
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Field>
-            {error && <ErrorBox>{error}</ErrorBox>}
-            <button className="btn btn-gold" disabled={busy}>
-              Отправить заявку
-            </button>
-          </form>
-        ))}
+      {user.role === "retail" && (
+        <div className="mt-6 space-y-3">
+          <div className="font-semibold">Хотите покупать оптом?</div>
+          <p className="text-sm text-muted">
+            Оставьте данные компании — после проверки менеджер присвоит оптовый статус, и цены в
+            каталоге обновятся.
+          </p>
+          <UpgradeRequest />
+        </div>
+      )}
+
+      {user.role === "wholesale" && (
+        <div className="mt-6 space-y-3" id="upgrade">
+          <div className="font-semibold">Крупный опт</div>
+          <p className="text-sm text-muted">
+            {rules?.next_tier_terms ||
+              "Цены ниже оптовых для постоянных крупных закупок. Условия уточнит менеджер."}
+          </p>
+          <UpgradeRequest />
+        </div>
+      )}
     </div>
   );
 }

@@ -30,6 +30,9 @@ class VariantPublic(BaseModel):
     # Only filled for roles allowed to see them.
     wholesale_price: Money | None = None
     bulk_price: Money | None = None
+    # Upsell teaser: the price of the next level (bulk for wholesale customers), if cheaper.
+    next_tier: PriceTier | None = None
+    next_tier_price: Money | None = None
 
 
 class ProductListItem(BaseModel):
@@ -78,3 +81,7 @@ class PricingRulesOut(BaseModel):
     bulk_min_order_amount: Money | None = None
     wholesale_min_item_qty: int | None = None
     bulk_min_item_qty: int | None = None
+    # Upsell: the level the customer can ask for, whether prices of it are shown, its terms.
+    next_role: UserRole | None = None
+    next_tier: PriceTier | None = None
+    next_tier_terms: str | None = None

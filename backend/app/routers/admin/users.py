@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.deps import require_admin
 from app.models import Order, User, UserRole
+from app.pricing import ROLE_RANK
 from app.schemas.admin import AdminUserCreate, AdminUserOut, AdminUserUpdate
 from app.schemas.common import Page
 from app.security import hash_password
@@ -98,9 +99,17 @@ def update_user(
     if password:
         user.password_hash = hash_password(password)
         user.token_version += 1
-    if "role" in changes and changes["role"] in (UserRole.wholesale, UserRole.bulk_wholesale):
-        # The wholesale request has been handled.
-        user.wholesale_requested = False
+    new_role = changes.get("role")
+    if (
+        user.wholesale_requested
+        and new_role in ROLE_RANK
+        and ROLE_RANK[new_role] >= ROLE_RANK.get(user.requested_role, 1)
+    ):
+        # The upgrade request has been granted.
+        changes["wholesale_requested"] = False
+    if changes.get("wholesale_requested") is False:
+        user.requested_role = None
+        user.upgrade_request_note = None
     if changes.get("is_active") is False:
         user.token_version += 1  # revoke refresh tokens
     for k, v in changes.items():

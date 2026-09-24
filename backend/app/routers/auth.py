@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import PasswordResetToken, User
+from app.models import PasswordResetToken, User, UserRole
+from app.pricing import next_role
 from app.schemas.auth import (
     ChangePasswordIn,
     ForgotPasswordIn,
@@ -18,8 +19,8 @@ from app.schemas.auth import (
     RegisterIn,
     ResetPasswordIn,
     TokenPair,
+    UpgradeRequestIn,
     UserOut,
-    WholesaleRequestIn,
 )
 from app.schemas.common import Message
 from app.security import (
@@ -172,14 +173,27 @@ def change_password(
     return issue_tokens(user)
 
 
-@me_router.post("/wholesale-request", response_model=UserOut)
-def request_wholesale(
-    data: WholesaleRequestIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+@me_router.post("/upgrade-request", response_model=UserOut)
+@me_router.post("/wholesale-request", response_model=UserOut, include_in_schema=False)
+def request_upgrade(
+    data: UpgradeRequestIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    """Ask for a wholesale account; an admin reviews it and changes the role manually."""
-    user.company_name = data.company_name
-    user.phone = data.phone
+    """Ask for the next price level (retail -> wholesale, wholesale -> bulk).
+
+    An admin reviews the request and changes the role manually.
+    """
+    target = next_role(user.role)
+    if target is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "У вас уже максимальный уровень цен")
+    company = (data.company_name or "").strip() or user.company_name
+    phone = (data.phone or "").strip() or user.phone
+    if target == UserRole.wholesale and not (company and phone):
+        raise HTTPException(422, "Укажите компанию и телефон для связи")
+    user.company_name = company
+    user.phone = phone
     user.wholesale_requested = True
+    user.requested_role = target
+    user.upgrade_request_note = (data.note or "").strip() or None
     db.commit()
     db.refresh(user)
     return user

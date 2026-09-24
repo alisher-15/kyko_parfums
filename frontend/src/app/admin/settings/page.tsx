@@ -10,12 +10,32 @@ import { useApi } from "@/lib/use-api";
 
 export default function PricingSettingsPage() {
   const { data, error, reload } = useApi<PricingSettings>("/admin/settings/pricing");
+  // Lives here: the form is re-created with fresh data after saving.
+  const [saved, setSaved] = useState(false);
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!data) return <Spinner />;
-  return <SettingsForm key={data.updated_at} initial={data} onSaved={reload} />;
+  return (
+    <SettingsForm
+      key={data.updated_at}
+      initial={data}
+      saved={saved}
+      onSaved={() => {
+        setSaved(true);
+        reload();
+      }}
+    />
+  );
 }
 
-function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved: () => void }) {
+function SettingsForm({
+  initial,
+  saved,
+  onSaved,
+}: {
+  initial: PricingSettings;
+  saved: boolean;
+  onSaved: () => void;
+}) {
   const [form, setForm] = useState({
     mode: initial.mode,
     wholesale_min_order_amount: String(initial.wholesale_min_order_amount),
@@ -23,6 +43,8 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
     wholesale_min_item_qty: String(initial.wholesale_min_item_qty),
     bulk_min_item_qty: String(initial.bulk_min_item_qty),
     max_store_discount_percent: String(initial.max_store_discount_percent),
+    show_next_tier: initial.show_next_tier,
+    next_tier_terms: initial.next_tier_terms ?? "",
   });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -42,9 +64,10 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
           wholesale_min_item_qty: Number(form.wholesale_min_item_qty || 1),
           bulk_min_item_qty: Number(form.bulk_min_item_qty || 1),
           max_store_discount_percent: Number(form.max_store_discount_percent.replace(",", ".") || 0),
+          show_next_tier: form.show_next_tier,
+          next_tier_terms: form.next_tier_terms.trim() || null,
         },
       });
-      setMsg({ ok: true, text: "Настройки сохранены — новые правила уже действуют в корзине." });
       onSaved();
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
@@ -119,6 +142,32 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
         )}
       </div>
 
+      <div className="card space-y-3 p-5">
+        <div className="font-semibold">Цена крупного опта для оптовиков</div>
+        <p className="text-sm text-muted">
+          Оптовым клиентам показывается «ваша следующая цена» — цена крупного опта с кнопкой
+          «Запросить крупный опт», а в корзине — сколько стоил бы заказ на крупном опте. Розничным
+          клиентам и гостям оптовые цены не показываются никогда.
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={form.show_next_tier}
+            onChange={(e) => setForm({ ...form, show_next_tier: e.target.checked })}
+          />
+          Показывать оптовикам цену крупного опта
+        </label>
+        <Field label="Условия перехода на крупный опт (видят оптовики)">
+          <textarea
+            className="input min-h-20"
+            placeholder="Например: от 300 000 ₸ закупок в месяц. Напишите нам — подключим за день."
+            value={form.next_tier_terms}
+            onChange={set("next_tier_terms")}
+          />
+        </Field>
+      </div>
+
       <div className="card p-5">
         <div className="mb-1 font-semibold">Продажи в магазине</div>
         <p className="mb-3 text-sm text-muted">
@@ -135,6 +184,9 @@ function SettingsForm({ initial, onSaved }: { initial: PricingSettings; onSaved:
       </div>
 
       {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
+      {saved && !msg && (
+        <SuccessBox>Настройки сохранены — новые правила уже действуют на сайте.</SuccessBox>
+      )}
       <div className="flex items-center gap-4">
         <button className="btn btn-primary">Сохранить</button>
         {initial.updated_at && (

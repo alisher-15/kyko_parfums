@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.db import get_db
 from app.deps import get_current_user_optional
 from app.models import Brand, Gender, PriceTier, Product, ProductVariant, User
-from app.pricing import max_tier_for_role, price_for_tier, visible_tiers
+from app.pricing import (
+    max_tier_for_role,
+    next_role,
+    price_for_tier,
+    teaser_tier,
+    visible_tiers,
+)
 from app.schemas.catalog import (
     BrandBrief,
     BrandOut,
@@ -44,17 +50,25 @@ def tier_price_expr(tier: PriceTier):
     return ProductVariant.retail_price
 
 
-def variant_public(variant: ProductVariant, user: User | None) -> VariantPublic:
+def variant_public(
+    variant: ProductVariant, user: User | None, teaser: PriceTier | None = None
+) -> VariantPublic:
     role = user.role if user else None
     tier = max_tier_for_role(role)
     tiers = visible_tiers(role)
+    price = price_for_tier(variant, tier)
+    next_price = price_for_tier(variant, teaser) if teaser else None
+    if next_price is not None and next_price >= price:
+        next_price = None
     return VariantPublic(
+        next_tier=teaser if next_price is not None else None,
+        next_tier_price=next_price,
         id=variant.id,
         volume_ml=variant.volume_ml,
         sku=variant.sku,
         stock=variant.stock,
         photo_url=variant.photo_url,
-        price=price_for_tier(variant, tier),
+        price=price,
         price_tier=tier,
         retail_price=variant.retail_price,
         wholesale_price=(
@@ -205,7 +219,8 @@ def get_product(
     if product is None:
         raise HTTPException(404, "Товар не найден")
     variants = [v for v in product.variants if v.is_active]
-    public_variants = [variant_public(v, user) for v in variants]
+    teaser = teaser_tier(user.role if user else None, get_pricing_settings(db))
+    public_variants = [variant_public(v, user, teaser) for v in variants]
     min_price = min((v.price for v in public_variants), default=None)
     return ProductDetail(
         **_list_item_fields(product, variants, min_price),
@@ -308,4 +323,8 @@ def pricing_rules(
     if PriceTier.bulk in tiers:
         out.bulk_min_order_amount = s.bulk_min_order_amount
         out.bulk_min_item_qty = s.bulk_min_item_qty
+    out.next_role = next_role(role) if user else None
+    out.next_tier = teaser_tier(role, s)
+    if out.next_tier:
+        out.next_tier_terms = s.next_tier_terms
     return out

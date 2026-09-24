@@ -361,6 +361,8 @@ class PricingSettingsIO(ORMModel):
     wholesale_min_item_qty: int = Field(ge=1)
     bulk_min_item_qty: int = Field(ge=1)
     max_store_discount_percent: Decimal = Field(default=Decimal(10), ge=0, le=100)
+    show_next_tier: bool = True
+    next_tier_terms: str | None = Field(default=None, max_length=2000)
 
     @model_validator(mode="after")
     def bulk_not_below_wholesale(self):
@@ -378,6 +380,8 @@ class PricingSettingsOut(BaseModel):
     wholesale_min_item_qty: int
     bulk_min_item_qty: int
     max_store_discount_percent: float
+    show_next_tier: bool
+    next_tier_terms: str | None
     updated_at: datetime
 
 

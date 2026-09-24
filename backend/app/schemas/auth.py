@@ -57,6 +57,8 @@ class UserOut(ORMModel):
     phone: str | None
     company_name: str | None
     wholesale_requested: bool
+    requested_role: UserRole | None
+    upgrade_request_note: str | None
     created_at: datetime
 
 
@@ -73,6 +75,10 @@ class ProfileUpdate(BaseModel):
     company_name: str | None = Field(default=None, max_length=255)
 
 
-class WholesaleRequestIn(BaseModel):
-    company_name: str = Field(min_length=1, max_length=255)
-    phone: str = Field(min_length=3, max_length=64)
+class UpgradeRequestIn(BaseModel):
+    """Ask for the next price level. Company and phone are required for the first (wholesale)
+    request unless they are already in the profile."""
+
+    company_name: str | None = Field(default=None, max_length=255)
+    phone: str | None = Field(default=None, max_length=64)
+    note: str | None = Field(default=None, max_length=1000)

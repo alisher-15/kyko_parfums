@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -14,7 +16,7 @@ from app.models import (
     StockReason,
     User,
 )
-from app.pricing import Quote, QuoteItem, build_quote
+from app.pricing import Quote, QuoteItem, build_quote, price_for_tier, teaser_tier
 from app.schemas.common import Page
 from app.schemas.orders import (
     CheckoutIn,
@@ -85,8 +87,18 @@ def quote_cart(
     variants = load_sellable_variants(db, quantities)
     items = [QuoteItem(variants[vid], qty) for vid, qty in quantities.items() if vid in variants]
     unavailable = [vid for vid in quantities if vid not in variants]
-    quote = build_quote(items, user.role if user else None, get_pricing_settings(db))
-    return _quote_out(quote, unavailable)
+    settings = get_pricing_settings(db)
+    role = user.role if user else None
+    quote = build_quote(items, role, settings)
+    out = _quote_out(quote, unavailable)
+    teaser = teaser_tier(role, settings)
+    if teaser and items:
+        next_total = sum(
+            (price_for_tier(i.variant, teaser) * i.quantity for i in items), Decimal(0)
+        )
+        if next_total < quote.total:
+            out.next_tier, out.next_tier_total = teaser, next_total
+    return out
 
 
 @router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)

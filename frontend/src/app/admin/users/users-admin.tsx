@@ -110,7 +110,7 @@ export function UsersAdmin({
               setPage(1);
             }}
           />
-          Только заявки на опт
+          Только заявки на опт / крупный опт
         </label>
       </div>
       {(msg || error) && (
@@ -139,9 +139,16 @@ export function UsersAdmin({
                     <div className="font-semibold">{u.email}</div>
                     <div className="text-xs text-muted">{u.full_name}</div>
                     {u.wholesale_requested && (
-                      <span className="mt-1 inline-block rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold text-white">
-                        ЗАЯВКА НА ОПТ
-                      </span>
+                      <>
+                        <span className="mt-1 inline-block rounded-full bg-gold px-2 py-0.5 text-[10px] font-bold text-white">
+                          ЗАЯВКА: {ROLE_LABELS[u.requested_role ?? "wholesale"].toUpperCase()}
+                        </span>
+                        {u.upgrade_request_note && (
+                          <div className="mt-1 max-w-56 text-xs text-muted">
+                            «{u.upgrade_request_note}»
+                          </div>
+                        )}
+                      </>
                     )}
                   </td>
                   <td className="text-xs">
@@ -161,7 +168,7 @@ export function UsersAdmin({
                         </option>
                       ))}
                     </select>
-                    {u.wholesale_requested && u.role === "retail" && (
+                    {u.wholesale_requested && (
                       <button
                         className="mt-1 block text-[11px] text-muted underline"
                         onClick={() => patch(u, { wholesale_requested: false })}

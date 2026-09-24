@@ -57,6 +57,9 @@ class QuoteOut(BaseModel):
     price_tier: PriceTier | None
     hints: list[TierHintOut]
     can_checkout: bool
+    # Upsell: what this cart would cost at the next price level.
+    next_tier: PriceTier | None = None
+    next_tier_total: Money | None = None
 
 
 class CheckoutIn(BaseModel):

@@ -5,7 +5,6 @@ import { createDecoder } from "@/lib/barcode-decoder";
 import { scanFeedback } from "@/lib/scan-feedback";
 import { ScanResultCard, type ScanResult } from "./ScanResultCard";
 
-export type { ScanResult };
 
 type Phase = "starting" | "scanning" | "processing" | "result";
 

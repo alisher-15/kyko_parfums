@@ -6,11 +6,7 @@ import { useState, type FormEvent } from "react";
 import { AuthCard } from "@/components/AuthCard";
 import { ErrorBox, Field } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-
-/** Only allow same-site relative redirects after login. */
-export function safeNext(next: string | null, fallback = "/account"): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : fallback;
-}
+import { safeNext } from "@/lib/safe-next";
 
 export function LoginForm() {
   const { login } = useAuth();

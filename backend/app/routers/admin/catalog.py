@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -20,6 +20,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
+from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
 
 router = APIRouter()
@@ -45,7 +46,7 @@ def list_brands(q: str | None = None, db: Session = Depends(get_db)):
         .order_by(Brand.name)
     )
     if q:
-        stmt = stmt.where(Brand.name.ilike(f"%{q.strip()}%"))
+        stmt = stmt.where(Brand.name.ilike(contains(q)))
     return [
         BrandOut(
             id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c
@@ -123,8 +124,7 @@ def list_products(
 ):
     conds = []
     if q and q.strip():
-        for w in q.split():
-            conds.append(or_(Product.name.ilike(f"%{w}%"), Brand.name.ilike(f"%{w}%")))
+        conds.append(product_name_match(q))
     if brand_id is not None:
         conds.append(Product.brand_id == brand_id)
     if is_active is not None:

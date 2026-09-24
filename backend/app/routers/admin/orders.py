@@ -20,6 +20,7 @@ from app.services.orders import (
     edit_items,
     order_load_options,
 )
+from app.services.search import contains
 
 router = APIRouter()
 
@@ -56,7 +57,7 @@ def list_orders(
     if user_id is not None:
         conds.append(Order.user_id == user_id)
     if q and q.strip():
-        like = f"%{q.strip()}%"
+        like = contains(q)
         conds.append(
             or_(
                 cast(Order.id, String) == q.strip().lstrip("#"),

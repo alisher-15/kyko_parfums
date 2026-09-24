@@ -55,6 +55,9 @@ def test_filters_and_search(client, catalog):
     assert _names(r) == ["Coco Mademoiselle", "Sauvage"]
     assert _names(client.get("/api/products", params={"q": "chanel coco"})) == ["Coco Mademoiselle"]
     assert _names(client.get("/api/products", params={"q": "sauv"})) == ["Sauvage"]
+    # LIKE wildcards typed by the user are plain characters.
+    assert _names(client.get("/api/products", params={"q": "%"})) == []
+    assert _names(client.get("/api/products", params={"q": "sa_vage"})) == []
     assert _names(client.get("/api/products", params={"in_stock": True})) == ["Coco Mademoiselle"]
     assert _names(client.get("/api/products", params={"type": "EDT"})) == ["Sauvage"]
 

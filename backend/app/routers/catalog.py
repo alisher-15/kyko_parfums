@@ -2,7 +2,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
@@ -26,6 +26,7 @@ from app.schemas.catalog import (
     VariantPublic,
 )
 from app.schemas.common import Page
+from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 
 router = APIRouter(tags=["catalog"])
@@ -97,12 +98,6 @@ def _list_item_fields(
     )
 
 
-def _search_clause(q: str):
-    # Every word must match the brand or the product name: "chanel chance" finds Chance by Chanel.
-    words = [w for w in q.split() if w]
-    return and_(*(or_(Product.name.ilike(f"%{w}%"), Brand.name.ilike(f"%{w}%")) for w in words))
-
-
 @router.get("/products", response_model=Page[ProductListItem])
 def list_products(
     q: str | None = Query(default=None, max_length=200),
@@ -135,7 +130,7 @@ def list_products(
 
     conditions = [Product.is_active]
     if q and q.strip():
-        conditions.append(_search_clause(q))
+        conditions.append(product_name_match(q))
     if brand_id:
         conditions.append(Product.brand_id.in_(brand_id))
     if gender:
@@ -244,7 +239,7 @@ def _brand_counts():
 def list_brands(q: str | None = Query(default=None, max_length=100), db: Session = Depends(get_db)):
     stmt = _brand_counts().order_by(Brand.name)
     if q:
-        stmt = stmt.where(Brand.name.ilike(f"%{q.strip()}%"))
+        stmt = stmt.where(Brand.name.ilike(contains(q)))
     return [
         BrandOut(
             id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c
@@ -276,19 +271,12 @@ def filters(user: User | None = Depends(get_current_user_optional), db: Session 
     ]
 
     def distinct(col):
-        return [
-            v
-            for v in db.scalars(
-                select(col).where(active, col.is_not(None), col != "").distinct().order_by(col)
-            )
-        ]
+        stmt = select(col).where(active, col.is_not(None), col != "").distinct().order_by(col)
+        return list(db.scalars(stmt))
 
-    genders = [
-        g
-        for g in db.scalars(
-            select(Product.gender).where(active, Product.gender.is_not(None)).distinct()
-        )
-    ]
+    genders = list(
+        db.scalars(select(Product.gender).where(active, Product.gender.is_not(None)).distinct())
+    )
 
     price = tier_price_expr(max_tier_for_role(user.role if user else None))
     pmin, pmax = db.execute(

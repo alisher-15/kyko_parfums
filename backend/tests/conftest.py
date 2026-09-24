@@ -20,6 +20,7 @@ from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Brand, Product, ProductVariant, User, UserRole  # noqa: E402
 from app.security import hash_password  # noqa: E402
+from app.services.throttle import login_failures, reset_emails  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "password123"
@@ -42,6 +43,8 @@ def _clean_db():
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
         conn.execute(text("INSERT INTO pricing_settings (id) VALUES (1)"))
+    login_failures.clear()
+    reset_emails.clear()
     yield
 
 

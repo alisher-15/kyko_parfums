@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import and_, case, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
@@ -34,6 +34,7 @@ from app.schemas.admin import (
     VariantSearchItem,
 )
 from app.services.orders import add_event, order_load_options
+from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
 
@@ -73,12 +74,8 @@ def search_variants(
 ):
     """Find volumes by barcode or SKU (exact match first) or by name/brand."""
     term = q.strip()
-    words = [w for w in term.split() if w]
-    name_match = and_(
-        *(or_(Product.name.ilike(f"%{w}%"), Brand.name.ilike(f"%{w}%")) for w in words)
-    )
     exact_code = or_(
-        ProductVariant.sku.ilike(term),
+        func.lower(ProductVariant.sku) == term.lower(),
         ProductVariant.barcodes.any(VariantBarcode.code == term.replace(" ", "")),
     )
     stmt = (
@@ -87,7 +84,7 @@ def search_variants(
         .join(Brand, Brand.id == Product.brand_id)
         .where(
             ProductVariant.is_active,
-            or_(exact_code, ProductVariant.sku.ilike(f"%{term}%"), name_match),
+            or_(exact_code, ProductVariant.sku.ilike(contains(term)), product_name_match(term)),
         )
         .options(joinedload(ProductVariant.product).joinedload(Product.brand))
         .order_by(

@@ -6,7 +6,7 @@ import { useState, type FormEvent } from "react";
 import { AuthCard } from "@/components/AuthCard";
 import { ErrorBox, Field } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { safeNext } from "../login/login-form";
+import { safeNext } from "@/lib/safe-next";
 
 export function RegisterForm() {
   const { register } = useAuth();

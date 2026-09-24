@@ -21,7 +21,7 @@ from app.models import (
     StockReason,
     User,
 )
-from app.services.stock import move_stock
+from app.services.stock import lock_variants, move_stock
 
 # Allowed status transitions. Cancelled and delivered are final.
 TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
@@ -93,19 +93,6 @@ def _label(item: OrderItem) -> str:
     return f"{item.product_name}, {item.volume_ml} мл"
 
 
-def _lock_variants(db: Session, items: Iterable[OrderItem]) -> dict[int, ProductVariant]:
-    ids = sorted({i.variant_id for i in items if i.variant_id is not None})
-    if not ids:
-        return {}
-    stmt = (
-        select(ProductVariant)
-        .where(ProductVariant.id.in_(ids))
-        .order_by(ProductVariant.id)
-        .with_for_update()
-    )
-    return {v.id: v for v in db.scalars(stmt)}
-
-
 def allowed_transitions(order: Order) -> set[OrderStatus]:
     return set(TRANSITIONS[order.status])
 
@@ -133,7 +120,7 @@ def change_status(
 
 
 def restock(db: Session, order: Order, user: User | None = None) -> None:
-    variants = _lock_variants(db, order.items)
+    variants = lock_variants(db, (i.variant_id for i in order.items))
     for item in order.items:
         v = variants.get(item.variant_id)
         if v is not None:
@@ -173,7 +160,7 @@ def edit_items(
     changed = [by_id[i] for i, q in quantities.items() if q != by_id[i].quantity]
     if not changed:
         return
-    variants = _lock_variants(db, changed)
+    variants = lock_variants(db, (i.variant_id for i in changed))
     parts = []
     for item in changed:
         new_qty = quantities[item.id]
@@ -245,7 +232,7 @@ def create_return(
     )
     # SQLAlchemy 2 doesn't cascade via the many-to-one backref: add it explicitly.
     db.add(ret)
-    variants = _lock_variants(db, [by_id[ln.order_item_id] for ln in lines if ln.restock])
+    variants = lock_variants(db, (by_id[ln.order_item_id].variant_id for ln in lines if ln.restock))
     parts = []
     for ln in lines:
         item = by_id[ln.order_item_id]

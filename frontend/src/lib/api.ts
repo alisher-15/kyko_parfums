@@ -3,7 +3,7 @@ import type { TokenPair } from "./types";
 const TOKENS_KEY = "kyko.tokens";
 export const AUTH_EVENT = "kyko:auth";
 
-export interface StoredTokens {
+interface StoredTokens {
   access_token: string;
   refresh_token: string;
 }
@@ -85,7 +85,7 @@ export interface RequestOptions {
   query?: Record<string, QueryValue>;
 }
 
-export function buildQuery(query?: Record<string, QueryValue>): string {
+function buildQuery(query?: Record<string, QueryValue>): string {
   if (!query) return "";
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
@@ -97,7 +97,7 @@ export function buildQuery(query?: Record<string, QueryValue>): string {
   return s ? `?${s}` : "";
 }
 
-export function errorMessage(detail: unknown, fallback = "Что-то пошло не так"): string {
+function errorMessage(detail: unknown, fallback = "Что-то пошло не так"): string {
   if (typeof detail === "string") return detail;
   if (Array.isArray(detail)) {
     // FastAPI validation errors
@@ -130,13 +130,16 @@ async function send(path: string, opts: RequestOptions, withAuth: boolean): Prom
   });
 }
 
+async function request(path: string, opts: RequestOptions = {}): Promise<Response> {
+  const res = await send(path, opts, true);
+  if (res.status !== 401 || !getTokens()) return res;
+  // Access token expired: refresh once, or fall back to a guest request.
+  const refreshed = await refreshTokens();
+  return send(path, opts, refreshed);
+}
+
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  let res = await send(path, opts, true);
-  if (res.status === 401 && getTokens()) {
-    // Access token expired: refresh once, or fall back to a guest request.
-    const refreshed = await refreshTokens();
-    res = await send(path, opts, refreshed);
-  }
+  const res = await request(path, opts);
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -148,15 +151,13 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 
 /** Download a protected file (e.g. the admin import template) with the current token. */
 export async function downloadFile(path: string, filename: string): Promise<void> {
-  const tokens = getTokens();
-  const res = await fetch(`/api${path}`, {
-    headers: tokens ? { Authorization: `Bearer ${tokens.access_token}` } : {},
-  });
+  const res = await request(path);
   if (!res.ok) throw new ApiError(res.status, `Ошибка ${res.status}`, null);
   const url = URL.createObjectURL(await res.blob());
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
-  URL.revokeObjectURL(url);
+  // Revoking right away can cancel the download in some browsers.
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }

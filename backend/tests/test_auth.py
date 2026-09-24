@@ -120,6 +120,50 @@ def test_new_reset_link_invalidates_previous(client, db, monkeypatch):
     assert r.status_code == 200
 
 
+def test_login_is_throttled_after_repeated_failures(client, db):
+    make_user(db, "target@example.com")
+    for _ in range(10):
+        r = client.post(
+            "/api/auth/login", json={"email": "target@example.com", "password": "guess-guess"}
+        )
+        assert r.status_code == 401
+    # Even the right password is refused until the window passes: guessing learns nothing.
+    r = client.post("/api/auth/login", json={"email": "Target@example.com", "password": PASSWORD})
+    assert r.status_code == 429
+    assert int(r.headers["Retry-After"]) > 0
+    assert "Попробуйте через" in r.json()["detail"]
+    # Other accounts are not affected.
+    make_user(db, "other@example.com")
+    r = client.post("/api/auth/login", json={"email": "other@example.com", "password": PASSWORD})
+    assert r.status_code == 200
+
+
+def test_successful_login_resets_failures(client, db):
+    make_user(db, "typo@example.com")
+    for _ in range(9):
+        client.post("/api/auth/login", json={"email": "typo@example.com", "password": "typo-typo"})
+    r = client.post("/api/auth/login", json={"email": "typo@example.com", "password": PASSWORD})
+    assert r.status_code == 200
+    for _ in range(9):
+        client.post("/api/auth/login", json={"email": "typo@example.com", "password": "typo-typo"})
+    r = client.post("/api/auth/login", json={"email": "typo@example.com", "password": PASSWORD})
+    assert r.status_code == 200
+
+
+def test_reset_emails_are_rate_limited_silently(client, db, monkeypatch):
+    make_user(db, "flood@example.com")
+    sent: list[str] = []
+    monkeypatch.setattr(
+        "app.routers.auth.send_password_reset", lambda to, token: sent.append(token)
+    )
+    answers = {
+        client.post("/api/auth/forgot-password", json={"email": "flood@example.com"}).text
+        for _ in range(5)
+    }
+    assert len(sent) == 3
+    assert len(answers) == 1  # the answer does not reveal the limit
+
+
 def test_profile_and_wholesale_request(client, db):
     make_user(db, "shop@example.com")
     headers = login(client, "shop@example.com")

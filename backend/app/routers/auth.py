@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from math import ceil
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -33,6 +34,7 @@ from app.security import (
     verify_password,
 )
 from app.services.email import send_password_reset
+from app.services.throttle import login_failures, reset_emails
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 me_router = APIRouter(prefix="/me", tags=["account"])
@@ -47,11 +49,21 @@ def issue_tokens(user: User) -> TokenPair:
 
 
 def _authenticate(db: Session, email: str, password: str) -> User:
-    user = db.scalar(select(User).where(User.email == email.strip().lower()))
+    email = email.strip().lower()
+    wait = login_failures.retry_after(email)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Слишком много неудачных попыток входа. Попробуйте через {ceil(wait / 60)} мин.",
+            headers={"Retry-After": str(wait)},
+        )
+    user = db.scalar(select(User).where(User.email == email))
     if user is None or not verify_password(password, user.password_hash):
+        login_failures.hit(email)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Неверный email или пароль")
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Учётная запись заблокирована")
+    login_failures.reset(email)
     return user
 
 
@@ -101,7 +113,8 @@ def forgot_password(
     data: ForgotPasswordIn, background: BackgroundTasks, db: Session = Depends(get_db)
 ):
     user = db.scalar(select(User).where(User.email == data.email))
-    if user is not None and user.is_active:
+    if user is not None and user.is_active and not reset_emails.retry_after(user.email):
+        reset_emails.hit(user.email)
         # Only the latest link is valid.
         db.execute(
             update(PasswordResetToken)
@@ -117,7 +130,7 @@ def forgot_password(
         )
         db.commit()
         background.add_task(send_password_reset, user.email, raw)
-    # Same answer whether or not the email exists.
+    # Same answer whether or not the email exists (or was throttled).
     return Message(detail="Если такой email зарегистрирован, мы отправили на него ссылку")
 
 

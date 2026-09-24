@@ -11,8 +11,9 @@ import { ErrorBox, Field, SuccessBox } from "./ui";
 /** "Ask for the next price level" — retail -> wholesale, wholesale -> bulk. */
 export function UpgradeRequest({ compact = false }: { compact?: boolean }) {
   const { user, setUser } = useAuth();
-  const [company, setCompany] = useState(user?.company_name ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
+  // null = not edited here: follow the profile, which can change on the same page.
+  const [companyEdit, setCompany] = useState<string | null>(null);
+  const [phoneEdit, setPhone] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(!compact);
   const [busy, setBusy] = useState(false);
@@ -38,6 +39,8 @@ export function UpgradeRequest({ compact = false }: { compact?: boolean }) {
   }
 
   const needsCompany = target === "wholesale";
+  const company = companyEdit ?? user.company_name ?? "";
+  const phone = phoneEdit ?? user.phone ?? "";
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
     setBusy(true);

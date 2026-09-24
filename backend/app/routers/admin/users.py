@@ -9,6 +9,7 @@ from app.pricing import ROLE_RANK
 from app.schemas.admin import AdminUserCreate, AdminUserOut, AdminUserUpdate
 from app.schemas.common import Page
 from app.security import hash_password
+from app.services.search import contains
 
 router = APIRouter()
 
@@ -32,7 +33,7 @@ def list_users(
 ):
     conds = []
     if q and q.strip():
-        like = f"%{q.strip()}%"
+        like = contains(q)
         conds.append(
             or_(
                 User.email.ilike(like),

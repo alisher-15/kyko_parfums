@@ -348,3 +348,21 @@ def test_database_url_gets_psycopg_driver():
     assert s.database_url == "postgresql+psycopg://u:p@h:5432/d"
     s = Settings(database_url="postgresql://u:p@h/d")
     assert s.database_url == "postgresql+psycopg://u:p@h/d"
+
+
+def test_migrate_starts_on_a_database_newer_than_the_code(capsys):
+    from sqlalchemy import text
+
+    from app.cli import migrate
+    from app.db import engine
+
+    migrate()  # already at head: nothing to do
+    with engine.begin() as conn:
+        head = conn.scalar(text("SELECT version_num FROM alembic_version"))
+        conn.execute(text("UPDATE alembic_version SET version_num = 'from_newer_deploy'"))
+    try:
+        migrate()  # e.g. the platform rolled back to the previous image after a failed deploy
+        assert "from_newer_deploy, newer than this code" in capsys.readouterr().err
+    finally:
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE alembic_version SET version_num = :v"), {"v": head})

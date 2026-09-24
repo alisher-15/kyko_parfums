@@ -9,8 +9,10 @@ import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money } from "@/lib/format";
+import { hasCyrillic, fromRussianLayout } from "@/lib/scan-code";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
 import { useMedia } from "@/lib/use-media";
+import { useScannerCapture } from "@/lib/use-scanner-capture";
 import type {
   AdminOrder,
   AdminUser,
@@ -451,16 +453,20 @@ function ProductSearch({
     setResults([]);
   };
 
-  /** A barcode first; if it is not one, a name search that takes a single hit. */
+  /** A barcode first (also as typed in the Russian layout); otherwise a name search that takes a
+   * single hit. */
   const findAndAdd = async (term: string): Promise<ScanResult> => {
     const code = term.replace(/\s+/g, "");
-    try {
-      const item = await api<VariantSearchItem>(`/admin/barcodes/${encodeURIComponent(code)}`);
-      setQ("");
-      setResults([]);
-      return onScanned(item);
-    } catch (e) {
-      if (!(e instanceof ApiError && e.status === 404)) throw e;
+    const codes = hasCyrillic(code) ? [code, fromRussianLayout(code)] : [code];
+    for (const c of codes) {
+      try {
+        const item = await api<VariantSearchItem>(`/admin/barcodes/${encodeURIComponent(c)}`);
+        setQ("");
+        setResults([]);
+        return onScanned(item);
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 404)) throw e;
+      }
     }
     const found = await api<VariantSearchItem[]>("/admin/store/variants", { query: { q: term } });
     if (found.length === 1) {
@@ -494,6 +500,15 @@ function ProductSearch({
     if (!term) return;
     scanFeedback((await scan(term)).ok);
   };
+
+  // A scanner typing anywhere on the page (a discount, the customer's name…) adds to the receipt.
+  useScannerCapture(
+    (code) => {
+      void scan(code).then((res) => scanFeedback(res.ok));
+      if (!phone) inputRef.current?.focus();
+    },
+    { enabled: !camera, ownInput: inputRef },
+  );
 
   const openCamera = () => {
     unlockAudio();

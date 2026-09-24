@@ -28,7 +28,13 @@ export function ProductImage({
 }) {
   if (src) {
     return (
-      <img src={src} alt={alt} className={`h-full w-full object-contain ${className}`} />
+      <img
+        src={src}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        className={`h-full w-full object-contain ${className}`}
+      />
     );
   }
   return (

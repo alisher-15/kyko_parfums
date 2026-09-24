@@ -9,8 +9,11 @@ export function ProductCard({ product }: { product: ProductListItem }) {
       href={`/products/${product.id}`}
       className="group card flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-stone-200/70"
     >
-      <div className="relative aspect-square bg-white p-4">
-        <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
+      {/* The photo is positioned absolutely: a tall portrait photo must not stretch the square. */}
+      <div className="relative aspect-square overflow-hidden bg-white">
+        <div className="absolute inset-4">
+          <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
+        </div>
         {!product.in_stock && product.min_price !== null && (
           <span className="absolute top-3 left-3 chip bg-stone-100">Нет в наличии</span>
         )}

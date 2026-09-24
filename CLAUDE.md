@@ -32,6 +32,16 @@ npm run dev                  # http://localhost:3000; /api and /media are proxie
 npm run lint && npm run typecheck && npm run build   # typecheck = next typegen + tsc (PageProps/LayoutProps are generated)
 ```
 
+Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` database with demo data and `next start` on the existing frontend build):
+
+```bash
+npm ci && npx playwright install chromium
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 29 scenarios, ~2 min
+npx playwright test tests/warehouse.spec.ts                      # one file
+```
+
+Tests share one database and run one at a time, so each test creates the users and barcodes it changes (`newCustomer`, `randomEan`) and tops up the stock it sells (`ensureStock`); don't rely on demo data staying as seeded. Any JS error in the browser fails the test (`tests/support.ts`). The camera tests use a generated Y4M video of `CAMERA_CODES` as Chromium's fake webcam.
+
 Full stack: `docker compose up -d --build`.
 
 ## Frontend: Next.js 16
@@ -58,7 +68,7 @@ Full stack: `docker compose up -d --build`.
 
 ## Workflow
 
-Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend and frontend checks above on every PR and on `main`; merge only when both jobs are green. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
+Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and the browser tests on every PR and on `main`; merge only when all three jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
 ## Migrations: required rule
 

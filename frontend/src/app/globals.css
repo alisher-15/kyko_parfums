@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
+
+  --color-ink: #1c1917;
+  --color-muted: #78716c;
+  --color-line: #e7e5e4;
+  --color-cream: #faf8f5;
+  --color-gold: #a67c52;
+  --color-gold-dark: #8a6440;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-ink text-white hover:bg-stone-700;
+  }
+  .btn-gold {
+    @apply bg-gold text-white hover:bg-gold-dark;
+  }
+  .btn-outline {
+    @apply border border-line bg-white text-ink hover:border-ink;
+  }
+  .btn-danger {
+    @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition placeholder:text-stone-400 focus:border-gold focus:ring-2 focus:ring-gold/20;
+  }
+  .label {
+    @apply mb-1 block text-xs font-semibold tracking-wide text-muted uppercase;
+  }
+  .card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full border border-line bg-white px-2.5 py-0.5 text-xs text-muted;
+  }
+  .table-base {
+    @apply w-full text-left text-sm;
+  }
+  .table-base th {
+    @apply border-b border-line px-3 py-2 text-xs font-semibold tracking-wide text-muted uppercase;
+  }
+  .table-base td {
+    @apply border-b border-line px-3 py-2 align-middle;
+  }
+}

@@ -10,6 +10,8 @@ const NAV = [
   { href: "/admin", label: "Обзор" },
   { href: "/admin/pos", label: "Продажа в магазине" },
   { href: "/admin/orders", label: "Заказы и продажи" },
+  { href: "/admin/receipts", label: "Приёмка" },
+  { href: "/admin/inventory", label: "Инвентаризация" },
   { href: "/admin/products", label: "Товары" },
   { href: "/admin/brands", label: "Бренды" },
   { href: "/admin/users", label: "Пользователи" },

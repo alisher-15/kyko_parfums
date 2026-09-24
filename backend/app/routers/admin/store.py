@@ -22,6 +22,7 @@ from app.models import (
     StockReason,
     User,
     UserRole,
+    VariantBarcode,
 )
 from app.pricing import max_tier_for_role, price_for_tier
 from app.schemas.admin import (
@@ -45,48 +46,56 @@ def _image(v: ProductVariant) -> str | None:
     return v.photo_url or v.product.image_url
 
 
+def variant_item(v: ProductVariant) -> VariantSearchItem:
+    return VariantSearchItem(
+        variant_id=v.id,
+        product_id=v.product_id,
+        brand_name=v.product.brand.name,
+        product_name=v.product.name,
+        volume_ml=v.volume_ml,
+        sku=v.sku,
+        image_url=_image(v),
+        stock=v.stock,
+        retail_price=v.retail_price,
+        wholesale_price=v.wholesale_price,
+        bulk_price=v.bulk_price,
+        cost_price=v.cost_price,
+        is_active=v.is_active,
+        product_active=v.product.is_active,
+    )
+
+
 @router.get("/variants", response_model=list[VariantSearchItem])
 def search_variants(
     q: str = Query(min_length=1, max_length=200),
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
 ):
-    """Find volumes to put on a receipt: by SKU/barcode (exact match first) or by name/brand."""
+    """Find volumes by barcode or SKU (exact match first) or by name/brand."""
     term = q.strip()
     words = [w for w in term.split() if w]
     name_match = and_(
         *(or_(Product.name.ilike(f"%{w}%"), Brand.name.ilike(f"%{w}%")) for w in words)
     )
-    exact_sku = ProductVariant.sku.ilike(term)
+    exact_code = or_(
+        ProductVariant.sku.ilike(term),
+        ProductVariant.barcodes.any(VariantBarcode.code == term.replace(" ", "")),
+    )
     stmt = (
         select(ProductVariant)
         .join(Product, Product.id == ProductVariant.product_id)
         .join(Brand, Brand.id == Product.brand_id)
         .where(
             ProductVariant.is_active,
-            or_(exact_sku, ProductVariant.sku.ilike(f"%{term}%"), name_match),
+            or_(exact_code, ProductVariant.sku.ilike(f"%{term}%"), name_match),
         )
         .options(joinedload(ProductVariant.product).joinedload(Product.brand))
-        .order_by(case((exact_sku, 0), else_=1), Brand.name, Product.name, ProductVariant.volume_ml)
+        .order_by(
+            case((exact_code, 0), else_=1), Brand.name, Product.name, ProductVariant.volume_ml
+        )
         .limit(limit)
     )
-    return [
-        VariantSearchItem(
-            variant_id=v.id,
-            product_id=v.product_id,
-            brand_name=v.product.brand.name,
-            product_name=v.product.name,
-            volume_ml=v.volume_ml,
-            sku=v.sku,
-            image_url=_image(v),
-            stock=v.stock,
-            retail_price=v.retail_price,
-            wholesale_price=v.wholesale_price,
-            bulk_price=v.bulk_price,
-            product_active=v.product.is_active,
-        )
-        for v in db.scalars(stmt)
-    ]
+    return [variant_item(v) for v in db.scalars(stmt)]
 
 
 @dataclass
@@ -233,6 +242,7 @@ def create_sale(
                 product_name=v.product.name,
                 product_id=v.product_id,
                 volume_ml=v.volume_ml,
+                cost_price=v.cost_price,
             )
         )
         move_stock(db, v, -ln.quantity, StockReason.store_sale, order=order, user=admin)

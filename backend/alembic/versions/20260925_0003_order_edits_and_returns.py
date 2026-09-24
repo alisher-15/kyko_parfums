@@ -17,8 +17,7 @@ down_revision: str | Sequence[str] | None = "0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 # Can the code from before this migration run on the schema after it? See app/migrations.py.
-# order_items.original_quantity is NOT NULL without a default, and new stock reasons:
-# older code can't insert order lines or read the new stock journal entries.
+# order_items.original_quantity is NOT NULL without a default: older code can't create orders.
 backward_compatible = False
 
 OLD_REASONS = ("online_order", "store_sale", "order_cancel", "manual", "import")

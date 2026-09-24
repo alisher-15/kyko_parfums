@@ -101,7 +101,10 @@ def _load_product(db: Session, product_id: int) -> Product:
     product = db.scalar(
         select(Product)
         .where(Product.id == product_id)
-        .options(joinedload(Product.brand), selectinload(Product.variants))
+        .options(
+            joinedload(Product.brand),
+            selectinload(Product.variants).selectinload(ProductVariant.barcodes),
+        )
     )
     if product is None:
         raise HTTPException(404, "Товар не найден")
@@ -132,7 +135,10 @@ def list_products(
     base = select(Product).join(Brand, Brand.id == Product.brand_id).where(*conds)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     items = db.scalars(
-        base.options(joinedload(Product.brand), selectinload(Product.variants))
+        base.options(
+            joinedload(Product.brand),
+            selectinload(Product.variants).selectinload(ProductVariant.barcodes),
+        )
         .order_by(Brand.name, Product.name, Product.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -278,6 +284,8 @@ def stock_movements(
             stock_after=m.stock_after,
             reason=m.reason,
             order_id=m.order_id,
+            receipt_id=m.receipt_id,
+            count_id=m.count_id,
             user_email=m.user.email if m.user else None,
             note=m.note,
             created_at=m.created_at,

@@ -67,10 +67,19 @@ class StockReason(enum.StrEnum):
     online_order = "online_order"
     store_sale = "store_sale"
     order_cancel = "order_cancel"
-    manual = "manual"  # admin edited the stock number (receiving goods, write-off, recount)
+    manual = "manual"  # admin edited the stock number by hand
     import_ = "import"
     order_edit = "order_edit"  # items removed from an order before it was handed over
     order_return = "return"  # goods brought back after the sale
+    receipt = "receipt"  # goods received from a supplier (posted stock receipt)
+    inventory = "inventory"  # stock count: the number was set to what was counted
+
+
+class DocumentStatus(enum.StrEnum):
+    """Stock receipts and stock counts are drafts until posted; posting changes the stock."""
+
+    draft = "draft"
+    posted = "posted"
 
 
 class OrderEventKind(enum.StrEnum):
@@ -209,8 +218,36 @@ class ProductVariant(TimestampMixin, Base):
     bulk_price: Mapped[Decimal | None] = mapped_column(MONEY)
     photo_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Average purchase cost of one unit in stock: moving average over posted receipts,
+    # or set by hand. NULL = unknown, the margin of such sales is not counted.
+    cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
 
     product: Mapped[Product] = relationship(back_populates="variants")
+    barcodes: Mapped[list[VariantBarcode]] = relationship(
+        back_populates="variant", cascade="all, delete-orphan", order_by="VariantBarcode.id"
+    )
+
+    @property
+    def label(self) -> str:
+        return f"{self.product.brand.name} {self.product.name}, {self.volume_ml} мл"
+
+
+class VariantBarcode(Base):
+    """A barcode printed on the goods (EAN-13 and the like). A volume can have several:
+    retail box, tester, different suppliers."""
+
+    __tablename__ = "variant_barcodes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), index=True
+    )
+    code: Mapped[str] = mapped_column(String(64), unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    variant: Mapped[ProductVariant] = relationship(back_populates="barcodes")
 
 
 class Order(TimestampMixin, Base):
@@ -312,6 +349,8 @@ class OrderItem(Base):
     product_name: Mapped[str] = mapped_column(String(255))
     product_id: Mapped[int | None] = mapped_column(Integer)
     volume_ml: Mapped[int] = mapped_column(Integer)
+    # Cost of one unit when it was sold (the variant's average cost then); NULL = unknown.
+    cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
 
     order: Mapped[Order] = relationship(back_populates="items")
     variant: Mapped[ProductVariant | None] = relationship()
@@ -373,6 +412,13 @@ class StockMovement(Base):
         ForeignKey("orders.id", ondelete="SET NULL"), index=True
     )
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # The document behind a receipt / stock count movement.
+    receipt_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stock_receipts.id", ondelete="SET NULL"), index=True
+    )
+    count_id: Mapped[int | None] = mapped_column(
+        ForeignKey("stock_counts.id", ondelete="SET NULL"), index=True
+    )
     note: Mapped[str | None] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -381,6 +427,115 @@ class StockMovement(Base):
     variant: Mapped[ProductVariant] = relationship()
     order: Mapped[Order | None] = relationship()
     user: Mapped[User | None] = relationship()
+
+
+class StockReceipt(TimestampMixin, Base):
+    """Goods received from a supplier. A draft is filled by scanning; posting adds the stock
+    and updates the average cost of each volume."""
+
+    __tablename__ = "stock_receipts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[DocumentStatus] = mapped_column(
+        _enum(DocumentStatus, "receipt_status"),
+        default=DocumentStatus.draft,
+        server_default="draft",
+        index=True,
+    )
+    supplier: Mapped[str | None] = mapped_column(String(255))
+    # The supplier's invoice number.
+    number: Mapped[str | None] = mapped_column(String(64))
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    posted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
+    posted_by: Mapped[User | None] = relationship(foreign_keys=[posted_by_id])
+    items: Mapped[list[StockReceiptItem]] = relationship(
+        back_populates="receipt", cascade="all, delete-orphan", order_by="StockReceiptItem.id"
+    )
+
+    @property
+    def total_quantity(self) -> int:
+        return sum(i.quantity for i in self.items)
+
+    @property
+    def total_cost(self) -> Decimal:
+        return sum((i.cost_price * i.quantity for i in self.items if i.cost_price), Decimal(0))
+
+
+class StockReceiptItem(Base):
+    __tablename__ = "stock_receipt_items"
+    __table_args__ = (
+        UniqueConstraint("receipt_id", "variant_id", name="uq_receipt_item_variant"),
+        CheckConstraint("quantity > 0", name="ck_receipt_item_quantity"),
+        CheckConstraint("cost_price IS NULL OR cost_price >= 0", name="ck_receipt_item_cost"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(
+        ForeignKey("stock_receipts.id", ondelete="CASCADE"), index=True
+    )
+    # SET NULL + label: the document stays readable if the product is deleted later.
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="SET NULL"), index=True
+    )
+    label: Mapped[str] = mapped_column(String(512))
+    quantity: Mapped[int] = mapped_column(Integer)
+    # Purchase price of one unit; NULL = unknown (the average cost is left as it is).
+    cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
+
+    receipt: Mapped[StockReceipt] = relationship(back_populates="items")
+    variant: Mapped[ProductVariant | None] = relationship()
+
+
+class StockCount(TimestampMixin, Base):
+    """Stock count (inventory). Counted quantities replace the stock of the counted volumes;
+    volumes that were not counted are left as they are."""
+
+    __tablename__ = "stock_counts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    status: Mapped[DocumentStatus] = mapped_column(
+        _enum(DocumentStatus, "count_status"),
+        default=DocumentStatus.draft,
+        server_default="draft",
+        index=True,
+    )
+    note: Mapped[str | None] = mapped_column(Text)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    posted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])
+    posted_by: Mapped[User | None] = relationship(foreign_keys=[posted_by_id])
+    items: Mapped[list[StockCountItem]] = relationship(
+        back_populates="count", cascade="all, delete-orphan", order_by="StockCountItem.id"
+    )
+
+
+class StockCountItem(Base):
+    __tablename__ = "stock_count_items"
+    __table_args__ = (
+        UniqueConstraint("count_id", "variant_id", name="uq_count_item_variant"),
+        CheckConstraint("counted >= 0", name="ck_count_item_counted"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    count_id: Mapped[int] = mapped_column(
+        ForeignKey("stock_counts.id", ondelete="CASCADE"), index=True
+    )
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="SET NULL"), index=True
+    )
+    label: Mapped[str] = mapped_column(String(512))
+    counted: Mapped[int] = mapped_column(Integer)
+    # Stock in the system when the count was posted (before it was replaced).
+    expected: Mapped[int | None] = mapped_column(Integer)
+
+    count: Mapped[StockCount] = relationship(back_populates="items")
+    variant: Mapped[ProductVariant | None] = relationship()
 
 
 class OrderReturn(Base):

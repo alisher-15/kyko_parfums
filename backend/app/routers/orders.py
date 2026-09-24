@@ -158,6 +158,7 @@ def create_order(
                 product_name=v.product.name,
                 product_id=v.product_id,
                 volume_ml=v.volume_ml,
+                cost_price=v.cost_price,
             )
         )
     add_event(order, OrderEventKind.created, "Заказ оформлен на сайте", user)

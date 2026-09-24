@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { CameraScanner, type ScanResult } from "@/components/admin/CameraScanner";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money } from "@/lib/format";
+import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
 import type {
   AdminOrder,
   AdminUser,
@@ -357,7 +359,8 @@ function Choice({
   );
 }
 
-/** Search by name/brand or scan a barcode (the scanner types the SKU and presses Enter). */
+/** Search by name/brand, or scan a barcode: the scanner types the code and presses Enter, or use
+ * the phone camera. A scanned product goes straight to the receipt. */
 function ProductSearch({
   inputRef,
   onPick,
@@ -368,6 +371,8 @@ function ProductSearch({
   const [q, setQ] = useState("");
   const [results, setResults] = useState<VariantSearchItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [camera, setCamera] = useState(false);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
 
   useEffect(() => {
     const term = q.trim();
@@ -398,34 +403,94 @@ function ProductSearch({
     setResults([]);
   };
 
+  /** A barcode first; if it is not one, a name search that picks a single hit. */
+  const findAndPick = async (term: string): Promise<ScanResult> => {
+    const code = term.replace(/\s+/g, "");
+    try {
+      const item = await api<VariantSearchItem>(`/admin/barcodes/${encodeURIComponent(code)}`);
+      const name = `${item.brand_name} ${item.product_name}, ${item.volume_ml} мл`;
+      if (item.stock <= 0) return { ok: false, text: `Нет на складе: ${name}` };
+      pick(item);
+      return { ok: true, text: `+1 · ${name}` };
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 404)) throw e;
+    }
+    const found = await api<VariantSearchItem[]>("/admin/store/variants", { query: { q: term } });
+    if (found.length === 1 && found[0].stock > 0) {
+      pick(found[0]);
+      return { ok: true, text: `+1 · ${found[0].brand_name} ${found[0].product_name}` };
+    }
+    setResults(found);
+    return {
+      ok: false,
+      text: found.length ? "Выберите товар из списка" : `Не найдено: ${term}`,
+    };
+  };
+
+  const report = async (term: string) => {
+    let res: ScanResult;
+    try {
+      res = await findAndPick(term);
+    } catch (e) {
+      res = { ok: false, text: e instanceof Error ? e.message : String(e) };
+    }
+    scanFeedback(res.ok);
+    setScanResult(res);
+  };
+
   const onKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
     const term = q.trim();
     if (!term) return;
-    // Scanners are faster than the debounce: search right away.
-    const found = await api<VariantSearchItem[]>("/admin/store/variants", { query: { q: term } });
-    const exact = found.find((r) => r.sku && r.sku.toLowerCase() === term.toLowerCase());
-    if (exact) pick(exact);
-    else if (found.length === 1) pick(found[0]);
-    else setResults(found);
+    await report(term);
   };
 
   return (
     <div className="card p-4">
       <label className="block">
         <span className="label">Товар</span>
-        <input
-          ref={inputRef}
-          autoFocus
-          className="input py-3 text-base"
-          placeholder="Название, бренд или штрихкод"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={onKeyDown}
-          autoComplete="off"
-        />
+        <div className="flex gap-2">
+          <input
+            ref={inputRef}
+            autoFocus
+            className="input py-3 text-base"
+            placeholder="Название, бренд или штрихкод"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKeyDown}
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+          <button
+            type="button"
+            className="btn btn-outline shrink-0"
+            onClick={() => {
+              unlockAudio();
+              setCamera(true);
+            }}
+          >
+            Камера
+          </button>
+        </div>
       </label>
+      {scanResult && (
+        <p
+          className={`mt-2 text-sm font-semibold ${scanResult.ok ? "text-emerald-700" : "text-red-600"}`}
+        >
+          {scanResult.text}
+        </p>
+      )}
+      {camera && (
+        <CameraScanner
+          onScan={report}
+          result={scanResult}
+          onClose={() => {
+            setCamera(false);
+            inputRef.current?.focus();
+          }}
+        />
+      )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
       {q.trim() && results.length === 0 && !error && (
         <p className="mt-3 text-sm text-muted">Ничего не найдено</p>

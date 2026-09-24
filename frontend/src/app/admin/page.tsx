@@ -21,15 +21,23 @@ export default function AdminDashboard() {
   const { data, error } = useApi<Stats>("/admin/stats");
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!data) return <Spinner />;
+  // Margin only over sales whose cost is known.
+  const margin =
+    data.costed_revenue > 0 ? Math.round((data.gross_profit / data.costed_revenue) * 100) : null;
 
   return (
     <>
       <AdminHeader
         title="Обзор"
         actions={
-          <Link href="/admin/pos" className="btn btn-primary btn-sm">
-            + Продажа в магазине
-          </Link>
+          <>
+            <Link href="/admin/receipts" className="btn btn-outline btn-sm">
+              Приёмка
+            </Link>
+            <Link href="/admin/pos" className="btn btn-primary btn-sm">
+              + Продажа в магазине
+            </Link>
+          </>
         }
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -44,6 +52,16 @@ export default function AdminDashboard() {
         <Tile label="Выручка сайта" value={money(data.revenue_by_channel.online)} href="/admin/orders?channel=online" />
         <Tile label="Выручка магазина" value={money(data.revenue_by_channel.store)} href="/admin/orders?channel=store" />
         <Tile label="Заявки на опт" value={data.wholesale_requests} href="/admin/users?wholesale_requested=true" accent={data.wholesale_requests > 0} />
+        <Tile
+          label={`Валовая прибыль${margin === null ? "" : ` · маржа ${margin}%`}`}
+          value={money(data.gross_profit)}
+        />
+        <Tile label="Склад по себестоимости" value={money(data.stock_value)} href="/admin/receipts" />
+        <Tile
+          label="В наличии без себестоимости"
+          value={data.variants_without_cost}
+          accent={data.variants_without_cost > 0}
+        />
         <Tile label="Мало на складе (≤ 3 шт.)" value={data.variants_low_stock} />
         <Tile label="Товаров" value={data.products_total} href="/admin/products" />
         <Tile label="Без цен / объёмов" value={data.products_without_variants} href="/admin/products?no_variants=true" />

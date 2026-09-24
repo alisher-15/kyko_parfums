@@ -67,6 +67,12 @@ export default function AdminDashboard() {
           value={data.variants_without_cost}
           accent={data.variants_without_cost > 0}
         />
+        <Tile
+          label={`Нужно заказать у поставщика · ${data.units_backordered} шт.`}
+          value={data.variants_backordered}
+          href="/admin/products?backordered=true"
+          accent={data.variants_backordered > 0}
+        />
         <Tile label="Мало на складе (≤ 3 шт.)" value={data.variants_low_stock} />
         <Tile label="Товаров" value={data.products_total} href="/admin/products" />
         <Tile label="Без цен / объёмов" value={data.products_without_variants} href="/admin/products?no_variants=true" />

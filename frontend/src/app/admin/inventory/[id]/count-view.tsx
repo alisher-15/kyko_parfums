@@ -204,8 +204,10 @@ export function CountView({ id }: { id: number }) {
       {draft ? (
         <div className="card space-y-3 p-4">
           <p className="text-xs text-muted">
-            «В системе» — остаток прямо сейчас. Если во время пересчёта что-то продали, проводите
-            документ сразу после подсчёта, чтобы продажи не посчитались дважды.
+            «В системе» — сколько должно лежать на полке прямо сейчас: свободный остаток плюс товар,
+            отложенный под заказы, которые ещё не отправлены. Считайте и отложенное тоже: после
+            проведения остаток станет «посчитано минус отложенное». Если во время пересчёта что-то
+            продали, проводите документ сразу после подсчёта, чтобы продажи не посчитались дважды.
           </p>
           {confirmPost ? (
             <div className="flex flex-wrap items-center gap-3">
@@ -335,6 +337,7 @@ function CountRow({
       </div>
       <div className="text-sm text-muted">
         В системе: <span className="tabular-nums">{line.expected ?? "—"}</span>
+        {!!line.reserved && <span className="block text-xs">из них в заказах: {line.reserved}</span>}
       </div>
       {draft ? (
         <label className="flex items-center gap-1 text-xs text-muted">

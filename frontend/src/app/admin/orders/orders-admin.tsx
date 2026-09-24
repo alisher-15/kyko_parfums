@@ -108,7 +108,10 @@ export function OrdersAdmin({
                   <span className="font-semibold">
                     № {o.id} <ChannelTag order={o} />
                   </span>
-                  <StatusBadge status={o.status} />
+                  <span className="flex items-center gap-1">
+                    <BackorderTag order={o} />
+                    <StatusBadge status={o.status} />
+                  </span>
                 </div>
                 <div className="mt-1 text-sm">{o.contact_name ?? "Покупатель без имени"}</div>
                 <div className="text-xs text-muted">
@@ -181,6 +184,7 @@ export function OrdersAdmin({
                       </td>
                       <td>
                         <StatusBadge status={o.status} />
+                        <BackorderTag order={o} />
                       </td>
                     </tr>
                   ))}
@@ -202,4 +206,10 @@ function ChannelTag({ order }: { order: AdminOrderBrief }) {
       Магазин{order.payment_method ? ` · ${PAYMENT_LABELS[order.payment_method]}` : ""}
     </span>
   );
+}
+
+/** Some units were not in stock at checkout and the order has not left the shop yet. */
+function BackorderTag({ order }: { order: AdminOrderBrief }) {
+  if (!order.has_backorder || !(order.status === "new" || order.status === "processing")) return null;
+  return <span className="chip ml-1 bg-amber-100 text-amber-800">под заказ</span>;
 }

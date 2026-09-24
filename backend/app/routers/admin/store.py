@@ -155,7 +155,7 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
         if item.discount_percent > max_discount:
             errors.append(f"{name}: скидка больше допустимой ({max_discount.normalize():f}%)")
         if v.stock < item.quantity:
-            errors.append(f"{name}: на складе только {v.stock} шт.")
+            errors.append(f"{name}: на складе только {max(v.stock, 0)} шт.")
         list_price = price_for_tier(v, tier)
         unit = (list_price * (100 - item.discount_percent) / 100).quantize(CENT, ROUND_HALF_UP)
         lines.append(_Line(v, item.quantity, list_price, item.discount_percent, unit))

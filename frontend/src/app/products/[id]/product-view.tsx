@@ -109,7 +109,6 @@ function Purchase({
   const [added, setAdded] = useState(false);
 
   const discounted = variant.price < variant.retail_price;
-  const outOfStock = variant.availability === "out";
 
   const addToCart = () => {
     add(
@@ -140,7 +139,7 @@ function Purchase({
             }}
             className={`rounded-xl border px-4 py-2 text-left text-sm transition ${
               v.id === variant.id ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
-            } ${v.availability === "out" ? "opacity-60" : ""}`}
+            }`}
           >
             <div className="font-semibold">{v.volume_ml} мл</div>
             <div className={`text-xs ${v.id === variant.id ? "text-stone-300" : "text-muted"}`}>
@@ -183,9 +182,10 @@ function Purchase({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <QuantityInput value={qty} onChange={setQty} max={variant.stock ?? undefined} />
-          <button className="btn btn-primary flex-1" disabled={outOfStock} onClick={addToCart}>
-            В корзину
+          {/* Out of stock can still be ordered: the shop gets it from a supplier. */}
+          <QuantityInput value={qty} onChange={setQty} />
+          <button className="btn btn-primary flex-1" onClick={addToCart}>
+            {variant.availability === "out" ? "Заказать" : "В корзину"}
           </button>
         </div>
         {added && (
@@ -245,7 +245,9 @@ function Purchase({
 
 /** Guests and retail buyers get the count only when few units are left; wholesale sees it always. */
 function StockNote({ variant }: { variant: VariantPublic }) {
-  if (variant.availability === "out") return <span className="text-red-600">Нет в наличии</span>;
+  if (variant.availability === "out") {
+    return <span className="text-amber-700">Под заказ: привезём за 1–2 дня, менеджер уточнит срок</span>;
+  }
   if (variant.availability === "low") {
     return <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>;
   }

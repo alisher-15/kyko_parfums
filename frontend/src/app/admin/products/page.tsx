@@ -5,6 +5,7 @@ export default async function AdminProductsPage(props: PageProps<"/admin/product
   return (
     <ProductsAdmin
       initialNoVariants={sp.no_variants === "true"}
+      initialBackordered={sp.backordered === "true"}
       initialBrandId={typeof sp.brand_id === "string" ? sp.brand_id : ""}
     />
   );

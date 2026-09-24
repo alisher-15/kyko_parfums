@@ -195,6 +195,12 @@ def stats(db: Session = Depends(get_db)):
         .outerjoin(returned, returned.c.item_id == OrderItem.id)
         .where(delivered, OrderItem.cost_price.is_not(None))
     ).one()
+    owed = -func.sum(ProductVariant.stock)
+    variants_backordered, units_backordered = db.execute(
+        select(func.count(ProductVariant.id), func.coalesce(owed, 0)).where(
+            ProductVariant.stock < 0
+        )
+    ).one()
     pending_orders, pending_total = db.execute(
         select(func.count(Order.id), func.coalesce(func.sum(Order.total_amount), 0)).where(
             Order.status.in_(IN_PROGRESS)
@@ -220,6 +226,8 @@ def stats(db: Session = Depends(get_db)):
         revenue_by_channel=revenue_by_channel,
         store_sales_today=store_today[0],
         store_revenue_today=store_today[1] - store_refunds_today,
+        variants_backordered=variants_backordered,
+        units_backordered=units_backordered,
         pending_orders=pending_orders,
         pending_total=pending_total,
         users_by_role=users_by_role,

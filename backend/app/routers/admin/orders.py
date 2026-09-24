@@ -4,7 +4,15 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Order, OrderChannel, OrderItem, OrderReturn, OrderStatus, User
+from app.models import (
+    Order,
+    OrderChannel,
+    OrderItem,
+    OrderReturn,
+    OrderStatus,
+    ProductVariant,
+    User,
+)
 from app.schemas.admin import (
     AdminOrderBrief,
     AdminOrderOut,
@@ -35,8 +43,13 @@ def _load_order(db: Session, order_id: int, lock: bool = False) -> Order:
     return order
 
 
-def _out(order: Order) -> AdminOrderOut:
-    return AdminOrderOut.model_validate(order)
+def _out(db: Session, order: Order) -> AdminOrderOut:
+    ids = {i.variant_id for i in order.items if i.variant_id is not None}
+    rows = db.execute(
+        select(ProductVariant.id, ProductVariant.stock).where(ProductVariant.id.in_(ids))
+    )
+    stock = {variant_id: s for variant_id, s in rows}
+    return AdminOrderOut.model_validate(order).model_copy(update={"variant_stock": stock})
 
 
 @router.get("/orders", response_model=Page[AdminOrderBrief])
@@ -80,8 +93,13 @@ def list_orders(
         .where(OrderReturn.order_id == Order.id)
         .scalar_subquery()
     )
+    backorder = (
+        select(OrderItem.id)
+        .where(OrderItem.order_id == Order.id, OrderItem.backordered > 0, OrderItem.quantity > 0)
+        .exists()
+    )
     rows = db.execute(
-        select(Order, User.email, items_count, returned)
+        select(Order, User.email, items_count, returned, backorder)
         .outerjoin(User, User.id == Order.user_id)
         .where(*conds)
         .order_by(Order.created_at.desc(), Order.id.desc())
@@ -101,16 +119,17 @@ def list_orders(
             contact_phone=o.contact_phone,
             user_email=email,
             items_count=cnt,
+            has_backorder=has_backorder,
             created_at=o.created_at,
         )
-        for o, email, cnt, ret in rows
+        for o, email, cnt, ret, has_backorder in rows
     ]
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/orders/{order_id}", response_model=AdminOrderOut)
 def get_order(order_id: int, db: Session = Depends(get_db)):
-    return _out(_load_order(db, order_id))
+    return _out(db, _load_order(db, order_id))
 
 
 @router.patch("/orders/{order_id}", response_model=AdminOrderOut)
@@ -127,7 +146,7 @@ def update_order(
     if "admin_note" in changes:
         order.admin_note = changes["admin_note"]
     db.commit()
-    return _out(_load_order(db, order_id))
+    return _out(db, _load_order(db, order_id))
 
 
 @router.patch("/orders/{order_id}/items", response_model=AdminOrderOut)
@@ -141,7 +160,7 @@ def edit_order_items(
     order = _load_order(db, order_id, lock=True)
     edit_items(db, order, {i.order_item_id: i.quantity for i in data.items}, data.reason, admin)
     db.commit()
-    return _out(_load_order(db, order_id))
+    return _out(db, _load_order(db, order_id))
 
 
 @router.post(
@@ -166,4 +185,4 @@ def create_order_return(
         admin,
     )
     db.commit()
-    return _out(_load_order(db, order_id))
+    return _out(db, _load_order(db, order_id))

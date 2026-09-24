@@ -90,6 +90,8 @@ class OrderItemOut(ORMModel):
     volume_ml: int
     quantity: int
     original_quantity: int
+    # Units that were not in stock at checkout (ordered from a supplier).
+    backordered: int = 0
     returned_quantity: int
     list_price: Money
     discount_percent: float

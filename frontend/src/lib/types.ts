@@ -165,6 +165,8 @@ export interface OrderItem {
   volume_ml: number;
   quantity: number;
   original_quantity: number;
+  /** Units not in stock at checkout: ordered from a supplier. */
+  backordered: number;
   returned_quantity: number;
   list_price: number;
   discount_percent: number;
@@ -275,6 +277,8 @@ export interface AdminOrder extends Order {
   user_email: string | null;
   created_by_email: string | null;
   admin_note: string | null;
+  /** Current stock of the order's volumes; below zero = backordered units not here yet. */
+  variant_stock: Record<number, number>;
 }
 
 export interface AdminOrderBrief {
@@ -290,6 +294,7 @@ export interface AdminOrderBrief {
   user_email: string | null;
   items_count: number;
   created_at: string;
+  has_backorder: boolean;
 }
 
 export interface PricingSettings {
@@ -337,6 +342,9 @@ export interface Stats {
   products_without_variants: number;
   variants_low_stock: number;
   brands_total: number;
+  /** Volumes customers ordered beyond stock: to get from a supplier. */
+  variants_backordered: number;
+  units_backordered: number;
 }
 
 // ---------- Store sales (POS) ----------
@@ -442,6 +450,8 @@ export interface CountLine {
   sku: string | null;
   counted: number;
   expected: number | null;
+  /** Drafts: units in orders not shipped yet (part of `expected`, not for sale). */
+  reserved: number | null;
 }
 
 export interface CountBrief {

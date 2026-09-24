@@ -13,9 +13,11 @@ const PAGE_SIZE = 50;
 
 export function ProductsAdmin({
   initialNoVariants,
+  initialBackordered,
   initialBrandId,
 }: {
   initialNoVariants: boolean;
+  initialBackordered: boolean;
   initialBrandId: string;
 }) {
   const [q, setQ] = useState("");
@@ -23,6 +25,7 @@ export function ProductsAdmin({
   const [brandId, setBrandId] = useState(initialBrandId);
   const [active, setActive] = useState("");
   const [noVariants, setNoVariants] = useState(initialNoVariants);
+  const [backordered, setBackordered] = useState(initialBackordered);
   const [page, setPage] = useState(1);
   const router = useRouter();
 
@@ -33,6 +36,7 @@ export function ProductsAdmin({
       brand_id: brandId,
       is_active: active,
       no_variants: noVariants || undefined,
+      backordered: backordered || undefined,
       page,
       page_size: PAGE_SIZE,
     },
@@ -91,6 +95,15 @@ export function ProductsAdmin({
             onChange={(e) => resetPage(setNoVariants)(e.target.checked)}
           />
           Без цен/объёмов
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={backordered}
+            onChange={(e) => resetPage(setBackordered)(e.target.checked)}
+          />
+          Нужно заказать
         </label>
       </div>
 

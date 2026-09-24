@@ -29,7 +29,7 @@ Frontend (run from `frontend/`):
 
 ```bash
 npm run dev                  # http://localhost:3000; /api and /media are proxied to BACKEND_URL (default :8000)
-npm run lint && npx tsc --noEmit && npm run build
+npm run lint && npm run typecheck && npm run build   # typecheck = next typegen + tsc (PageProps/LayoutProps are generated)
 ```
 
 Full stack: `docker compose up -d --build`.

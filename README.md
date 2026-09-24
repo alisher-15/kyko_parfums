@@ -368,7 +368,7 @@ data/                  # исходный Excel (не в git)
 cd backend && pytest            # 94 теста: цены, auth, каталог, заказы, склад, возвраты,
                                 #   приёмка, инвентаризация, штрихкоды, админка, импорт, миграции
 cd backend && ruff check . && ruff format --check .
-cd frontend && npm run lint && npx tsc --noEmit && npm run build
+cd frontend && npm run lint && npm run typecheck && npm run build
 ```
 
 Тесты используют отдельную БД `TEST_DATABASE_URL` (по умолчанию

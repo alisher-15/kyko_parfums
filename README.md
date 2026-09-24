@@ -1,5 +1,7 @@
 # Kyko Parfums — маркетплейс парфюмерии и косметики
 
+[![CI](https://github.com/alisher-15/kyko_parfums/actions/workflows/ci.yml/badge.svg)](https://github.com/alisher-15/kyko_parfums/actions/workflows/ci.yml)
+
 MVP веб-платформы для розничной и оптовой продажи парфюмерии: каталог с нотами и
 олфактивными группами, три уровня цен (розница / опт / крупный опт), корзина и заказы
 без онлайн-оплаты, личный кабинет и админ-панель с импортом каталога из Excel.
@@ -366,12 +368,26 @@ data/                  # исходный Excel (не в git)
 cd backend && pytest            # 94 теста: цены, auth, каталог, заказы, склад, возвраты,
                                 #   приёмка, инвентаризация, штрихкоды, админка, импорт, миграции
 cd backend && ruff check . && ruff format --check .
-cd frontend && npm run lint && npx tsc --noEmit && npm run build
+cd frontend && npm run lint && npm run typecheck && npm run build
 ```
 
 Тесты используют отдельную БД `TEST_DATABASE_URL` (по умолчанию
 `postgresql+psycopg://kyko:kyko@localhost:5432/kyko_test`) и пересоздают её схему через
 миграции Alembic.
+
+### Автотесты в GitHub Actions (CI)
+
+`.github/workflows/ci.yml` запускает эти же проверки на каждый pull request и на каждый пуш
+в `main`. Два параллельных задания, каждое идёт 2–4 минуты:
+
+- **Backend (ruff, pytest)**: линтер, форматирование и все тесты на PostgreSQL 16;
+- **Frontend (eslint, tsc, build)**: линтер, проверка типов и production-сборка.
+
+Результат виден в PR (зелёная галочка или красный крестик) и во вкладке **Actions**
+репозитория. Чтобы красный PR нельзя было смержить, один раз включите защиту ветки:
+**Settings → Branches → Add classic branch protection rule** → Branch name pattern `main` →
+**Require status checks to pass before merging** → выберите оба задания → **Create**.
+Задания появляются в списке после первого запуска CI.
 
 ## Что осталось за рамками MVP
 

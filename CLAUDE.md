@@ -29,7 +29,7 @@ Frontend (run from `frontend/`):
 
 ```bash
 npm run dev                  # http://localhost:3000; /api and /media are proxied to BACKEND_URL (default :8000)
-npm run lint && npx tsc --noEmit && npm run build
+npm run lint && npm run typecheck && npm run build   # typecheck = next typegen + tsc (PageProps/LayoutProps are generated)
 ```
 
 Full stack: `docker compose up -d --build`.
@@ -58,7 +58,7 @@ Full stack: `docker compose up -d --build`.
 
 ## Workflow
 
-Work on a branch and open a PR into `main`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the backend and frontend checks above.
+Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend and frontend checks above on every PR and on `main`; merge only when both jobs are green. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
 ## Migrations: required rule
 

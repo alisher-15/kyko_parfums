@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { normalizeScan } from "@/lib/scan-code";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
 import { useMedia } from "@/lib/use-media";
+import { useScannerCapture } from "@/lib/use-scanner-capture";
 import { CameraScanner } from "./CameraScanner";
 import { ScanResultCard, type ScanResult } from "./ScanResultCard";
 
@@ -12,6 +14,9 @@ export type { ScanResult };
  * Scanning with a barcode scanner (it types the code and presses Enter, like a keyboard) or the
  * phone camera. On phones the camera button comes first and the field is for typing a code by
  * hand. The last scan is shown under the field with −/+ and undo. Scans are handled one by one.
+ *
+ * The main (non-compact) field also catches a scanner wherever the cursor is, and codes typed
+ * in the Russian keyboard layout are read as Latin.
  */
 export function ScanField({
   onScan,
@@ -46,7 +51,7 @@ export function ScanField({
 
   /** Run a scan after the ones already queued; the result is also shown under the field. */
   const run = (raw: string): Promise<ScanResult> => {
-    const code = raw.replace(/\s+/g, "");
+    const code = normalizeScan(raw);
     const next = queue.current.then(async () => {
       let res: ScanResult;
       try {
@@ -61,6 +66,14 @@ export function ScanField({
     queue.current = next;
     return next;
   };
+
+  useScannerCapture(
+    (code) => {
+      void run(code).then((res) => scanFeedback(res.ok));
+      if (!phone) inputRef.current?.focus(); // the next scans go straight to the field
+    },
+    { enabled: !compact && !camera, ownInput: inputRef },
+  );
 
   const openCamera = () => {
     unlockAudio(); // iPhone plays sounds only after a tap

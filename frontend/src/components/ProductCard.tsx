@@ -15,7 +15,7 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
         </div>
         {!product.in_stock && product.min_price !== null && (
-          <span className="absolute top-3 left-3 chip bg-stone-100">Нет в наличии</span>
+          <span className="absolute top-3 left-3 chip bg-stone-100">Под заказ</span>
         )}
         {product.type && <span className="absolute top-3 right-3 chip">{product.type}</span>}
       </div>

@@ -26,19 +26,22 @@ def move_stock(
     note: str | None = None,
     receipt: StockReceipt | None = None,
     count: StockCount | None = None,
+    allow_backorder: bool = False,
 ) -> None:
     """Change a variant's stock and write the change to the journal.
 
     Every stock change goes through here. The caller is responsible for locking the variant row
     (SELECT ... FOR UPDATE) when concurrent changes are possible, and for committing.
+    Stock goes below zero only with ``allow_backorder``: online orders may take more than the
+    shop has, and the minus is what customers are owed.
     """
     if delta == 0:
         return
     new_stock = (variant.stock or 0) + delta
-    if new_stock < 0:
+    if new_stock < 0 and not allow_backorder:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
-            f"Недостаточно товара на складе: в наличии {variant.stock or 0} шт.",
+            f"Недостаточно товара на складе: в наличии {max(variant.stock or 0, 0)} шт.",
         )
     variant.stock = new_stock
     db.add(
@@ -65,10 +68,18 @@ def set_stock(
     user: User | None = None,
     note: str | None = None,
     count: StockCount | None = None,
+    allow_backorder: bool = False,
 ) -> None:
     """Set an absolute stock value (admin edit, import, stock count) and journal the difference."""
     move_stock(
-        db, variant, new_stock - (variant.stock or 0), reason, user=user, note=note, count=count
+        db,
+        variant,
+        new_stock - (variant.stock or 0),
+        reason,
+        user=user,
+        note=note,
+        count=count,
+        allow_backorder=allow_backorder,
     )
 
 

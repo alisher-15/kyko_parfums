@@ -127,6 +127,12 @@ function Checkout() {
             Онлайн-оплаты пока нет: после оформления менеджер свяжется с вами для подтверждения.
             Оплата — по факту получения или переводом.
           </div>
+          {quote?.lines.some((l) => !l.available) && (
+            <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Часть товаров под заказ: обычно привозим за 1–2 дня. Менеджер уточнит срок, когда
+              будет подтверждать заказ.
+            </div>
+          )}
           {error && <ErrorBox>{error}</ErrorBox>}
           <button
             className="btn btn-primary w-full"
@@ -153,6 +159,7 @@ function Checkout() {
                 <li key={l.variant_id} className="flex justify-between gap-3">
                   <span>
                     {l.brand_name} {l.product_name}, {l.volume_ml} мл × {l.quantity}
+                    {!l.available && <span className="ml-1 text-xs text-amber-700">под заказ</span>}
                   </span>
                   <span className="shrink-0 font-semibold">{money(l.line_total)}</span>
                 </li>

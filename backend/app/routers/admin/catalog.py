@@ -118,6 +118,7 @@ def list_products(
     brand_id: int | None = None,
     is_active: bool | None = None,
     no_variants: bool = False,
+    backordered: bool = False,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -131,6 +132,9 @@ def list_products(
         conds.append(Product.is_active == is_active)
     if no_variants:
         conds.append(~Product.variants.any())
+    if backordered:
+        # Customers ordered more than the shop has: these must be bought from a supplier.
+        conds.append(Product.variants.any(ProductVariant.stock < 0))
 
     base = select(Product).join(Brand, Brand.id == Product.brand_id).where(*conds)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0

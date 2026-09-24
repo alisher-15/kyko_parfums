@@ -31,7 +31,7 @@ export function ProductView({ id }: { id: number }) {
 
   const variant =
     product.variants.find((v) => v.id === selectedId) ??
-    product.variants.find((v) => v.stock > 0) ??
+    product.variants.find((v) => v.availability !== "out") ??
     product.variants[0];
 
   return (
@@ -109,7 +109,6 @@ function Purchase({
   const [added, setAdded] = useState(false);
 
   const discounted = variant.price < variant.retail_price;
-  const outOfStock = variant.stock <= 0;
 
   const addToCart = () => {
     add(
@@ -140,7 +139,7 @@ function Purchase({
             }}
             className={`rounded-xl border px-4 py-2 text-left text-sm transition ${
               v.id === variant.id ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
-            } ${v.stock <= 0 ? "opacity-60" : ""}`}
+            }`}
           >
             <div className="font-semibold">{v.volume_ml} мл</div>
             <div className={`text-xs ${v.id === variant.id ? "text-stone-300" : "text-muted"}`}>
@@ -178,20 +177,15 @@ function Purchase({
         {discounted && rules && hasThresholds(rules) && <ThresholdNote rules={rules} />}
 
         <div className="mt-4 text-sm">
-          {outOfStock ? (
-            <span className="text-red-600">Нет в наличии</span>
-          ) : (
-            <span className="text-emerald-700">
-              В наличии{variant.stock <= 5 ? `: осталось ${variant.stock} шт.` : ""}
-            </span>
-          )}
+          <StockNote variant={variant} />
           {variant.sku && <span className="ml-3 text-xs text-muted">Артикул: {variant.sku}</span>}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <QuantityInput value={qty} onChange={setQty} max={variant.stock} />
-          <button className="btn btn-primary flex-1" disabled={outOfStock} onClick={addToCart}>
-            В корзину
+          {/* Out of stock can still be ordered: the shop gets it from a supplier. */}
+          <QuantityInput value={qty} onChange={setQty} />
+          <button className="btn btn-primary flex-1" onClick={addToCart}>
+            {variant.availability === "out" ? "Заказать" : "В корзину"}
           </button>
         </div>
         {added && (
@@ -246,6 +240,21 @@ function Purchase({
         </div>
       )}
     </div>
+  );
+}
+
+/** Guests and retail buyers get the count only when few units are left; wholesale sees it always. */
+function StockNote({ variant }: { variant: VariantPublic }) {
+  if (variant.availability === "out") {
+    return <span className="text-amber-700">Под заказ: привезём за 1–2 дня, менеджер уточнит срок</span>;
+  }
+  if (variant.availability === "low") {
+    return <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>;
+  }
+  return (
+    <span className="text-emerald-700">
+      В наличии{variant.stock !== null ? `: ${variant.stock} шт.` : ""}
+    </span>
   );
 }
 

@@ -1,12 +1,17 @@
 """Posting stock receipts (приёмка) and stock counts (инвентаризация)."""
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import (
     DocumentStatus,
+    Order,
+    OrderItem,
+    OrderStatus,
     StockCount,
     StockReason,
     StockReceipt,
@@ -15,6 +20,8 @@ from app.models import (
 from app.services.stock import lock_variants, move_stock, set_stock
 
 CENT = Decimal("0.01")
+# Orders whose goods have not left the shop: shipped and delivered ones are gone.
+OPEN_ORDER_STATUSES = (OrderStatus.new, OrderStatus.processing)
 
 
 def average_cost(
@@ -58,15 +65,46 @@ def post_receipt(db: Session, receipt: StockReceipt, user: User) -> None:
     receipt.posted_by = user
 
 
+def reserved(db: Session, variant_ids: Iterable[int | None]) -> dict[int, int]:
+    """Units promised to orders that have not left the shop (new or in processing).
+
+    Checkout already took them from `stock`, but they are still on the shelf, or owed to the
+    customer when the order was a backorder.
+    """
+    ids = {i for i in variant_ids if i is not None}
+    if not ids:
+        return {}
+    rows = db.execute(
+        select(OrderItem.variant_id, func.sum(OrderItem.quantity))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(OrderItem.variant_id.in_(ids), Order.status.in_(OPEN_ORDER_STATUSES))
+        .group_by(OrderItem.variant_id)
+    )
+    return {variant_id: int(quantity) for variant_id, quantity in rows}
+
+
 def post_count(db: Session, count: StockCount, user: User) -> None:
-    """Replace the stock of every counted volume with the counted quantity."""
+    """Set the stock of every counted volume from what is physically there.
+
+    The count includes goods set aside for orders that have not been shipped, and those are
+    not for sale: stock = counted - reserved. Below zero, the rest is owed to customers.
+    """
     variants = lock_variants(db, (i.variant_id for i in count.items))
+    held = reserved(db, variants)
     note = f"Инвентаризация №{count.id}"
     for item in count.items:
         variant = variants[item.variant_id]
-        item.expected = variant.stock
+        in_orders = held.get(variant.id, 0)
+        item.expected = variant.stock + in_orders
         set_stock(
-            db, variant, item.counted, StockReason.inventory, user=user, count=count, note=note
+            db,
+            variant,
+            item.counted - in_orders,
+            StockReason.inventory,
+            user=user,
+            count=count,
+            note=f"{note} · в заказах {in_orders} шт." if in_orders else note,
+            allow_backorder=True,
         )
     count.status = DocumentStatus.posted
     count.posted_at = datetime.now(UTC)

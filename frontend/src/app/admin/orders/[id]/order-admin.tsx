@@ -38,6 +38,8 @@ export function OrderAdmin({ id }: { id: number }) {
   if (!order) return <Spinner />;
 
   const isStore = order.channel === "store";
+  const open = order.status === "new" || order.status === "processing";
+  const backordered = open && order.items.some((i) => i.backordered > 0 && i.quantity > 0);
 
   const patch = async (body: Record<string, unknown>, okText: string) => {
     setBusy(true);
@@ -168,7 +170,17 @@ export function OrderAdmin({ id }: { id: number }) {
       )}
       {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
 
-      <OrderItemsTable order={order} admin />
+      {backordered && (
+        <div className="card border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold">Часть товара под заказ</div>
+          <p className="mt-1">
+            При оформлении этого не было на складе. Закажите у поставщика (обычно 1–2 дня) и
+            проведите приёмку, или уберите недостающее через «Изменить состав»: товар вернётся на
+            склад, покупатель увидит изменение в истории заказа.
+          </p>
+        </div>
+      )}
+      <OrderItemsTable order={order} admin variantStock={order.variant_stock} />
       <OrderHistory order={order} />
 
       <div className="grid gap-4 lg:grid-cols-3">

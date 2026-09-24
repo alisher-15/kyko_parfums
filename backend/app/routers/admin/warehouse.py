@@ -40,7 +40,7 @@ from app.schemas.warehouse import (
     ScanIn,
 )
 from app.services.barcodes import attach, find_variant, normalize
-from app.services.warehouse import post_count, post_receipt
+from app.services.warehouse import post_count, post_receipt, reserved
 
 router = APIRouter()
 
@@ -362,14 +362,19 @@ def _draft_count(db: Session, count_id: int) -> StockCount:
     return count
 
 
-def _expected(count: StockCount, item: StockCountItem) -> int | None:
-    if count.status == DocumentStatus.posted:
+def _reserved(db: Session, c: StockCount) -> dict[int, int]:
+    return reserved(db, (i.variant_id for i in c.items)) if c.status == DocumentStatus.draft else {}
+
+
+def _expected(c: StockCount, item: StockCountItem, held: dict[int, int]) -> int | None:
+    if c.status == DocumentStatus.posted:
         return item.expected
-    return item.variant.stock if item.variant else None
+    return item.variant.stock + held.get(item.variant.id, 0) if item.variant else None
 
 
-def _count_brief(c: StockCount) -> dict:
-    expected = [(i.counted, _expected(c, i)) for i in c.items]
+def _count_brief(db: Session, c: StockCount, held: dict[int, int] | None = None) -> dict:
+    held = _reserved(db, c) if held is None else held
+    expected = [(i.counted, _expected(c, i, held)) for i in c.items]
     return {
         "id": c.id,
         "status": c.status,
@@ -381,9 +386,10 @@ def _count_brief(c: StockCount) -> dict:
     }
 
 
-def _count_out(c: StockCount, touched: int | None = None) -> CountOut:
+def _count_out(db: Session, c: StockCount, touched: int | None = None) -> CountOut:
+    held = _reserved(db, c)
     return CountOut(
-        **_count_brief(c),
+        **_count_brief(db, c, held),
         created_by_email=_email(c.created_by),
         posted_by_email=_email(c.posted_by),
         items=[
@@ -393,7 +399,8 @@ def _count_out(c: StockCount, touched: int | None = None) -> CountOut:
                 label=i.label,
                 sku=i.variant.sku if i.variant else None,
                 counted=i.counted,
-                expected=_expected(c, i),
+                expected=_expected(c, i, held),
+                reserved=held.get(i.variant_id, 0) if c.status == DocumentStatus.draft else None,
             )
             for i in c.items
         ],
@@ -429,7 +436,7 @@ def list_counts(
     if status_ is not None:
         stmt = stmt.where(StockCount.status == status_)
     stmt = stmt.order_by(StockCount.id.desc()).limit(limit)
-    return [CountBrief(**_count_brief(c)) for c in db.scalars(stmt)]
+    return [CountBrief(**_count_brief(db, c)) for c in db.scalars(stmt)]
 
 
 @router.post("/counts", response_model=CountOut, status_code=status.HTTP_201_CREATED)
@@ -439,12 +446,12 @@ def create_count(
     count = StockCount(note=data.note, created_by=admin)
     db.add(count)
     db.commit()
-    return _count_out(_count(db, count.id))
+    return _count_out(db, _count(db, count.id))
 
 
 @router.get("/counts/{count_id}", response_model=CountOut)
 def get_count(count_id: int, db: Session = Depends(get_db)):
-    return _count_out(_count(db, count_id))
+    return _count_out(db, _count(db, count_id))
 
 
 @router.patch("/counts/{count_id}", response_model=CountOut)
@@ -453,7 +460,7 @@ def update_count(count_id: int, data: CountIn, db: Session = Depends(get_db)):
     if "note" in data.model_fields_set:
         count.note = data.note
     db.commit()
-    return _count_out(_count(db, count_id))
+    return _count_out(db, _count(db, count_id))
 
 
 @router.delete("/counts/{count_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -467,7 +474,7 @@ def scan_into_count(count_id: int, data: ScanIn, db: Session = Depends(get_db)):
     count = _draft_count(db, count_id)
     line = _add_count_line(count, _scanned(db, data.code), data.quantity)
     db.commit()
-    return _count_out(_count(db, count_id), touched=line.id)
+    return _count_out(db, _count(db, count_id), touched=line.id)
 
 
 @router.post("/counts/{count_id}/lines", response_model=CountOut)
@@ -475,7 +482,7 @@ def add_count_line(count_id: int, data: CountLineIn, db: Session = Depends(get_d
     count = _draft_count(db, count_id)
     line = _add_count_line(count, _variant(db, data.variant_id), data.quantity)
     db.commit()
-    return _count_out(_count(db, count_id), touched=line.id)
+    return _count_out(db, _count(db, count_id), touched=line.id)
 
 
 @router.patch("/counts/{count_id}/lines/{line_id}", response_model=CountOut)
@@ -486,7 +493,7 @@ def update_count_line(
     line = _count_line(count, line_id)
     line.counted = data.counted
     db.commit()
-    return _count_out(_count(db, count_id), touched=line.id)
+    return _count_out(db, _count(db, count_id), touched=line.id)
 
 
 @router.delete("/counts/{count_id}/lines/{line_id}", response_model=CountOut)
@@ -494,7 +501,7 @@ def delete_count_line(count_id: int, line_id: int, db: Session = Depends(get_db)
     count = _draft_count(db, count_id)
     count.items.remove(_count_line(count, line_id))
     db.commit()
-    return _count_out(_count(db, count_id))
+    return _count_out(db, _count(db, count_id))
 
 
 @router.post("/counts/{count_id}/post", response_model=CountOut)
@@ -512,4 +519,4 @@ def post_count_route(
         )
     post_count(db, count, admin)
     db.commit()
-    return _count_out(_count(db, count_id))
+    return _count_out(db, _count(db, count_id))

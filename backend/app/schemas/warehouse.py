@@ -103,8 +103,11 @@ class CountLineOut(ORMModel):
     label: str
     sku: str | None = None
     counted: int
-    # Drafts: the stock in the system now. Posted: the stock it replaced.
+    # What should be on the shelf: free stock plus units set aside for orders not shipped yet.
+    # Drafts: as of now. Posted: at posting.
     expected: int | None
+    # Drafts: units in orders not shipped yet (part of `expected`, not for sale).
+    reserved: int | None = None
 
 
 class CountBrief(ORMModel):

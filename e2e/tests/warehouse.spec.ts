@@ -113,11 +113,16 @@ test("склад: штрихкоды, приёмка, инвентаризаци
     await aventusRow.locator("input").press("Enter");
     await expect.poll(async () => (await api("GET", `/admin/counts/${countId}`, admin)).items.length).toBe(2);
 
+    // Units in orders that are not shipped yet are counted but stay promised to customers.
+    const draft = await api("GET", `/admin/counts/${countId}`, admin);
+    const inOrders = (variantId: number) =>
+      draft.items.find((i: { variant_id: number }) => i.variant_id === variantId).reserved as number;
+    const aventus100 = volume(await product(admin, "aventus"), 100);
     await page.getByRole("button", { name: "Провести инвентаризацию" }).click();
     await page.getByRole("button", { name: "Да, провести" }).click();
     await expect(page.getByText("Инвентаризация проведена, остатки исправлены")).toBeVisible();
-    expect(volume(await product(admin, "coco"), 50).stock).toBe(3);
-    expect(volume(await product(admin, "aventus"), 100).stock).toBe(1);
+    expect(volume(await product(admin, "coco"), 50).stock).toBe(3 - inOrders(coco50.id));
+    expect(volume(await product(admin, "aventus"), 100).stock).toBe(1 - inOrders(aventus100.id));
   });
 
   await test.step("журнал остатков ссылается на документы", async () => {
@@ -152,6 +157,8 @@ test("склад: штрихкоды, приёмка, инвентаризаци
   });
 
   await test.step("касса: скан добавляет товар в чек", async () => {
+    // The till sells only free stock; the count and the picked order may have used it up.
+    await ensureStock(admin, volume(await product(admin, "coco"), 50), 3);
     await page.goto("/admin/pos");
     await scan(page, "Название, бренд или штрихкод", codeA);
     await expect(page.getByText("В чеке, шт.")).toBeVisible();

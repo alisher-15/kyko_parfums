@@ -2,7 +2,18 @@ import Link from "next/link";
 import { TIER_LABELS, money } from "@/lib/format";
 import type { Order } from "@/lib/types";
 
-export function OrderItemsTable({ order, admin = false }: { order: Order; admin?: boolean }) {
+export function OrderItemsTable({
+  order,
+  admin = false,
+  variantStock,
+}: {
+  order: Order;
+  admin?: boolean;
+  /** Admin: current stock by volume, to tell whether backordered goods have arrived. */
+  variantStock?: Record<number, number>;
+}) {
+  // Until the order leaves the shop, lines that were missing at checkout are marked.
+  const open = order.status === "new" || order.status === "processing";
   return (
     <div className="card overflow-x-auto">
       <table className="table-base">
@@ -54,6 +65,19 @@ export function OrderItemsTable({ order, admin = false }: { order: Order; admin?
                   )}
                   {i.returned_quantity > 0 && (
                     <div className="text-[11px] text-red-600">возвращено {i.returned_quantity}</div>
+                  )}
+                  {open && i.backordered > 0 && i.quantity > 0 && (
+                    <div className="text-[11px] text-amber-700">
+                      под заказ {Math.min(i.backordered, i.quantity)} шт.
+                      {variantStock && i.variant_id !== null && i.variant_id in variantStock && (
+                        <>
+                          {" · "}
+                          {variantStock[i.variant_id] < 0
+                            ? `на складе не хватает ${-variantStock[i.variant_id]} шт.`
+                            : "уже на складе"}
+                        </>
+                      )}
+                    </div>
                   )}
                 </td>
                 <td className="text-right font-semibold">{money(i.line_total)}</td>

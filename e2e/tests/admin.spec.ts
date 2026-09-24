@@ -24,7 +24,11 @@ test.describe("Админка", () => {
     await expect(page.getByText("Обзор").first()).toBeVisible();
     const stats = await api("GET", "/admin/stats", await adminToken());
     expect(stats.products_total).toBeGreaterThan(0);
-    for (const key of ["revenue_total", "gross_profit", "stock_value", "orders_by_status"]) expect(stats).toHaveProperty(key);
+    for (const key of ["revenue_total", "pending_total", "gross_profit", "stock_value", "orders_by_status"]) {
+      expect(stats).toHaveProperty(key);
+    }
+    await expect(page.getByText("Выручка · выданные заказы")).toBeVisible();
+    await expect(page.getByText(/В работе, ещё не выдано/)).toBeVisible();
   });
 
   test("бренд, товар и объём с ценами и себестоимостью", async ({ page }) => {

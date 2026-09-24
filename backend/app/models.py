@@ -198,7 +198,6 @@ class ProductVariant(TimestampMixin, Base):
     __tablename__ = "product_variants"
     __table_args__ = (
         UniqueConstraint("product_id", "volume_ml", name="uq_variant_product_volume"),
-        CheckConstraint("stock >= 0", name="ck_variant_stock_non_negative"),
         CheckConstraint("volume_ml > 0", name="ck_variant_volume_positive"),
         CheckConstraint("retail_price >= 0", name="ck_variant_retail_price"),
         CheckConstraint("wholesale_price IS NULL OR wholesale_price >= 0", name="ck_variant_wh"),
@@ -211,6 +210,7 @@ class ProductVariant(TimestampMixin, Base):
     )
     volume_ml: Mapped[int] = mapped_column(Integer)
     sku: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # Below zero: customers ordered more than the shop has (backorder); receipts fill it first.
     stock: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     retail_price: Mapped[Decimal] = mapped_column(MONEY)
     # NULL => falls back to the next cheaper-for-us tier (bulk -> wholesale -> retail).
@@ -328,7 +328,10 @@ class Order(TimestampMixin, Base):
 class OrderItem(Base):
     __tablename__ = "order_items"
     # 0 = the line was removed by a manager before the order was handed over.
-    __table_args__ = (CheckConstraint("quantity >= 0", name="ck_order_item_quantity"),)
+    __table_args__ = (
+        CheckConstraint("quantity >= 0", name="ck_order_item_quantity"),
+        CheckConstraint("backordered >= 0", name="ck_order_item_backordered"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
@@ -339,6 +342,9 @@ class OrderItem(Base):
     quantity: Mapped[int] = mapped_column(Integer)
     # Quantity at checkout, before any manager edits.
     original_quantity: Mapped[int] = mapped_column(Integer)
+    # Units that were not in stock at checkout: the manager gets them from a supplier
+    # (usually 1-2 days) or removes them from the order.
+    backordered: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # Price-list price of the chosen tier and the final unit price after the discount.
     list_price: Mapped[Decimal] = mapped_column(MONEY)
     discount_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0, server_default="0")

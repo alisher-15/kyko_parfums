@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from sqlalchemy import select
+
 from app.models import (
     OrderItem,
     ProductVariant,
@@ -308,3 +310,78 @@ def test_import_barcodes_and_cost(client, auth, catalog, db):
     # The template has the new columns.
     template = client.get("/api/admin/import/template", headers=h)
     assert template.status_code == 200
+
+
+def test_count_keeps_units_promised_to_open_orders(client, auth, catalog, db):
+    """Goods set aside for orders that are not shipped are counted but not for sale."""
+    admin, buyer = auth(UserRole.admin), auth()
+    coco50, coco100 = catalog["coco50"], catalog["coco100"]
+
+    def order(variant, quantity):
+        item = {"variant_id": variant.id, "quantity": quantity}
+        return client.post("/api/orders", json={**CHECKOUT, "items": [item]}, headers=buyer).json()
+
+    order(coco50, 2)  # 10 → 8, both units still on the shelf
+    order(coco100, 3)  # 2 → -1: two on the shelf, one owed
+    shipped = order(coco50, 1)  # 8 → 7, gone once shipped
+    client.patch(f"/api/admin/orders/{shipped['id']}", json={"status": "shipped"}, headers=admin)
+
+    cid = client.post("/api/admin/counts", json={}, headers=admin).json()["id"]
+    # One 50 ml bottle is missing from the shelf; the 100 ml count matches.
+    for variant, counted in ((coco50, 8), (coco100, 2)):
+        r = client.post(
+            f"/api/admin/counts/{cid}/lines",
+            json={"variant_id": variant.id, "quantity": counted},
+            headers=admin,
+        ).json()
+    # Expected on the shelf = free stock + units in open orders.
+    assert [(i["counted"], i["expected"], i["reserved"]) for i in r["items"]] == [
+        (8, 9, 2),
+        (2, 2, 3),
+    ]
+    r = client.post(f"/api/admin/counts/{cid}/post", headers=admin).json()
+    assert [(i["expected"], i["reserved"]) for i in r["items"]] == [(9, None), (2, None)]
+    db.expire_all()
+    assert db.get(ProductVariant, coco50.id).stock == 6  # 8 on the shelf - 2 promised
+    assert db.get(ProductVariant, coco100.id).stock == -1  # 2 on the shelf - 3 promised
+    last = db.scalars(
+        select(StockMovement)
+        .where(StockMovement.variant_id == coco50.id)
+        .order_by(StockMovement.id.desc())
+    ).first()
+    assert (last.delta, last.note) == (-1, f"Инвентаризация №{cid} · в заказах 2 шт.")
+
+
+def test_backorders_are_filled_by_receipts_and_block_the_till(client, auth, catalog, db):
+    admin = auth(UserRole.admin)
+    coco100 = catalog["coco100"]
+    item = {"variant_id": coco100.id, "quantity": 5}  # 2 in stock → -3
+    client.post("/api/orders", json={**CHECKOUT, "items": [item]}, headers=auth())
+
+    stats = client.get("/api/admin/stats", headers=admin).json()
+    assert (stats["variants_backordered"], stats["units_backordered"]) == (1, 3)
+    listed = client.get("/api/admin/products", params={"backordered": True}, headers=admin).json()
+    assert [p["name"] for p in listed["items"]] == ["Coco Mademoiselle"]
+
+    # The till sells only what is on the shelf and free.
+    r = client.post(
+        "/api/admin/store/sales",
+        json={"items": [{"variant_id": coco100.id, "quantity": 1}]},
+        headers=admin,
+    )
+    assert r.status_code == 409
+    assert "на складе только 0 шт." in r.json()["detail"]["message"]
+
+    # A receipt covers what is owed first.
+    rid = client.post("/api/admin/receipts", json={}, headers=admin).json()["id"]
+    client.post(
+        f"/api/admin/receipts/{rid}/lines",
+        json={"variant_id": coco100.id, "quantity": 4, "cost_price": 50},
+        headers=admin,
+    )
+    client.post(f"/api/admin/receipts/{rid}/post", headers=admin)
+    db.expire_all()
+    variant = db.get(ProductVariant, coco100.id)
+    assert (variant.stock, variant.cost_price) == (1, Decimal("50.00"))
+    stats = client.get("/api/admin/stats", headers=admin).json()
+    assert stats["variants_backordered"] == 0

@@ -10,7 +10,7 @@ import { VariantPicker } from "@/components/admin/VariantPicker";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, Spinner, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import { dateTime } from "@/lib/format";
+import { dateTime, volumeLabel } from "@/lib/format";
 import type { CountLine, StockCount } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -138,7 +138,7 @@ export function CountView({ id }: { id: number }) {
                     api<StockCount>(`${base}/lines`, {
                       body: { variant_id: item.variant_id, quantity: 0 },
                     }),
-                  `Добавлено: ${item.brand_name} ${item.product_name}, ${item.volume_ml} мл — укажите количество`,
+                  `Добавлено: ${item.brand_name} ${item.product_name}, ${volumeLabel(item.volume_ml, item.is_tester)} — укажите количество`,
                 )
               }
             />
@@ -156,7 +156,7 @@ export function CountView({ id }: { id: number }) {
               const c = await api<StockCount>(`${base}/scan`, { body: { code: unknown } });
               setUnknown(null);
               return c;
-            }, `Штрихкод привязан к «${item.brand_name} ${item.product_name}, ${item.volume_ml} мл», посчитано +1`)
+            }, `Штрихкод привязан к «${item.brand_name} ${item.product_name}, ${volumeLabel(item.volume_ml, item.is_tester)}», посчитано +1`)
           }
         />
       )}

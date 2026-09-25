@@ -51,6 +51,7 @@ def _quote_out(quote: Quote, unavailable: list[int]) -> QuoteOut:
                 product_name=p.name,
                 brand_name=p.brand.name,
                 volume_ml=v.volume_ml,
+                is_tester=v.is_tester,
                 image_url=v.photo_url or p.image_url,
                 quantity=line.quantity,
                 price_tier=line.tier,
@@ -158,6 +159,7 @@ def create_order(
                 product_name=v.product.name,
                 product_id=v.product_id,
                 volume_ml=v.volume_ml,
+                is_tester=v.is_tester,
                 cost_price=v.cost_price,
             )
         )

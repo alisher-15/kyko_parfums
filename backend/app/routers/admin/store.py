@@ -23,6 +23,7 @@ from app.models import (
     User,
     UserRole,
     VariantBarcode,
+    volume_label,
 )
 from app.pricing import max_tier_for_role, price_for_tier
 from app.schemas.admin import (
@@ -54,6 +55,7 @@ def variant_item(v: ProductVariant) -> VariantSearchItem:
         brand_name=v.product.brand.name,
         product_name=v.product.name,
         volume_ml=v.volume_ml,
+        is_tester=v.is_tester,
         sku=v.sku,
         image_url=_image(v),
         stock=v.stock,
@@ -88,7 +90,11 @@ def search_variants(
         )
         .options(joinedload(ProductVariant.product).joinedload(Product.brand))
         .order_by(
-            case((exact_code, 0), else_=1), Brand.name, Product.name, ProductVariant.volume_ml
+            case((exact_code, 0), else_=1),
+            Brand.name,
+            Product.name,
+            ProductVariant.is_tester,
+            ProductVariant.volume_ml,
         )
         .limit(limit)
     )
@@ -151,7 +157,7 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
         v = variants.get(item.variant_id)
         if v is None:
             continue
-        name = f"{v.product.name}, {v.volume_ml} мл"
+        name = f"{v.product.name}, {volume_label(v.volume_ml, v.is_tester)}"
         if item.discount_percent > max_discount:
             errors.append(f"{name}: скидка больше допустимой ({max_discount.normalize():f}%)")
         if v.stock < item.quantity:
@@ -178,6 +184,7 @@ def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
                 brand_name=ln.variant.product.brand.name,
                 product_name=ln.variant.product.name,
                 volume_ml=ln.variant.volume_ml,
+                is_tester=ln.variant.is_tester,
                 sku=ln.variant.sku,
                 image_url=_image(ln.variant),
                 quantity=ln.quantity,
@@ -239,6 +246,7 @@ def create_sale(
                 product_name=v.product.name,
                 product_id=v.product_id,
                 volume_ml=v.volume_ml,
+                is_tester=v.is_tester,
                 cost_price=v.cost_price,
             )
         )

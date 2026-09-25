@@ -29,6 +29,7 @@ class QuoteLineOut(BaseModel):
     product_name: str
     brand_name: str
     volume_ml: int
+    is_tester: bool = False
     image_url: str | None
     quantity: int
     price_tier: PriceTier
@@ -85,6 +86,7 @@ class OrderItemOut(ORMModel):
     brand_name: str
     product_name: str
     volume_ml: int
+    is_tester: bool = False
     quantity: int
     original_quantity: int
     returned_quantity: int

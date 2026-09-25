@@ -20,6 +20,8 @@ class BrandOut(ORMModel):
 class VariantPublic(BaseModel):
     id: int
     volume_ml: int
+    # The same perfume in plain packaging, with its own prices (see ProductVariant.is_tester).
+    is_tester: bool = False
     sku: str | None
     # Only when few units are left ("Осталось мало"); otherwise None: see availability.py.
     stock: int | None
@@ -45,7 +47,9 @@ class ProductListItem(BaseModel):
     gender: Gender | None
     longevity: str | None
     image_url: str | None
+    # The cheapest variant the viewer can buy, testers included.
     min_price: Money | None
+    # Distinct volumes (a bottle and a tester of the same size count once).
     volumes: list[int]
 
 

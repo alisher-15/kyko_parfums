@@ -67,6 +67,7 @@ def variant_public(
         next_tier_price=next_price,
         id=variant.id,
         volume_ml=variant.volume_ml,
+        is_tester=variant.is_tester,
         sku=variant.sku,
         stock=low_stock(variant.stock),
         photo_url=variant.photo_url,
@@ -94,7 +95,7 @@ def _list_item_fields(
         longevity=product.longevity,
         image_url=image,
         min_price=min_price,
-        volumes=[v.volume_ml for v in variants],
+        volumes=sorted({v.volume_ml for v in variants}),
     )
 
 

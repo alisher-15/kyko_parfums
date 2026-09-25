@@ -58,6 +58,7 @@ def check_price_order(retail, wholesale, bulk) -> None:
 
 class VariantIn(BaseModel):
     volume_ml: int = Field(gt=0, le=100_000)
+    is_tester: bool = False
     sku: str | None = Field(default=None, max_length=64)
     stock: int = Field(default=0, ge=0)
     retail_price: MoneyIn
@@ -78,6 +79,7 @@ class VariantIn(BaseModel):
 
 class VariantUpdate(BaseModel):
     volume_ml: int | None = Field(default=None, gt=0, le=100_000)
+    is_tester: bool | None = None
     sku: str | None = Field(default=None, max_length=64)
     stock: int | None = Field(default=None, ge=0)
     # Why the stock changed ("приход от поставщика", "пересчёт") — saved in the stock journal.
@@ -96,6 +98,7 @@ class AdminVariantOut(ORMModel):
     id: int
     product_id: int
     volume_ml: int
+    is_tester: bool
     sku: str | None
     stock: int
     retail_price: Money
@@ -320,6 +323,7 @@ class StoreQuoteLine(BaseModel):
     brand_name: str
     product_name: str
     volume_ml: int
+    is_tester: bool = False
     sku: str | None
     image_url: str | None
     quantity: int
@@ -349,6 +353,7 @@ class VariantSearchItem(BaseModel):
     brand_name: str
     product_name: str
     volume_ml: int
+    is_tester: bool = False
     sku: str | None
     image_url: str | None
     stock: int
@@ -364,6 +369,7 @@ class StockMovementOut(ORMModel):
     id: int
     variant_id: int
     volume_ml: int
+    is_tester: bool = False
     delta: int
     stock_after: int
     reason: StockReason
@@ -426,6 +432,8 @@ class ImportReport(BaseModel):
     products_updated: int
     variants_created: int
     variants_updated: int
+    # Rows read as testers (a "Тестер" column, or "tester" in the name / volume / type).
+    tester_rows: int = 0
     errors: list[ImportRowError]
     unmapped_columns: list[str]
 

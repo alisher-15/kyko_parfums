@@ -8,7 +8,7 @@ import { ScanResultCard, type ScanResult } from "@/components/admin/ScanResultCa
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money } from "@/lib/format";
+import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money, volumeLabel } from "@/lib/format";
 import { hasCyrillic, fromRussianLayout } from "@/lib/scan-code";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
 import { useMedia } from "@/lib/use-media";
@@ -110,7 +110,7 @@ export default function PosPage() {
 
   /** A scanned product goes to the receipt; the result offers −/+ and undo. */
   const scanned = (item: VariantSearchItem): ScanResult => {
-    const name = `${item.brand_name} ${item.product_name}, ${item.volume_ml} мл`;
+    const name = `${item.brand_name} ${item.product_name}, ${volumeLabel(item.volume_ml, item.is_tester)}`;
     const before = linesRef.current.find((l) => l.item.variant_id === item.variant_id)?.quantity ?? 0;
     if (before >= item.stock) {
       return item.stock > 0
@@ -222,7 +222,7 @@ export default function PosPage() {
                       <div className="min-w-0 flex-1">
                         <div className="text-xs text-muted">{l.item.brand_name}</div>
                         <div className="font-semibold">
-                          {l.item.product_name}, {l.item.volume_ml} мл
+                          {l.item.product_name}, {volumeLabel(l.item.volume_ml, l.item.is_tester)}
                         </div>
                         <div className={`text-xs ${q && !q.available ? "text-red-600" : "text-muted"}`}>
                           На складе: {q?.stock ?? l.item.stock} шт.
@@ -572,7 +572,7 @@ function ProductSearch({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">
-                    {r.brand_name} {r.product_name}, {r.volume_ml} мл
+                    {r.brand_name} {r.product_name}, {volumeLabel(r.volume_ml, r.is_tester)}
                   </div>
                   <div className="text-xs text-muted">
                     {r.stock > 0 ? `${r.stock} шт.` : "нет на складе"}

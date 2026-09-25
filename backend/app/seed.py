@@ -79,6 +79,13 @@ DEMO_PRODUCTS = [
 ]
 # fmt: on
 
+# Some perfumes are also sold as testers: {(brand, name): {volume_ml: retail_price}}.
+DEMO_TESTERS = {
+    ("Dior", "J'adore"): {100: 71000},
+    ("Tom Ford", "Tobacco Vanille"): {100: 178000},
+    ("Maison Francis Kurkdjian", "Baccarat Rouge 540"): {70: 149000},
+}
+
 DEMO_USERS = [
     ("retail@example.com", UserRole.retail, "Анна Розница", None),
     ("wholesale@example.com", UserRole.wholesale, "Бахыт Оптовик", "ТОО «Парфюм Опт»"),
@@ -121,10 +128,15 @@ def seed_demo() -> None:
             product.longevity, product.description = longevity, desc
             product.top_notes, product.mid_notes, product.base_notes = top, mid, base
 
-            existing = {v.volume_ml: v for v in product.variants}
-            for volume, retail in volumes.items():
+            existing = {(v.volume_ml, v.is_tester): v for v in product.variants}
+            rows = [(volume, retail, False) for volume, retail in volumes.items()]
+            testers = DEMO_TESTERS.get((brand_name, name), {})
+            rows += [(volume, retail, True) for volume, retail in testers.items()]
+            for volume, retail, tester in rows:
                 retail = Decimal(retail)
-                v = existing.get(volume) or ProductVariant(volume_ml=volume)
+                v = existing.get((volume, tester)) or ProductVariant(
+                    volume_ml=volume, is_tester=tester
+                )
                 v.retail_price = retail
                 v.wholesale_price = _round(retail * Decimal("0.85"))
                 v.bulk_price = _round(retail * Decimal("0.75"))

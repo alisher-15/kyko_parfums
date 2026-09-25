@@ -89,10 +89,6 @@ def fmt_money(amount: Decimal) -> str:
     return f"{whole} {get_settings().currency_sign}"
 
 
-def _label(item: OrderItem) -> str:
-    return f"{item.product_name}, {item.volume_ml} мл"
-
-
 def allowed_transitions(order: Order) -> set[OrderStatus]:
     return set(TRANSITIONS[order.status])
 
@@ -149,7 +145,7 @@ def edit_items(
         if qty < 0 or qty > by_id[item_id].quantity:
             raise HTTPException(
                 422,
-                f"{_label(by_id[item_id])}: количество можно только уменьшить "
+                f"{by_id[item_id].label}: количество можно только уменьшить "
                 f"(сейчас {by_id[item_id].quantity})",
             )
     if all(quantities.get(i.id, i.quantity) == 0 for i in order.items):
@@ -169,9 +165,9 @@ def edit_items(
         if v is not None:
             move_stock(db, v, removed, StockReason.order_edit, order=order, user=user, note=reason)
         parts.append(
-            f"{_label(item)} — убрано"
+            f"{item.label} — убрано"
             if new_qty == 0
-            else f"{_label(item)}: {item.quantity} → {new_qty}"
+            else f"{item.label}: {item.quantity} → {new_qty}"
         )
         item.quantity = new_qty
     order.total_amount = sum((i.price_applied * i.quantity for i in order.items), Decimal(0))
@@ -215,12 +211,12 @@ def create_return(
         if ln.quantity > left:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                f"{_label(item)}: можно вернуть не больше {left} шт.",
+                f"{item.label}: можно вернуть не больше {left} шт.",
             )
         if ln.restock and item.variant_id is None:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                f"{_label(item)}: товар удалён из каталога — отметьте его как брак",
+                f"{item.label}: товар удалён из каталога — отметьте его как брак",
             )
 
     ret = OrderReturn(
@@ -253,7 +249,7 @@ def create_return(
                 user=user,
                 note=reason,
             )
-        parts.append(f"{_label(item)} × {ln.quantity}" + ("" if ln.restock else " (брак, списано)"))
+        parts.append(f"{item.label} × {ln.quantity}" + ("" if ln.restock else " (брак, списано)"))
 
     message = f"Возврат на {fmt_money(ret.refund_amount)}: " + "; ".join(parts)
     if reason:

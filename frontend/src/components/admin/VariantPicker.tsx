@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProductImage } from "@/components/ui";
 import { api } from "@/lib/api";
-import { money } from "@/lib/format";
+import { money, volumeLabel } from "@/lib/format";
 import type { VariantSearchItem } from "@/lib/types";
 
 /** Search a volume by name, brand, SKU or barcode and pick it from the list. */
@@ -75,7 +75,7 @@ export function VariantPicker({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold">
-                    {r.brand_name} {r.product_name}, {r.volume_ml} мл
+                    {r.brand_name} {r.product_name}, {volumeLabel(r.volume_ml, r.is_tester)}
                   </div>
                   <div className="text-xs text-muted">
                     {r.stock} шт. на складе{r.sku ? ` · ${r.sku}` : ""}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { TIER_LABELS, money } from "@/lib/format";
+import { TIER_LABELS, money, volumeLabel } from "@/lib/format";
 import type { Order } from "@/lib/types";
 
 export function OrderItemsTable({
@@ -47,7 +47,7 @@ export function OrderItemsTable({
                   )}
                   {removed && <div className="text-xs">убрано менеджером</div>}
                 </td>
-                <td>{i.volume_ml} мл</td>
+                <td>{volumeLabel(i.volume_ml, i.is_tester)}</td>
                 <td>
                   {money(i.price_applied)}
                   {i.discount_percent > 0 && (

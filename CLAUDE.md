@@ -36,7 +36,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 29 scenarios, ~2 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 32 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -57,6 +57,8 @@ Full stack: `docker compose up -d --build`.
 - The root `Dockerfile` plus `deploy/start.sh` is an all-in-one image for Render (`render.yaml`): migrate → bootstrap → uvicorn on 127.0.0.1:8000 → Next standalone server on `$PORT`.
 
 **Pricing** (`app/pricing.py`, pure functions). There are three tiers: retail, wholesale and bulk. The customer's role caps the best tier they can get. The tier is chosen by the thresholds in the `pricing_settings` row, in `order_total` mode (one tier for the whole order) or `item_quantity` mode (a tier per line). A missing wholesale or bulk price falls back to the tier above it. Business rule: the wholesale level is decided by the role, not by the order size, so in production both thresholds are 0 (the threshold modes stay available in «Цены и скидки»). Wholesale customers additionally see the bulk price as a teaser (`next_tier_price`, `teaser_tier`), switchable by `pricing_settings.show_next_tier`; upgrade requests always target the next role (`next_role`). The server always computes prices (`POST /api/cart/quote`, `POST /api/orders`), and order items store a snapshot of price, tier, cost and product. Retail users and guests must never see wholesale prices in API responses; see `visible_tiers`.
+
+**Testers.** A tester is a `ProductVariant` with `is_tester=True`, next to the bottle of the same volume (one of each per product and volume): its own three prices (same pricing rules), stock, SKU and barcodes; it uses the product's photos. `order_items.is_tester` keeps it in the order snapshot. Name volumes with `models.volume_label` ("100 мл, тестер"; `volumeLabel` in `frontend/src/lib/format.ts` is the same), never with a bare `f"{volume_ml} мл"`. The product page picks «Товар» or «Тестер», then the volume. The importer reads testers from a «Тестер» column, or from the word tester/тестер in the name, volume or type, which it strips from the name.
 
 **Stock.** Every stock change must go through `services/stock.move_stock` (or `set_stock`), which writes the `stock_movements` journal. The caller locks the rows with `lock_variants` (SELECT … FOR UPDATE) and commits. Stock is deducted when an order is placed and returned on cancel, edit or return. Stock may go below zero only through online checkout and stock counts (`allow_backorder=True`): customers can order what the shop doesn't have (a backorder, `order_items.backordered` records the missing units), and the minus is what they are owed; receipts fill it first, the till never sells into it. Stock counts set stock = counted − units in orders not shipped yet (`services/warehouse.reserved`). Receipts (`services/warehouse.py`) update `cost_price` by a moving average. Stock counts set counted variants to the counted quantity. Barcodes live in `variant_barcodes`, and `services/barcodes.py` normalizes them (UPC-A = EAN-13 with a leading 0). Stock state is admin data: customer-facing responses (catalog, cart quote, the customer's orders) say nothing about stock except `stock` when 1–5 units are left ("Осталось мало", `app/availability.low_stock`), for every role; in stock / out / backordered are shown in the admin panel only.
 

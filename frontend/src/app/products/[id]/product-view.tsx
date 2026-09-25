@@ -29,9 +29,8 @@ export function ProductView({ id }: { id: number }) {
   if (error) return <div className="mx-auto max-w-3xl p-8"><ErrorBox>{error.message}</ErrorBox></div>;
   if (!product) return <Spinner />;
 
-  const variant =
-    product.variants.find((v) => v.id === selectedId) ??
-    product.variants[0];
+  // Bottles come first, testers after them (the API orders them so).
+  const variant = product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -108,6 +107,22 @@ function Purchase({
   const [added, setAdded] = useState(false);
 
   const discounted = variant.price < variant.retail_price;
+  const bottles = product.variants.filter((v) => !v.is_tester);
+  const testers = product.variants.filter((v) => v.is_tester);
+  const volumes = variant.is_tester ? testers : bottles;
+
+  const choose = (v: VariantPublic) => {
+    onSelect(v.id);
+    setQty(1);
+    setAdded(false);
+  };
+  // Switching between the bottle and the tester keeps the volume when there is one.
+  const chooseKind = (tester: boolean) => {
+    const kind = tester ? testers : bottles;
+    if (tester !== variant.is_tester && kind.length > 0) {
+      choose(kind.find((v) => v.volume_ml === variant.volume_ml) ?? kind[0]);
+    }
+  };
 
   const addToCart = () => {
     add(
@@ -117,6 +132,7 @@ function Purchase({
         productName: product.name,
         brandName: product.brand.name,
         volumeMl: variant.volume_ml,
+        isTester: variant.is_tester,
         imageUrl: variant.photo_url ?? product.image_url,
       },
       qty,
@@ -126,16 +142,39 @@ function Purchase({
 
   return (
     <div className="mt-8">
+      {testers.length > 0 && (
+        <div className="mb-6">
+          <div className="inline-flex rounded-xl border border-line bg-white p-1">
+            {bottles.length > 0 && (
+              <KindButton
+                title="Товар"
+                variants={bottles}
+                active={!variant.is_tester}
+                onClick={() => chooseKind(false)}
+              />
+            )}
+            <KindButton
+              title="Тестер"
+              variants={testers}
+              active={variant.is_tester}
+              onClick={() => chooseKind(true)}
+            />
+          </div>
+          {variant.is_tester && (
+            <p className="mt-2 text-sm text-muted">
+              Тестер — тот же аромат, что и в обычном флаконе, но в простой упаковке.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="label">Объём</div>
       <div className="flex flex-wrap gap-2">
-        {product.variants.map((v) => (
+        {volumes.map((v) => (
           <button
             key={v.id}
-            onClick={() => {
-              onSelect(v.id);
-              setQty(1);
-              setAdded(false);
-            }}
+            onClick={() => choose(v)}
+            aria-pressed={v.id === variant.id}
             className={`rounded-xl border px-4 py-2 text-left text-sm transition ${
               v.id === variant.id ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
             }`}
@@ -155,6 +194,7 @@ function Purchase({
             <span className="text-lg text-muted line-through">{money(variant.retail_price)}</span>
           )}
           <span className="chip">{TIER_LABELS[variant.price_tier]}</span>
+          {variant.is_tester && <span className="chip">Тестер</span>}
         </div>
 
         {(variant.wholesale_price !== null || variant.bulk_price !== null) && (
@@ -239,6 +279,36 @@ function Purchase({
         </div>
       )}
     </div>
+  );
+}
+
+/** "Товар" or "Тестер", with the price it starts from. */
+function KindButton({
+  title,
+  variants,
+  active,
+  onClick,
+}: {
+  title: string;
+  variants: VariantPublic[];
+  active: boolean;
+  onClick: () => void;
+}) {
+  const prices = variants.map((v) => v.price);
+  const min = Math.min(...prices);
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`rounded-lg px-4 py-2 text-left text-sm transition ${
+        active ? "bg-ink text-white" : "text-stone-700 hover:bg-cream"
+      }`}
+    >
+      <div className="font-semibold">{title}</div>
+      <div className={`text-xs ${active ? "text-stone-300" : "text-muted"}`}>
+        {prices.some((p) => p !== min) ? `от ${money(min)}` : money(min)}
+      </div>
+    </button>
   );
 }
 

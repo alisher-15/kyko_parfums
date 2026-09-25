@@ -9,7 +9,7 @@ import { Empty, ErrorBox, Field, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { money } from "@/lib/format";
+import { money, volumeLabel } from "@/lib/format";
 import type { Order, User } from "@/lib/types";
 import { useQuote } from "@/lib/use-quote";
 
@@ -152,7 +152,7 @@ function Checkout() {
               {quote?.lines.map((l) => (
                 <li key={l.variant_id} className="flex justify-between gap-3">
                   <span>
-                    {l.brand_name} {l.product_name}, {l.volume_ml} мл × {l.quantity}
+                    {l.brand_name} {l.product_name}, {volumeLabel(l.volume_ml, l.is_tester)} × {l.quantity}
                   </span>
                   <span className="shrink-0 font-semibold">{money(l.line_total)}</span>
                 </li>

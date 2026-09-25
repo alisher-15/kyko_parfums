@@ -63,9 +63,16 @@ export async function product(admin: string, query: string): Promise<Json> {
   return found.items[0];
 }
 
+/** The bottle of a volume (not the tester of the same size). */
 export function volume(p: Json, ml: number): Json {
-  const v = p.variants.find((x: Json) => x.volume_ml === ml);
+  const v = p.variants.find((x: Json) => x.volume_ml === ml && !x.is_tester);
   if (!v) throw new Error(`${p.name} has no ${ml} ml volume`);
+  return v;
+}
+
+export function tester(p: Json, ml: number): Json {
+  const v = p.variants.find((x: Json) => x.volume_ml === ml && x.is_tester);
+  if (!v) throw new Error(`${p.name} has no ${ml} ml tester`);
   return v;
 }
 
@@ -79,11 +86,20 @@ export async function ensureStock(admin: string, variant: Json, atLeast: number)
   return atLeast;
 }
 
-/** A fresh product of a fresh brand, with volumes as given (stock and retail price). */
+export interface NewVolume {
+  volume_ml: number;
+  stock: number;
+  retail_price: number;
+  wholesale_price?: number;
+  bulk_price?: number;
+  is_tester?: boolean;
+}
+
+/** A fresh product of a fresh brand, with volumes (and testers) as given. */
 export async function createProduct(
   admin: string,
-  volumes: { volume_ml: number; stock: number; retail_price: number }[],
-): Promise<{ product: Json; volume: (ml: number) => Json }> {
+  volumes: NewVolume[],
+): Promise<{ product: Json; volume: (ml: number) => Json; tester: (ml: number) => Json }> {
   const tag = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const brand = await api("POST", "/admin/brands", admin, { name: `E2E Brand ${tag}` });
   const created = await api("POST", "/admin/products", admin, {
@@ -92,7 +108,11 @@ export async function createProduct(
     is_active: true,
     variants: volumes,
   });
-  return { product: created, volume: (ml: number) => volume(created, ml) };
+  return {
+    product: created,
+    volume: (ml: number) => volume(created, ml),
+    tester: (ml: number) => tester(created, ml),
+  };
 }
 
 export async function placeOrder(token: string, items: { variant_id: number; quantity: number }[]): Promise<Json> {

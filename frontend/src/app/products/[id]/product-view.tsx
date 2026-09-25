@@ -117,12 +117,10 @@ function Purchase({
     setAdded(false);
   };
   // Switching between the bottle and the tester keeps the volume when there is one.
-  const chooseKind = (tester: boolean) => {
-    const kind = tester ? testers : bottles;
-    if (tester !== variant.is_tester && kind.length > 0) {
-      choose(kind.find((v) => v.volume_ml === variant.volume_ml) ?? kind[0]);
-    }
-  };
+  const target = (kind: VariantPublic[]) =>
+    kind.find((v) => v.id === variant.id) ??
+    kind.find((v) => v.volume_ml === variant.volume_ml) ??
+    kind[0];
 
   const addToCart = () => {
     add(
@@ -148,16 +146,14 @@ function Purchase({
             {bottles.length > 0 && (
               <KindButton
                 title="Товар"
-                variants={bottles}
                 active={!variant.is_tester}
-                onClick={() => chooseKind(false)}
+                onClick={() => choose(target(bottles))}
               />
             )}
             <KindButton
               title="Тестер"
-              variants={testers}
               active={variant.is_tester}
-              onClick={() => chooseKind(true)}
+              onClick={() => choose(target(testers))}
             />
           </div>
           {variant.is_tester && (
@@ -282,32 +278,25 @@ function Purchase({
   );
 }
 
-/** "Товар" or "Тестер", with the price it starts from. */
+/** "Товар" or "Тестер". Volumes and their prices are chosen below. */
 function KindButton({
   title,
-  variants,
   active,
   onClick,
 }: {
   title: string;
-  variants: VariantPublic[];
   active: boolean;
   onClick: () => void;
 }) {
-  const prices = variants.map((v) => v.price);
-  const min = Math.min(...prices);
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-lg px-4 py-2 text-left text-sm transition ${
+      className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
         active ? "bg-ink text-white" : "text-stone-700 hover:bg-cream"
       }`}
     >
-      <div className="font-semibold">{title}</div>
-      <div className={`text-xs ${active ? "text-stone-300" : "text-muted"}`}>
-        {prices.some((p) => p !== min) ? `от ${money(min)}` : money(min)}
-      </div>
+      {title}
     </button>
   );
 }

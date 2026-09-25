@@ -1,4 +1,4 @@
-import { adminToken, api, ensureStock, expect, product, productLinks, test, volume } from "./support";
+import { adminToken, api, createProduct, expect, productLinks, test } from "./support";
 
 test.describe("Витрина для гостя", () => {
   test("главная показывает подборки и товары", async ({ page }) => {
@@ -39,18 +39,29 @@ test.describe("Витрина для гостя", () => {
     await expect(page.getByText("Chanel").first()).toBeVisible();
   });
 
-  test("точные остатки видны только когда товара мало", async ({ page }) => {
+  test("о наличии витрина говорит, только когда товара мало", async ({ page }) => {
     const admin = await adminToken();
-    const coco = await product(admin, "coco");
-    await ensureStock(admin, volume(coco, 50), 12);
-    for (const v of (await api("GET", `/products/${coco.id}`)).variants) {
-      expect(["in_stock", "low", "out"]).toContain(v.availability);
-      if (v.availability === "in_stock") expect(v.stock, `${v.volume_ml} мл: count hidden`).toBeNull();
-      else expect(v.stock).toBeLessThanOrEqual(5);
-    }
-    await page.goto(`/products/${coco.id}`);
+    const { product } = await createProduct(admin, [
+      { volume_ml: 30, stock: 12, retail_price: 20000 },
+      { volume_ml: 50, stock: 2, retail_price: 30000 },
+      { volume_ml: 100, stock: 0, retail_price: 50000 },
+    ]);
+    const detail = await api("GET", `/products/${product.id}`);
+    expect(detail.variants.map((v: { stock: number | null }) => v.stock)).toEqual([null, 2, null]);
+    expect(detail).not.toHaveProperty("in_stock");
+    expect(detail.variants[0]).not.toHaveProperty("availability");
+
+    await page.goto(`/products/${product.id}`);
     await page.getByRole("button", { name: /^50 мл/ }).click();
-    await expect(page.getByText("В наличии", { exact: true })).toBeVisible();
+    await expect(page.getByText("Осталось мало: 2 шт.")).toBeVisible();
+    for (const ml of [30, 100]) {
+      await page.getByRole("button", { name: new RegExp(`^${ml} мл`) }).click();
+      await expect(page.getByRole("button", { name: "В корзину" })).toBeEnabled();
+      await expect(page.getByText(/Осталось мало|В наличии|Нет в наличии|Под заказ/)).toHaveCount(0);
+    }
+    await page.goto("/catalog");
+    await expect(page.locator("a[href^='/products/']").first()).toBeVisible();
+    await expect(page.getByText(/Под заказ|Только в наличии/)).toHaveCount(0);
   });
 
   test("карточка товара и корзина гостя", async ({ page }) => {

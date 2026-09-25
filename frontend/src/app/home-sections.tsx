@@ -8,7 +8,7 @@ import { useApi } from "@/lib/use-api";
 
 export function HomeProducts() {
   const { data, error, loading } = useApi<Page<ProductListItem>>("/products", {
-    query: { sort: "new", page_size: 8, in_stock: true },
+    query: { sort: "new", page_size: 8 },
   });
   if (error) return <ErrorBox>Не удалось загрузить товары: {error.message}</ErrorBox>;
   if (loading && !data) return <Spinner />;

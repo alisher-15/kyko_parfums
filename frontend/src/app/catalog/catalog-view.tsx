@@ -37,7 +37,6 @@ export function CatalogView() {
       type: params.getAll("type"),
       min_price: params.get("min_price") ?? undefined,
       max_price: params.get("max_price") ?? undefined,
-      in_stock: params.get("in_stock") === "true" ? true : undefined,
       sort: params.get("sort") ?? undefined,
       page: Number(params.get("page") ?? 1),
       page_size: PAGE_SIZE,
@@ -71,8 +70,7 @@ export function CatalogView() {
     query.category.length +
     query.type.length +
     (query.min_price ? 1 : 0) +
-    (query.max_price ? 1 : 0) +
-    (query.in_stock ? 1 : 0);
+    (query.max_price ? 1 : 0);
 
   const total = products.data?.total ?? 0;
 
@@ -209,7 +207,6 @@ function FilterPanel({
     type: string[];
     min_price?: string;
     max_price?: string;
-    in_stock?: boolean;
   };
   toggle: (key: string, value: string) => void;
   update: (mutate: (p: URLSearchParams) => void) => void;
@@ -235,17 +232,6 @@ function FilterPanel({
 
   return (
     <div className="card px-4">
-      <FilterGroup title="Наличие">
-        <Check
-          checked={!!query.in_stock}
-          onChange={() =>
-            update((p) => (query.in_stock ? p.delete("in_stock") : p.set("in_stock", "true")))
-          }
-        >
-          Только в наличии
-        </Check>
-      </FilterGroup>
-
       <FilterGroup title="Для кого">
         {filters.genders.map((g) => (
           <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
@@ -347,7 +333,7 @@ function FilterPanel({
               setMinPrice("");
               setMaxPrice("");
               update((p) =>
-                ["brand_id", "gender", "category", "type", "min_price", "max_price", "in_stock"].forEach(
+                ["brand_id", "gender", "category", "type", "min_price", "max_price"].forEach(
                   (k) => p.delete(k),
                 ),
               );

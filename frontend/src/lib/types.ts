@@ -54,15 +54,12 @@ export interface Brand extends BrandBrief {
   product_count: number;
 }
 
-export type Availability = "in_stock" | "low" | "out";
-
 export interface VariantPublic {
   id: number;
   volume_ml: number;
   sku: string | null;
-  /** Hidden (null) from guests and retail buyers unless few units are left. */
+  /** Only when few units are left ("Осталось мало"); stock state is admin data. */
   stock: number | null;
-  availability: Availability;
   photo_url: string | null;
   price: number;
   price_tier: PriceTier;
@@ -84,7 +81,6 @@ export interface ProductListItem {
   image_url: string | null;
   min_price: number | null;
   volumes: number[];
-  in_stock: boolean;
 }
 
 export interface ProductDetail extends ProductListItem {
@@ -126,9 +122,6 @@ export interface QuoteLine {
   volume_ml: number;
   image_url: string | null;
   quantity: number;
-  /** Hidden (null) from guests and retail buyers unless few units are left. */
-  stock: number | null;
-  available: boolean;
   price_tier: PriceTier;
   unit_price: number;
   retail_unit_price: number;
@@ -165,8 +158,8 @@ export interface OrderItem {
   volume_ml: number;
   quantity: number;
   original_quantity: number;
-  /** Units not in stock at checkout: ordered from a supplier. */
-  backordered: number;
+  /** Admin only: units not in stock at checkout, ordered from a supplier. */
+  backordered?: number;
   returned_quantity: number;
   list_price: number;
   discount_percent: number;

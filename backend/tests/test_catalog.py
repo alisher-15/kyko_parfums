@@ -43,7 +43,7 @@ def test_list_item_shape(client, catalog):
     item = next(p for p in client.get("/api/products").json()["items"] if p["name"] == "Sauvage")
     assert item["brand"]["name"] == "Dior"
     assert item["volumes"] == [100]
-    assert item["in_stock"] is False
+    assert "in_stock" not in item  # stock state is admin data
     assert item["min_price"] == 90
 
 
@@ -58,7 +58,6 @@ def test_filters_and_search(client, catalog):
     # LIKE wildcards typed by the user are plain characters.
     assert _names(client.get("/api/products", params={"q": "%"})) == []
     assert _names(client.get("/api/products", params={"q": "sa_vage"})) == []
-    assert _names(client.get("/api/products", params={"in_stock": True})) == ["Coco Mademoiselle"]
     assert _names(client.get("/api/products", params={"type": "EDT"})) == ["Sauvage"]
 
 
@@ -109,18 +108,15 @@ def test_pricing_rules_visibility(client, catalog, auth):
     assert r["bulk_min_order_amount"] is None
 
 
-def test_exact_stock_is_hidden_from_guests_and_retail(client, catalog, auth):
-    def volumes(headers=None):
-        r = client.get(f"/api/products/{catalog['coco'].id}", headers=headers)
-        return {v["volume_ml"]: (v["availability"], v["stock"]) for v in r.json()["variants"]}
+def test_customers_see_stock_only_when_few_are_left(client, catalog, auth):
+    def volumes(product, headers=None):
+        r = client.get(f"/api/products/{catalog[product].id}", headers=headers)
+        return {v["volume_ml"]: v["stock"] for v in r.json()["variants"]}
 
-    # 10 in stock: a level only; 2 left: "few left" with the count, as the storefront says.
-    expected_public = {50: ("in_stock", None), 100: ("low", 2)}
-    assert volumes() == expected_public
-    assert volumes(auth(UserRole.retail)) == expected_public
-    # Wholesale partners order in bulk and see the count.
-    assert volumes(auth(UserRole.wholesale)) == {50: ("in_stock", 10), 100: ("low", 2)}
-    assert volumes(auth(UserRole.bulk_wholesale))[50] == ("in_stock", 10)
-
-    sauvage = client.get(f"/api/products/{catalog['sauvage'].id}").json()["variants"][0]
-    assert (sauvage["availability"], sauvage["stock"]) == ("out", 0)
+    # 10 in stock: nothing; 2 left: "Осталось мало: 2 шт."; 0: nothing (it can be ordered).
+    for role in (None, UserRole.retail, UserRole.wholesale, UserRole.bulk_wholesale):
+        headers = auth(role) if role else None
+        assert volumes("coco", headers) == {50: None, 100: 2}
+        assert volumes("sauvage", headers) == {100: None}
+    variant = client.get(f"/api/products/{catalog['coco'].id}").json()["variants"][0]
+    assert "availability" not in variant

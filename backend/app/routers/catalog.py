@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.availability import availability, visible_stock
+from app.availability import low_stock
 from app.db import get_db
 from app.deps import get_current_user_optional
 from app.models import Brand, Gender, PriceTier, Product, ProductVariant, User
@@ -68,8 +68,7 @@ def variant_public(
         id=variant.id,
         volume_ml=variant.volume_ml,
         sku=variant.sku,
-        stock=visible_stock(variant.stock, role),
-        availability=availability(variant.stock),
+        stock=low_stock(variant.stock),
         photo_url=variant.photo_url,
         price=price,
         price_tier=tier,
@@ -96,7 +95,6 @@ def _list_item_fields(
         image_url=image,
         min_price=min_price,
         volumes=[v.volume_ml for v in variants],
-        in_stock=any(v.stock > 0 for v in variants),
     )
 
 
@@ -109,7 +107,6 @@ def list_products(
     type: list[str] = Query(default=[]),
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
-    in_stock: bool = False,
     sort: ProductSort = ProductSort.default,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
@@ -141,8 +138,6 @@ def list_products(
         conditions.append(Product.category.in_(category))
     if type:
         conditions.append(Product.type.in_(type))
-    if in_stock:
-        conditions.append(agg.c.stock > 0)
     if min_price is not None or max_price is not None:
         variant_conds = [ProductVariant.product_id == Product.id, ProductVariant.is_active]
         if min_price is not None:

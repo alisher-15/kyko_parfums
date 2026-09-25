@@ -14,9 +14,6 @@ export function ProductCard({ product }: { product: ProductListItem }) {
         <div className="absolute inset-4">
           <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
         </div>
-        {!product.in_stock && product.min_price !== null && (
-          <span className="absolute top-3 left-3 chip bg-stone-100">Под заказ</span>
-        )}
         {product.type && <span className="absolute top-3 right-3 chip">{product.type}</span>}
       </div>
       <div className="flex flex-1 flex-col gap-1 border-t border-line p-4">

@@ -41,7 +41,6 @@ def test_quote_reports_unavailable_and_out_of_stock(client, catalog):
         },
     ).json()
     assert r["unavailable_variant_ids"] == [hidden_variant_id]
-    assert r["lines"][0]["available"] is False
     # A volume that is no longer sold blocks checkout; one that is out of stock doesn't.
     assert r["can_checkout"] is False
     only_out = {"items": [{"variant_id": catalog["sauvage100"].id, "quantity": 1}]}
@@ -132,21 +131,23 @@ def test_checkout_beyond_stock_is_a_backorder(client, catalog, auth, db):
     headers = auth()
     item = {"variant_id": catalog["coco100"].id, "quantity": 3}  # 2 in stock
     quote = client.post("/api/cart/quote", json={"items": [item]}, headers=headers).json()
-    assert (quote["lines"][0]["available"], quote["can_checkout"]) == (False, True)
+    assert quote["can_checkout"] is True
 
     r = client.post("/api/orders", json={**CHECKOUT, "items": [item]}, headers=headers)
     assert r.status_code == 201, r.text
     order = r.json()
-    assert order["items"][0]["backordered"] == 1
-    assert "Под заказ" in order["events"][0]["message"]
-    assert "Coco Mademoiselle, 100 мл — 1 шт." in order["events"][0]["message"]
+    # The customer is told nothing about it; the manager sees the missing unit.
+    assert "backordered" not in order["items"][0]
+    assert order["events"][0]["message"] == "Заказ оформлен на сайте"
+    admin_view = client.get(f"/api/admin/orders/{order['id']}", headers=auth(UserRole.admin))
+    assert admin_view.json()["items"][0]["backordered"] == 1
     db.expire_all()
     # Below zero: one unit is owed to the customer.
     assert db.get(ProductVariant, catalog["coco100"].id).stock == -1
 
-    # Out of stock for everyone now; the count is 0, not a negative number.
+    # The storefront shows nothing about it.
     v100 = client.get(f"/api/products/{catalog['coco'].id}").json()["variants"][1]
-    assert (v100["availability"], v100["stock"]) == ("out", 0)
+    assert v100["stock"] is None
 
     # Cancelling gives everything back.
     client.post(f"/api/orders/{order['id']}/cancel", headers=headers)
@@ -176,16 +177,12 @@ def test_manager_removes_what_is_missing(client, catalog, auth, db):
     assert db.get(ProductVariant, catalog["coco100"].id).stock == 0
 
 
-def test_quote_and_checkout_do_not_reveal_large_stock(client, catalog, auth):
+def test_quote_does_not_reveal_stock(client, catalog, auth):
     item = [{"variant_id": catalog["coco50"].id, "quantity": 11}]  # 10 in stock
-    retail, wholesale = auth(), auth(UserRole.wholesale)
-
-    def quoted(headers):
-        line = client.post("/api/cart/quote", json={"items": item}, headers=headers).json()
-        return line["lines"][0]["available"], line["lines"][0]["stock"]
-
-    assert quoted(retail) == (False, None)
-    assert quoted(wholesale) == (False, 10)
+    for headers in (auth(), auth(UserRole.wholesale)):
+        quote = client.post("/api/cart/quote", json={"items": item}, headers=headers).json()
+        assert quote["can_checkout"] is True
+        assert not {"stock", "available"} & quote["lines"][0].keys()
 
 
 def test_checkout_rejects_duplicate_and_hidden_variants(client, catalog, auth, db):

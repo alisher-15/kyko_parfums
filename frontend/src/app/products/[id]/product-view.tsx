@@ -146,14 +146,12 @@ function Purchase({
             {bottles.length > 0 && (
               <KindButton
                 title="Товар"
-                variant={target(bottles)}
                 active={!variant.is_tester}
                 onClick={() => choose(target(bottles))}
               />
             )}
             <KindButton
               title="Тестер"
-              variant={target(testers)}
               active={variant.is_tester}
               onClick={() => choose(target(testers))}
             />
@@ -280,15 +278,13 @@ function Purchase({
   );
 }
 
-/** "Товар" or "Тестер" with the exact volume and price the button opens. */
+/** "Товар" or "Тестер". Volumes and their prices are chosen below. */
 function KindButton({
   title,
-  variant,
   active,
   onClick,
 }: {
   title: string;
-  variant: VariantPublic;
   active: boolean;
   onClick: () => void;
 }) {
@@ -296,14 +292,11 @@ function KindButton({
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-lg px-4 py-2 text-left text-sm transition ${
+      className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
         active ? "bg-ink text-white" : "text-stone-700 hover:bg-cream"
       }`}
     >
-      <div className="font-semibold">{title}</div>
-      <div className={`text-xs ${active ? "text-stone-300" : "text-muted"}`}>
-        {variant.volume_ml} мл · {money(variant.price)}
-      </div>
+      {title}
     </button>
   );
 }

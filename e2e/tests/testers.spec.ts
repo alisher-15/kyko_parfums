@@ -37,7 +37,6 @@ test("тестер: выбор «Товар / Тестер» в карточке
   await test.step("гость: сначала товар, тестер — отдельный выбор с тем же объёмом и своей ценой", async () => {
     await page.goto(`/products/${product.id}`);
     await expect(bottleButton()).toHaveAttribute("aria-pressed", "true");
-    await expect(testerButton()).toContainText(/42\s000/);
     await volumeButton(100).click();
     await testerButton().click();
     await expect(testerButton()).toHaveAttribute("aria-pressed", "true");
@@ -135,12 +134,10 @@ test("тестер: выбор «Товар / Тестер» в карточке
     await testerButton().click();
     await expect(volumeButton(50)).toBeVisible();
     await expect(volumeButton(100)).toBeVisible();
-    // The switch names an exact price: the tester of the chosen volume.
-    await expect(testerButton()).toContainText(/50 мл · 26\s000/);
-    await volumeButton(100).click();
-    await expect(testerButton()).toContainText(/100 мл · 42\s000/);
-    await expect(bottleButton()).toContainText(/100 мл · 50\s000/);
-    await expect(testerButton()).not.toContainText("от");
-    await expect(bottleButton()).not.toContainText("от");
+    // The switch says only «Товар» / «Тестер»; each volume below has its exact price.
+    await expect(testerButton()).toHaveText("Тестер");
+    await expect(bottleButton()).toHaveText("Товар");
+    await expect(volumeButton(50)).toContainText(/26\s000/);
+    await expect(volumeButton(100)).toContainText(/42\s000/);
   });
 });

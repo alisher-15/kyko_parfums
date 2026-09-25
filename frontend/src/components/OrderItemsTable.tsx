@@ -12,8 +12,8 @@ export function OrderItemsTable({
   /** Admin: current stock by volume, to tell whether backordered goods have arrived. */
   variantStock?: Record<number, number>;
 }) {
-  // Until the order leaves the shop, lines that were missing at checkout are marked.
-  const open = order.status === "new" || order.status === "processing";
+  // Admin only: until the order leaves the shop, lines that were missing at checkout are marked.
+  const open = admin && (order.status === "new" || order.status === "processing");
   return (
     <div className="card overflow-x-auto">
       <table className="table-base">
@@ -66,9 +66,9 @@ export function OrderItemsTable({
                   {i.returned_quantity > 0 && (
                     <div className="text-[11px] text-red-600">возвращено {i.returned_quantity}</div>
                   )}
-                  {open && i.backordered > 0 && i.quantity > 0 && (
+                  {open && !!i.backordered && i.quantity > 0 && (
                     <div className="text-[11px] text-amber-700">
-                      под заказ {Math.min(i.backordered, i.quantity)} шт.
+                      под заказ {Math.min(i.backordered ?? 0, i.quantity)} шт.
                       {variantStock && i.variant_id !== null && i.variant_id in variantStock && (
                         <>
                           {" · "}

@@ -1,36 +1,15 @@
-"""What customers learn about stock (pure functions, like pricing.py).
+"""What customers learn about stock (a pure function, like pricing.py).
 
-Exact counts are business data: a competitor could track sales by them. Guests and retail
-buyers see a level, and the count only when few units are left ("осталось 2 шт."). Wholesale
-partners and admins, who order in bulk, see the count.
+Stock is business data, and the shop sells what it doesn't have too (backorders: missing goods
+usually arrive in 1-2 days). So the storefront says nothing about stock except "few left"
+(1-5 units), which helps sell. In stock, out of stock and backorders are shown in the admin
+panel only.
 """
 
-from enum import StrEnum
-
-from app.models import UserRole
-
-# At or below this, the storefront says "few left" and shows the count to everyone.
+# At or below this, the storefront says "Осталось мало: N шт.".
 LOW_STOCK = 5
 
-EXACT_STOCK_ROLES = frozenset({UserRole.wholesale, UserRole.bulk_wholesale, UserRole.admin})
 
-
-class Availability(StrEnum):
-    in_stock = "in_stock"
-    low = "low"
-    out = "out"
-
-
-def availability(stock: int) -> Availability:
-    if stock <= 0:
-        return Availability.out
-    if stock <= LOW_STOCK:
-        return Availability.low
-    return Availability.in_stock
-
-
-def visible_stock(stock: int, role: UserRole | None) -> int | None:
-    """The stock count this viewer may see; None when it is hidden."""
-    if role in EXACT_STOCK_ROLES or stock <= LOW_STOCK:
-        return max(stock, 0)
-    return None
+def low_stock(stock: int) -> int | None:
+    """The count to show customers ("осталось 2 шт."), or None to show nothing."""
+    return stock if 0 < stock <= LOW_STOCK else None

@@ -15,7 +15,7 @@ test.describe("Оптовые цены и тизер крупного опта",
       expect(v.next_tier).toBe("bulk");
       expect(v.next_tier_price).toBeGreaterThan(0);
       expect(v.next_tier_price).toBeLessThan(v.price);
-      expect(v.stock, "wholesale partners see the exact stock").toBeGreaterThan(0);
+      expect(v.stock === null || v.stock <= 5, "stock only when few are left, as for everyone").toBe(true);
     });
 
     await test.step("гость не видит тизер", async () => {

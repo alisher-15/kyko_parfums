@@ -31,7 +31,6 @@ export function ProductView({ id }: { id: number }) {
 
   const variant =
     product.variants.find((v) => v.id === selectedId) ??
-    product.variants.find((v) => v.availability !== "out") ??
     product.variants[0];
 
   return (
@@ -182,10 +181,10 @@ function Purchase({
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          {/* Out of stock can still be ordered: the shop gets it from a supplier. */}
+          {/* Anything can be ordered: what the shop doesn't have, it gets from a supplier. */}
           <QuantityInput value={qty} onChange={setQty} />
           <button className="btn btn-primary flex-1" onClick={addToCart}>
-            {variant.availability === "out" ? "Заказать" : "В корзину"}
+            В корзину
           </button>
         </div>
         {added && (
@@ -243,19 +242,10 @@ function Purchase({
   );
 }
 
-/** Guests and retail buyers get the count only when few units are left; wholesale sees it always. */
+/** The storefront speaks about stock only when few units are left; the rest is admin data. */
 function StockNote({ variant }: { variant: VariantPublic }) {
-  if (variant.availability === "out") {
-    return <span className="text-amber-700">Под заказ: привезём за 1–2 дня, менеджер уточнит срок</span>;
-  }
-  if (variant.availability === "low") {
-    return <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>;
-  }
-  return (
-    <span className="text-emerald-700">
-      В наличии{variant.stock !== null ? `: ${variant.stock} шт.` : ""}
-    </span>
-  );
+  if (variant.stock === null) return null;
+  return <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>;
 }
 
 function PriceCell({ label, value, hint }: { label: string; value: number; hint?: string | null }) {

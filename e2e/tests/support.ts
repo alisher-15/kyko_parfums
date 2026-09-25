@@ -79,6 +79,22 @@ export async function ensureStock(admin: string, variant: Json, atLeast: number)
   return atLeast;
 }
 
+/** A fresh product of a fresh brand, with volumes as given (stock and retail price). */
+export async function createProduct(
+  admin: string,
+  volumes: { volume_ml: number; stock: number; retail_price: number }[],
+): Promise<{ product: Json; volume: (ml: number) => Json }> {
+  const tag = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const brand = await api("POST", "/admin/brands", admin, { name: `E2E Brand ${tag}` });
+  const created = await api("POST", "/admin/products", admin, {
+    brand_id: brand.id,
+    name: `E2E Product ${tag}`,
+    is_active: true,
+    variants: volumes,
+  });
+  return { product: created, volume: (ml: number) => volume(created, ml) };
+}
+
 export async function placeOrder(token: string, items: { variant_id: number; quantity: number }[]): Promise<Json> {
   return api("POST", "/orders", token, {
     contact_name: "Анна",

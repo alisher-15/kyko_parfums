@@ -39,7 +39,7 @@ export function OrderAdmin({ id }: { id: number }) {
 
   const isStore = order.channel === "store";
   const open = order.status === "new" || order.status === "processing";
-  const backordered = open && order.items.some((i) => i.backordered > 0 && i.quantity > 0);
+  const backordered = open && order.items.some((i) => (i.backordered ?? 0) > 0 && i.quantity > 0);
 
   const patch = async (body: Record<string, unknown>, okText: string) => {
     setBusy(true);

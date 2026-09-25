@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-from app.availability import Availability
 from app.models import Gender, PriceTier, PricingMode, UserRole
 from app.schemas.common import Money, ORMModel
 
@@ -22,9 +21,8 @@ class VariantPublic(BaseModel):
     id: int
     volume_ml: int
     sku: str | None
-    # Hidden (None) from guests and retail buyers unless few units are left: see availability.py.
+    # Only when few units are left ("Осталось мало"); otherwise None: see availability.py.
     stock: int | None
-    availability: Availability
     photo_url: str | None
     # Best price available to the current user's role (before thresholds are checked).
     price: Money
@@ -49,7 +47,6 @@ class ProductListItem(BaseModel):
     image_url: str | None
     min_price: Money | None
     volumes: list[int]
-    in_stock: bool
 
 
 class ProductDetail(ProductListItem):

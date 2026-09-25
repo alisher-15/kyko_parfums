@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.availability import visible_stock
 from app.db import get_db
 from app.deps import get_current_user, get_current_user_optional
 from app.models import (
@@ -16,7 +15,6 @@ from app.models import (
     OrderStatus,
     StockReason,
     User,
-    UserRole,
 )
 from app.pricing import Quote, QuoteItem, build_quote, price_for_tier, teaser_tier
 from app.schemas.common import Page
@@ -41,7 +39,7 @@ from app.services.stock import move_stock
 router = APIRouter(tags=["cart & orders"])
 
 
-def _quote_out(quote: Quote, unavailable: list[int], role: UserRole | None) -> QuoteOut:
+def _quote_out(quote: Quote, unavailable: list[int]) -> QuoteOut:
     lines = []
     for line in quote.lines:
         v = line.variant
@@ -55,8 +53,6 @@ def _quote_out(quote: Quote, unavailable: list[int], role: UserRole | None) -> Q
                 volume_ml=v.volume_ml,
                 image_url=v.photo_url or p.image_url,
                 quantity=line.quantity,
-                stock=visible_stock(v.stock, role),
-                available=v.stock >= line.quantity,
                 price_tier=line.tier,
                 unit_price=line.unit_price,
                 retail_unit_price=line.retail_unit_price,
@@ -93,7 +89,7 @@ def quote_cart(
     settings = get_pricing_settings(db)
     role = user.role if user else None
     quote = build_quote(items, role, settings)
-    out = _quote_out(quote, unavailable, role)
+    out = _quote_out(quote, unavailable)
     teaser = teaser_tier(role, settings)
     if teaser and items:
         next_total = sum(
@@ -135,7 +131,6 @@ def create_order(
         delivery_address=data.delivery_address.strip(),
         comment=data.comment,
     )
-    backorders = []
     for line in quote.lines:
         v = line.variant
         # What the shop doesn't have is ordered from a supplier; the manager confirms the date.
@@ -149,8 +144,6 @@ def create_order(
             user=user,
             allow_backorder=True,
         )
-        if backordered:
-            backorders.append(f"{v.product.name}, {v.volume_ml} мл — {backordered} шт.")
         order.items.append(
             OrderItem(
                 variant_id=v.id,
@@ -168,10 +161,8 @@ def create_order(
                 cost_price=v.cost_price,
             )
         )
-    message = "Заказ оформлен на сайте"
-    if backorders:
-        message += ". Под заказ (нет на складе, обычно 1–2 дня): " + "; ".join(backorders)
-    add_event(order, OrderEventKind.created, message, user)
+    # Backorders are the manager's business: the customer's history doesn't mention them.
+    add_event(order, OrderEventKind.created, "Заказ оформлен на сайте", user)
     db.add(order)
     db.commit()
     return _own_order(db, order.id, user)

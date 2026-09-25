@@ -15,7 +15,7 @@ from app.models import (
 )
 from app.schemas.auth import Password, UserOut
 from app.schemas.common import Money, MoneyIn, ORMModel
-from app.schemas.orders import OrderOut
+from app.schemas.orders import OrderItemOut, OrderOut
 
 # ---------- Brands ----------
 
@@ -206,7 +206,13 @@ class AdminUserUpdate(BaseModel):
 # ---------- Orders ----------
 
 
+class AdminOrderItemOut(OrderItemOut):
+    # Units that were not in stock at checkout (ordered from a supplier). Admin only.
+    backordered: int
+
+
 class AdminOrderOut(OrderOut):
+    items: list[AdminOrderItemOut]
     user_id: int | None
     user_email: str | None
     created_by_email: str | None

@@ -31,9 +31,6 @@ class QuoteLineOut(BaseModel):
     volume_ml: int
     image_url: str | None
     quantity: int
-    # Hidden (None) from guests and retail buyers unless few units are left: see availability.py.
-    stock: int | None
-    available: bool
     price_tier: PriceTier
     unit_price: Money
     retail_unit_price: Money
@@ -90,8 +87,6 @@ class OrderItemOut(ORMModel):
     volume_ml: int
     quantity: int
     original_quantity: int
-    # Units that were not in stock at checkout (ordered from a supplier).
-    backordered: int = 0
     returned_quantity: int
     list_price: Money
     discount_percent: float

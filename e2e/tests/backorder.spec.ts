@@ -1,50 +1,45 @@
-import { adminToken, api, expect, login, loginAsAdmin, newCustomer, test } from "./support";
+import { adminToken, api, createProduct, expect, login, loginAsAdmin, newCustomer, test } from "./support";
 
-/** A product with one volume in stock and one that is not: the shop gets it in 1-2 days. */
-async function productWithMissingVolume(admin: string) {
-  const brand = await api("POST", "/admin/brands", admin, { name: `Под заказ ${Date.now()}` });
-  const created = await api("POST", "/admin/products", admin, {
-    brand_id: brand.id,
-    name: `Backorder ${Date.now()}`,
-    is_active: true,
-    variants: [
-      { volume_ml: 50, stock: 5, retail_price: 30000 },
-      { volume_ml: 100, stock: 0, retail_price: 50000 },
-    ],
-  });
-  const byVolume = (ml: number) => created.variants.find((v: { volume_ml: number }) => v.volume_ml === ml);
-  return { product: created, inStock: byVolume(50), missing: byVolume(100) };
-}
-
-test("товара нет в наличии: клиент заказывает, менеджер убирает недостающее", async ({ page, openPage }) => {
+test("товара нет в наличии: клиент заказывает как обычно, менеджер убирает недостающее", async ({
+  page,
+  openPage,
+}) => {
   const admin = await adminToken();
-  const { product, missing } = await productWithMissingVolume(admin);
+  // One volume in stock and one that is not: the shop can get it in 1-2 days.
+  const { product, volume } = await createProduct(admin, [
+    { volume_ml: 50, stock: 20, retail_price: 30000 },
+    { volume_ml: 100, stock: 0, retail_price: 50000 },
+  ]);
+  const missing = volume(100);
   const customer = await newCustomer("backorder");
   await login(page, customer.email, customer.password);
 
-  await test.step("карточка товара: «Под заказ», кнопка «Заказать»", async () => {
+  await test.step("покупатель не видит, что товара нет: обычная кнопка «В корзину»", async () => {
     await page.goto(`/products/${product.id}`);
     await page.getByRole("button", { name: /^100 мл/ }).click();
-    await expect(page.getByText(/Под заказ: привезём за 1–2 дня/)).toBeVisible();
-    await page.getByRole("button", { name: "Заказать" }).click();
+    await expect(page.getByText(/Под заказ|Нет в наличии/)).toHaveCount(0);
+    await page.getByRole("button", { name: "В корзину" }).click();
     await expect(page.getByText("Добавлено в корзину")).toBeVisible();
     await page.getByRole("button", { name: /^50 мл/ }).click();
     await page.getByRole("button", { name: "В корзину" }).click();
   });
 
   let orderId = 0;
-  await test.step("корзина и оформление не блокируются", async () => {
+  await test.step("корзина и оформление ничего не говорят о наличии", async () => {
     await page.goto("/cart");
-    await expect(page.getByText("Под заказ: привезём за 1–2 дня")).toBeVisible();
+    await expect(page.getByText("Итого").first()).toBeVisible();
+    await expect(page.getByText(/под заказ/i)).toHaveCount(0);
     await page.getByRole("link", { name: "Оформить заказ" }).click();
     await page.waitForURL("**/checkout");
-    await expect(page.getByText(/Часть товаров под заказ/)).toBeVisible();
+    await expect(page.getByText(/подтвердит наличие и срок доставки/)).toBeVisible();
+    await expect(page.getByText(/под заказ/i)).toHaveCount(0);
     await page.getByLabel("Город").fill("Алматы");
     await page.getByLabel("Адрес").fill("пр. Абая, 5");
     await page.getByRole("button", { name: /Подтвердить заказ/ }).click();
     await page.waitForURL(/\/account\/orders\/\d+/);
     orderId = Number(new URL(page.url()).pathname.split("/").pop());
-    await expect(page.getByText(/Под заказ \(нет на складе/)).toBeVisible();
+    await expect(page.getByText(/Спасибо! Заказ №/)).toBeVisible();
+    await expect(page.getByText(/под заказ/i), "the customer's order says nothing about it").toHaveCount(0);
     const order = await api("GET", `/admin/orders/${orderId}`, admin);
     const line = order.items.find((i: { variant_id: number }) => i.variant_id === missing.id);
     expect(line.backordered).toBe(1);

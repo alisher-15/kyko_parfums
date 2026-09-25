@@ -6,7 +6,7 @@ import { QuoteHints } from "@/components/QuoteHints";
 import { Empty, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { TIER_LABELS, money } from "@/lib/format";
+import { TIER_LABELS, money, volumeLabel } from "@/lib/format";
 import { useQuote } from "@/lib/use-quote";
 
 export default function CartPage() {
@@ -61,7 +61,9 @@ export default function CartPage() {
                   >
                     {item.productName}
                   </Link>
-                  <div className="text-sm text-muted">{item.volumeMl} мл</div>
+                  <div className="text-sm text-muted">
+                    {volumeLabel(item.volumeMl, line?.is_tester ?? item.isTester)}
+                  </div>
                   {gone && <div className="text-sm text-red-600">Товар больше недоступен</div>}
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     {!gone && (

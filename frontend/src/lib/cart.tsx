@@ -20,6 +20,8 @@ export interface CartItem {
   productName: string;
   brandName: string;
   volumeMl: number;
+  /** Absent in carts saved before testers existed. */
+  isTester?: boolean;
   imageUrl: string | null;
 }
 

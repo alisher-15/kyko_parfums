@@ -96,6 +96,11 @@ class PricingMode(enum.StrEnum):
     item_quantity = "item_quantity"
 
 
+def volume_label(volume_ml: int, is_tester: bool = False) -> str:
+    """How a volume is named everywhere: "100 мл" or "100 мл, тестер"."""
+    return f"{volume_ml} мл, тестер" if is_tester else f"{volume_ml} мл"
+
+
 def _enum(e: type[enum.Enum], name: str) -> Enum:
     # Stored as VARCHAR + CHECK: easier to extend than native PG enums.
     return Enum(
@@ -190,14 +195,17 @@ class Product(TimestampMixin, Base):
     variants: Mapped[list[ProductVariant]] = relationship(
         back_populates="product",
         cascade="all, delete-orphan",
-        order_by="ProductVariant.volume_ml",
+        # Bottles first, then testers; each by volume.
+        order_by="[ProductVariant.is_tester, ProductVariant.volume_ml]",
     )
 
 
 class ProductVariant(TimestampMixin, Base):
     __tablename__ = "product_variants"
     __table_args__ = (
-        UniqueConstraint("product_id", "volume_ml", name="uq_variant_product_volume"),
+        UniqueConstraint(
+            "product_id", "volume_ml", "is_tester", name="uq_variant_product_volume_tester"
+        ),
         CheckConstraint("volume_ml > 0", name="ck_variant_volume_positive"),
         CheckConstraint("retail_price >= 0", name="ck_variant_retail_price"),
         CheckConstraint("wholesale_price IS NULL OR wholesale_price >= 0", name="ck_variant_wh"),
@@ -209,6 +217,9 @@ class ProductVariant(TimestampMixin, Base):
         ForeignKey("products.id", ondelete="CASCADE"), index=True
     )
     volume_ml: Mapped[int] = mapped_column(Integer)
+    # A tester of this volume: the same perfume in plain packaging, with its own prices, stock
+    # and barcodes. It shares the product's photos.
+    is_tester: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     sku: Mapped[str | None] = mapped_column(String(64), unique=True)
     # Below zero: customers ordered more than the shop has (backorder); receipts fill it first.
     stock: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -229,12 +240,13 @@ class ProductVariant(TimestampMixin, Base):
 
     @property
     def label(self) -> str:
-        return f"{self.product.brand.name} {self.product.name}, {self.volume_ml} мл"
+        volume = volume_label(self.volume_ml, self.is_tester)
+        return f"{self.product.brand.name} {self.product.name}, {volume}"
 
 
 class VariantBarcode(Base):
-    """A barcode printed on the goods (EAN-13 and the like). A volume can have several:
-    retail box, tester, different suppliers."""
+    """A barcode printed on the goods (EAN-13 and the like). A volume can have several
+    (different suppliers, box and bottle). A tester has its own codes: it is its own variant."""
 
     __tablename__ = "variant_barcodes"
 
@@ -355,6 +367,7 @@ class OrderItem(Base):
     product_name: Mapped[str] = mapped_column(String(255))
     product_id: Mapped[int | None] = mapped_column(Integer)
     volume_ml: Mapped[int] = mapped_column(Integer)
+    is_tester: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Cost of one unit when it was sold (the variant's average cost then); NULL = unknown.
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
 
@@ -365,6 +378,10 @@ class OrderItem(Base):
     @property
     def line_total(self) -> Decimal:
         return self.price_applied * self.quantity
+
+    @property
+    def label(self) -> str:
+        return f"{self.product_name}, {volume_label(self.volume_ml, self.is_tester)}"
 
     @property
     def returned_quantity(self) -> int:
@@ -593,8 +610,7 @@ class OrderReturnItem(Base):
 
     @property
     def product_label(self) -> str:
-        i = self.order_item
-        return f"{i.brand_name} {i.product_name}, {i.volume_ml} мл"
+        return f"{self.order_item.brand_name} {self.order_item.label}"
 
 
 class OrderEvent(Base):

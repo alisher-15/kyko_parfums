@@ -57,6 +57,8 @@ export interface Brand extends BrandBrief {
 export interface VariantPublic {
   id: number;
   volume_ml: number;
+  /** The same perfume in plain packaging, sold next to the bottle of the same volume. */
+  is_tester: boolean;
   sku: string | null;
   /** Only when few units are left ("Осталось мало"); stock state is admin data. */
   stock: number | null;
@@ -79,7 +81,9 @@ export interface ProductListItem {
   gender: Gender | null;
   longevity: string | null;
   image_url: string | null;
+  /** The cheapest variant the viewer can buy, testers included. */
   min_price: number | null;
+  /** Distinct volumes: a bottle and a tester of one size count once. */
   volumes: number[];
 }
 
@@ -120,6 +124,7 @@ export interface QuoteLine {
   product_name: string;
   brand_name: string;
   volume_ml: number;
+  is_tester: boolean;
   image_url: string | null;
   quantity: number;
   price_tier: PriceTier;
@@ -156,6 +161,7 @@ export interface OrderItem {
   brand_name: string;
   product_name: string;
   volume_ml: number;
+  is_tester: boolean;
   quantity: number;
   original_quantity: number;
   /** Admin only: units not in stock at checkout, ordered from a supplier. */
@@ -229,6 +235,7 @@ export interface AdminVariant {
   id: number;
   product_id: number;
   volume_ml: number;
+  is_tester: boolean;
   sku: string | null;
   stock: number;
   retail_price: number;
@@ -311,6 +318,8 @@ export interface ImportReport {
   products_updated: number;
   variants_created: number;
   variants_updated: number;
+  /** Rows read as testers: a "Тестер" column, or "tester" in the name, volume or type. */
+  tester_rows: number;
   errors: { row: number; error: string }[];
   unmapped_columns: string[];
 }
@@ -348,6 +357,7 @@ export interface VariantSearchItem {
   brand_name: string;
   product_name: string;
   volume_ml: number;
+  is_tester: boolean;
   sku: string | null;
   image_url: string | null;
   stock: number;
@@ -365,6 +375,7 @@ export interface StoreQuoteLine {
   brand_name: string;
   product_name: string;
   volume_ml: number;
+  is_tester: boolean;
   sku: string | null;
   image_url: string | null;
   quantity: number;
@@ -392,6 +403,7 @@ export interface StockMovement {
   id: number;
   variant_id: number;
   volume_ml: number;
+  is_tester: boolean;
   delta: number;
   stock_after: number;
   reason: StockReason;

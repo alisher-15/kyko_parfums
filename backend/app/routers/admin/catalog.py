@@ -5,7 +5,15 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db import get_db
 from app.deps import require_admin
-from app.models import Brand, Product, ProductVariant, StockMovement, StockReason, User
+from app.models import (
+    Brand,
+    Product,
+    ProductVariant,
+    StockMovement,
+    StockReason,
+    User,
+    volume_label,
+)
 from app.schemas.admin import (
     AdminProductOut,
     AdminVariantOut,
@@ -161,8 +169,8 @@ def create_product(
 ):
     if db.get(Brand, data.brand_id) is None:
         raise HTTPException(422, "Бренд не найден")
-    volumes = [v.volume_ml for v in data.variants]
-    if len(volumes) != len(set(volumes)):
+    kinds = [(v.volume_ml, v.is_tester) for v in data.variants]
+    if len(kinds) != len(set(kinds)):
         raise HTTPException(422, "Объёмы вариантов не должны повторяться")
     product = Product(**data.model_dump(exclude={"variants"}))
     for v in data.variants:
@@ -199,6 +207,25 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 
 # ---------- Variants ----------
 
+VARIANT_CONFLICT = "Такой вариант у товара уже есть, или артикул (SKU) занят"
+
+
+def _check_unique_volume(
+    db: Session, product_id: int, volume_ml: int, is_tester: bool, variant_id: int | None = None
+) -> None:
+    """A product has one variant per volume, and one tester per volume."""
+    same = select(ProductVariant.id).where(
+        ProductVariant.product_id == product_id,
+        ProductVariant.volume_ml == volume_ml,
+        ProductVariant.is_tester == is_tester,
+    )
+    if variant_id is not None:
+        same = same.where(ProductVariant.id != variant_id)
+    if db.scalar(same.limit(1)) is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"У товара уже есть {volume_label(volume_ml, is_tester)}"
+        )
+
 
 @router.post(
     "/products/{product_id}/variants",
@@ -213,10 +240,11 @@ def create_variant(
 ):
     if db.get(Product, product_id) is None:
         raise HTTPException(404, "Товар не найден")
+    _check_unique_volume(db, product_id, data.volume_ml, data.is_tester)
     variant = ProductVariant(product_id=product_id, **data.model_dump(exclude={"stock"}), stock=0)
     db.add(variant)
     set_stock(db, variant, data.stock, StockReason.manual, user=admin, note="Начальный остаток")
-    _commit(db, "Такой объём у товара уже есть, или артикул (SKU) занят")
+    _commit(db, VARIANT_CONFLICT)
     return variant
 
 
@@ -231,6 +259,9 @@ def update_variant(
     if variant is None:
         raise HTTPException(404, "Вариант не найден")
     changes = data.model_dump(exclude_unset=True)
+    for required in ("volume_ml", "is_tester"):
+        if required in changes and changes[required] is None:
+            del changes[required]
     if changes.get("retail_price", variant.retail_price) is None:
         raise HTTPException(422, "Розничная цена обязательна")
     try:
@@ -241,13 +272,21 @@ def update_variant(
         )
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
+    if "volume_ml" in changes or "is_tester" in changes:
+        _check_unique_volume(
+            db,
+            variant.product_id,
+            changes.get("volume_ml", variant.volume_ml),
+            changes.get("is_tester", variant.is_tester),
+            variant.id,
+        )
     stock_note = changes.pop("stock_note", None)
     new_stock = changes.pop("stock", None)
     if new_stock is not None:
         set_stock(db, variant, new_stock, StockReason.manual, user=admin, note=stock_note)
     for k, v in changes.items():
         setattr(variant, k, v)
-    _commit(db, "Такой объём у товара уже есть, или артикул (SKU) занят")
+    _commit(db, VARIANT_CONFLICT)
     db.refresh(variant)
     return variant
 
@@ -284,6 +323,7 @@ def stock_movements(
             id=m.id,
             variant_id=m.variant_id,
             volume_ml=m.variant.volume_ml,
+            is_tester=m.variant.is_tester,
             delta=m.delta,
             stock_after=m.stock_after,
             reason=m.reason,

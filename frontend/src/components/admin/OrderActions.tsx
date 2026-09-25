@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ErrorBox, QuantityInput } from "@/components/ui";
 import { api } from "@/lib/api";
-import { PAYMENT_LABELS, money } from "@/lib/format";
+import { PAYMENT_LABELS, money, volumeLabel } from "@/lib/format";
 import type { AdminOrder, PaymentMethod } from "@/lib/types";
 
 const PAYMENTS: PaymentMethod[] = ["cash", "card", "transfer", "other"];
@@ -61,7 +61,7 @@ export function EditItemsPanel({
             <div className="min-w-0 flex-1">
               <div className="text-xs text-muted">{i.brand_name}</div>
               <div className={`font-semibold ${qty[i.id] === 0 ? "text-muted line-through" : ""}`}>
-                {i.product_name}, {i.volume_ml} мл
+                {i.product_name}, {volumeLabel(i.volume_ml, i.is_tester)}
               </div>
               <div className="text-xs text-muted">
                 {money(i.price_applied)} × {i.quantity}
@@ -179,7 +179,7 @@ export function ReturnPanel({
               <div className="min-w-0 flex-1">
                 <div className="text-xs text-muted">{i.brand_name}</div>
                 <div className="font-semibold">
-                  {i.product_name}, {i.volume_ml} мл
+                  {i.product_name}, {volumeLabel(i.volume_ml, i.is_tester)}
                 </div>
                 <div className="text-xs text-muted">
                   {money(i.price_applied)} за шт. · можно вернуть {left} шт.

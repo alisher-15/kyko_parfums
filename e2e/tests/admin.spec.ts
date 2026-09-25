@@ -85,6 +85,8 @@ test.describe("Админка", () => {
     await expect(page.getByRole("button", { name: "template.xlsx" })).toBeVisible();
     await page.getByRole("button", { name: "Проверить (без сохранения)" }).click();
     await expect(page.getByText("Проверка завершена")).toBeVisible();
+    // The template has a row of a tester (next to the bottle of the same volume).
+    await expect(page.locator(".card", { hasText: "Тестеров в файле" })).toContainText("1");
   });
 
   test("заказ: поиск по номеру и смена статуса", async ({ page }) => {

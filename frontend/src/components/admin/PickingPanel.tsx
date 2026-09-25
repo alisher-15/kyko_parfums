@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ApiError, api } from "@/lib/api";
+import { volumeLabel } from "@/lib/format";
 import type { AdminOrder, OrderItem, VariantSearchItem } from "@/lib/types";
 import { ScanField, type ScanResult } from "./ScanField";
 
@@ -28,7 +29,7 @@ function savePicked(orderId: number, picked: Picked) {
 }
 
 function label(i: OrderItem) {
-  return `${i.brand_name} ${i.product_name}, ${i.volume_ml} мл`;
+  return `${i.brand_name} ${i.product_name}, ${volumeLabel(i.volume_ml, i.is_tester)}`;
 }
 
 /**
@@ -77,17 +78,17 @@ export function PickingPanel({
       }
       throw e;
     }
-    const name = `${found.brand_name} ${found.product_name}, ${found.volume_ml} мл`;
+    const volume = volumeLabel(found.volume_ml, found.is_tester);
+    const name = `${found.brand_name} ${found.product_name}, ${volume}`;
     const line = lines.find((i) => i.variant_id === found.variant_id);
     if (!line) {
-      const sameProduct = lines.find((i) => i.product_id === found.product_id);
-      return sameProduct
-        ? {
-            ok: false,
-            title: `Не тот объём: ${found.volume_ml} мл`,
-            detail: `В заказе ${label(sameProduct)}`,
-          }
-        : { ok: false, title: "Этого товара нет в заказе", detail: name };
+      const sameProduct =
+        lines.find((i) => i.product_id === found.product_id && i.volume_ml === found.volume_ml) ??
+        lines.find((i) => i.product_id === found.product_id);
+      if (!sameProduct) return { ok: false, title: "Этого товара нет в заказе", detail: name };
+      // The same volume, but a tester instead of the bottle or the other way round.
+      const what = sameProduct.volume_ml === found.volume_ml ? "вариант" : "объём";
+      return { ok: false, title: `Не тот ${what}: ${volume}`, detail: `В заказе ${label(sameProduct)}` };
     }
     const have = pickedRef.current[line.id] ?? 0;
     if (have >= line.quantity) {

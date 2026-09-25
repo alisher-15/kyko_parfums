@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
-import { GENDER_LABELS, money } from "@/lib/format";
+import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
 import type { AdminProduct, Brand, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -138,7 +138,7 @@ export function ProductsAdmin({
                     ) : (
                       p.variants.map((v) => (
                         <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
-                          <b>{v.volume_ml} мл</b> · {money(v.retail_price)} ·{" "}
+                          <b>{volumeLabel(v.volume_ml, v.is_tester)}</b> · {money(v.retail_price)} ·{" "}
                           <span className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
                             {v.stock} шт.
                           </span>
@@ -194,7 +194,8 @@ export function ProductsAdmin({
                       ) : (
                         p.variants.map((v) => (
                           <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
-                            <b>{v.volume_ml} мл</b>: {money(v.retail_price)} / {money(v.wholesale_price)} /{" "}
+                            <b>{volumeLabel(v.volume_ml, v.is_tester)}</b>: {money(v.retail_price)} /{" "}
+                            {money(v.wholesale_price)} /{" "}
                             {money(v.bulk_price)}
                           </div>
                         ))

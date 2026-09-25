@@ -6,6 +6,9 @@ The importer is tolerant to the layout of the source file:
 * column names are matched against Russian/English aliases (see ``COLUMN_ALIASES``);
 * one row = one product, optionally with one variant (volume + prices + stock).
   Several rows with the same brand/name/type add several volumes to the same product;
+* a tester is a row marked in a "Тестер" column, or with "tester" / "тестер" written in the
+  name, volume or type ("Coco Mademoiselle Tester", "100 мл тестер"). The word is removed from
+  the name, so the tester becomes a variant of the same product, next to the bottle;
 * re-importing the same file is idempotent: products are matched by (brand, name, type) and
   only non-empty cells overwrite existing values.
 """
@@ -23,7 +26,16 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models import Brand, Gender, Product, ProductVariant, StockReason, User, VariantBarcode
+from app.models import (
+    Brand,
+    Gender,
+    Product,
+    ProductVariant,
+    StockReason,
+    User,
+    VariantBarcode,
+    volume_label,
+)
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
 from app.services.stock import set_stock
 
@@ -53,6 +65,9 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "description": ["description", "описание"],
     "image_url": ["image_url", "image", "фото", "photo", "photo_url", "изображение", "картинка"],
     "volume_ml": ["volume_ml", "volume", "объем", "объем мл", "мл", "объем ml"],
+    "is_tester": [
+        "is_tester", "tester", "тестер", "товар/тестер", "тестер/товар", "товар или тестер",
+    ],
     "retail_price": [
         "retail_price", "розница", "розничная цена", "цена розница", "цена", "price",
         "цена розничная",
@@ -86,6 +101,7 @@ TEMPLATE_COLUMNS = [
     ("description", "Описание"),
     ("image_url", "Фото"),
     ("volume_ml", "Объём, мл"),
+    ("is_tester", "Тестер"),
     ("retail_price", "Розничная цена"),
     ("wholesale_price", "Оптовая цена"),
     ("bulk_price", "Цена крупный опт"),
@@ -199,6 +215,32 @@ def parse_int(value: Any) -> int | None:
     return int(d)
 
 
+TESTER_WORD = re.compile(r"(?<!\w)(?:tester|тестер)(?!\w)", re.IGNORECASE)
+# The word together with the brackets or dash around it: "(тестер)", "- Tester", "[TESTER]".
+TESTER_MARK = re.compile(
+    r"\s*[-–—,/]?\s*[(\[]?\s*(?<!\w)(?:tester|тестер)(?!\w)\s*[)\]]?", re.IGNORECASE
+)
+
+
+def strip_tester(value: Any) -> tuple[Any, bool]:
+    """("Coco Mademoiselle Tester", ...) -> ("Coco Mademoiselle", True). Numbers pass as is."""
+    if not isinstance(value, str) or not TESTER_WORD.search(value):
+        return value, False
+    return TESTER_MARK.sub(" ", value).strip(" -–—,/"), True
+
+
+def parse_tester(value: Any) -> bool | None:
+    """The "Тестер" column: да / нет, тестер / товар. Empty = not said."""
+    s = (_text(value) or "").lower().replace("ё", "е")
+    if not s:
+        return None
+    if s in {"1", "да", "yes", "true", "y", "д", "+", "т"} or TESTER_WORD.search(s):
+        return True
+    if s in {"0", "нет", "no", "false", "n", "н", "-", "товар", "флакон", "оригинал", "original"}:
+        return False
+    raise ValueError(f"не удалось распознать, тестер ли это: «{value}» (да / нет)")
+
+
 def parse_bool(value: Any) -> bool | None:
     s = (_text(value) or "").lower()
     if not s:
@@ -256,6 +298,7 @@ class _Stats:
     products_updated: int = 0
     variants_created: int = 0
     variants_updated: int = 0
+    tester_rows: int = 0
     errors: list[ImportRowError] = field(default_factory=list)
 
 
@@ -304,12 +347,19 @@ def import_catalog(
             continue
         st.rows_total += 1
         try:
+            raw_name, tester_in_name = strip_tester(cell(cells, "name"))
+            raw_type, tester_in_type = strip_tester(cell(cells, "type"))
+            raw_volume, tester_in_volume = strip_tester(cell(cells, "volume_ml"))
+            tester = parse_tester(cell(cells, "is_tester"))
+            if tester is None:
+                tester = tester_in_name or tester_in_type or tester_in_volume
+
             brand_name = _text(cell(cells, "brand"), 255)
-            name = _text(cell(cells, "name"), 255)
+            name = _text(raw_name, 255)
             if not brand_name or not name:
                 raise ValueError("не заполнены бренд или название")
 
-            ptype = normalize_type(cell(cells, "type"))
+            ptype = normalize_type(raw_type)
             values = {f: _text(cell(cells, f)) for f in PRODUCT_TEXT_FIELDS}
             if values["category"]:
                 values["category"] = values["category"][:128]
@@ -318,7 +368,7 @@ def import_catalog(
             gender = normalize_gender(cell(cells, "gender"))
             is_active = parse_bool(cell(cells, "is_active"))
 
-            volume = parse_int(cell(cells, "volume_ml"))
+            volume = parse_int(raw_volume)
             retail = parse_decimal(cell(cells, "retail_price"))
             wholesale = parse_decimal(cell(cells, "wholesale_price"))
             bulk = parse_decimal(cell(cells, "bulk_price"))
@@ -332,6 +382,8 @@ def import_catalog(
             st.errors.append(ImportRowError(row=row_no, error=str(e)))
             st.rows_skipped += 1
             continue
+        if tester:
+            st.tester_rows += 1
 
         # Brand
         brand = brands.get(brand_name.lower())
@@ -362,10 +414,14 @@ def import_catalog(
                 touched_products.add(id(product))
                 st.products_updated += 1
 
-        # Variant
+        # Variant: the bottle and the tester of one volume are two variants.
         if volume is None:
             continue
-        variant = next((v for v in product.variants if v.volume_ml == volume), None)
+        what = volume_label(volume, tester)
+        variant = next(
+            (v for v in product.variants if v.volume_ml == volume and v.is_tester == tester),
+            None,
+        )
         if sku and sku in sku_owner and sku_owner[sku] is not variant:
             st.errors.append(
                 ImportRowError(row=row_no, error=f"артикул {sku} уже занят — артикул не сохранён")
@@ -375,18 +431,16 @@ def import_catalog(
             try:
                 check_price_order(retail, wholesale, bulk)
             except ValueError as e:
-                st.errors.append(ImportRowError(row=row_no, error=f"объём {volume} мл: {e}"))
+                st.errors.append(ImportRowError(row=row_no, error=f"{what}: {e}"))
                 continue
             if retail is None:
                 st.errors.append(
-                    ImportRowError(
-                        row=row_no,
-                        error=f"объём {volume} мл пропущен: не указана розничная цена",
-                    )
+                    ImportRowError(row=row_no, error=f"{what} пропущен: не указана розничная цена")
                 )
                 continue
             variant = ProductVariant(
                 volume_ml=volume,
+                is_tester=tester,
                 retail_price=retail,
                 wholesale_price=wholesale,
                 bulk_price=bulk,
@@ -413,7 +467,7 @@ def import_catalog(
                     merged["retail_price"], merged["wholesale_price"], merged["bulk_price"]
                 )
             except ValueError as e:
-                st.errors.append(ImportRowError(row=row_no, error=f"объём {volume} мл: {e}"))
+                st.errors.append(ImportRowError(row=row_no, error=f"{what}: {e}"))
                 continue
             if any(getattr(variant, k) != v for k, v in new.items()):
                 new_stock = new.pop("stock", None)
@@ -452,9 +506,34 @@ def import_catalog(
         products_updated=st.products_updated,
         variants_created=st.variants_created,
         variants_updated=st.variants_updated,
+        tester_rows=st.tester_rows,
         errors=st.errors,
         unmapped_columns=unmapped,
     )
+
+
+# fmt: off
+TEMPLATE_ROWS: list[dict[str, Any]] = [
+    {
+        "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "category": "Шипровые",
+        "gender": "Женский", "longevity": "Стойкий", "top_notes": "Апельсин, бергамот",
+        "mid_notes": "Роза, жасмин", "base_notes": "Пачули, ветивер",
+        "description": "Описание аромата", "volume_ml": 50, "is_tester": "нет",
+        "retail_price": 65000, "wholesale_price": 55000, "bulk_price": 50000, "stock": 10,
+        "sku": "CH-CM-50",
+    },
+    {
+        "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "volume_ml": 100,
+        "is_tester": "нет", "retail_price": 95000, "wholesale_price": 82000,
+        "bulk_price": 76000, "stock": 5, "sku": "CH-CM-100",
+    },
+    {
+        "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "volume_ml": 100,
+        "is_tester": "да", "retail_price": 80000, "wholesale_price": 70000,
+        "bulk_price": 65000, "stock": 3, "sku": "CH-CM-100-T",
+    },
+]
+# fmt: on
 
 
 def build_template() -> bytes:
@@ -462,21 +541,8 @@ def build_template() -> bytes:
     ws = wb.active
     ws.title = "Каталог"
     ws.append([title for _, title in TEMPLATE_COLUMNS])
-    # fmt: off
-    ws.append(
-        [
-            "Chanel", "Coco Mademoiselle", "EDP", "Шипровые", "Женский", "Стойкий",
-            "Апельсин, бергамот", "Роза, жасмин", "Пачули, ветивер", "Описание аромата", "",
-            50, 65000, 55000, 50000, 10, "CH-CM-50",
-        ]
-    )
-    ws.append(
-        [
-            "Chanel", "Coco Mademoiselle", "EDP", "", "", "", "", "", "", "", "",
-            100, 95000, 82000, 76000, 5, "CH-CM-100",
-        ]
-    )
-    # fmt: on
+    for row in TEMPLATE_ROWS:
+        ws.append([row.get(key, "") for key, _ in TEMPLATE_COLUMNS])
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 18
     buf = io.BytesIO()

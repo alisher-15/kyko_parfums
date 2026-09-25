@@ -17,6 +17,11 @@ export function money(value: number | null | undefined): string {
   return `${numberFormat.format(value)} ${CURRENCY}`;
 }
 
+/** How a volume is named everywhere: "100 мл" or "100 мл, тестер" (same as the backend). */
+export function volumeLabel(volumeMl: number, isTester?: boolean): string {
+  return isTester ? `${volumeMl} мл, тестер` : `${volumeMl} мл`;
+}
+
 export function dateTime(iso: string): string {
   return new Date(iso).toLocaleString("ru-RU", {
     day: "2-digit",

@@ -10,7 +10,7 @@ import { VariantPicker } from "@/components/admin/VariantPicker";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, Spinner, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import { CURRENCY, dateTime, money } from "@/lib/format";
+import { CURRENCY, dateTime, money, volumeLabel } from "@/lib/format";
 import type { Receipt, ReceiptLine } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -134,7 +134,7 @@ export function ReceiptView({ id }: { id: number }) {
               onPick={(item) =>
                 run(
                   () => api<Receipt>(`${base}/lines`, { body: { variant_id: item.variant_id } }),
-                  `Добавлено: ${item.brand_name} ${item.product_name}, ${item.volume_ml} мл`,
+                  `Добавлено: ${item.brand_name} ${item.product_name}, ${volumeLabel(item.volume_ml, item.is_tester)}`,
                 )
               }
             />
@@ -152,7 +152,7 @@ export function ReceiptView({ id }: { id: number }) {
               const r = await api<Receipt>(`${base}/scan`, { body: { code: unknown } });
               setUnknown(null);
               return r;
-            }, `Штрихкод привязан к «${item.brand_name} ${item.product_name}, ${item.volume_ml} мл», +1 шт.`)
+            }, `Штрихкод привязан к «${item.brand_name} ${item.product_name}, ${volumeLabel(item.volume_ml, item.is_tester)}», +1 шт.`)
           }
         />
       )}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ErrorBox, Spinner } from "@/components/ui";
-import { STOCK_REASON_LABELS, dateTime } from "@/lib/format";
+import { STOCK_REASON_LABELS, dateTime, volumeLabel } from "@/lib/format";
 import type { StockMovement } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -36,7 +36,7 @@ export function StockHistory({ productId, version }: { productId: number; versio
               {data.map((m) => (
                 <tr key={m.id}>
                   <td className="text-xs whitespace-nowrap">{dateTime(m.created_at)}</td>
-                  <td>{m.volume_ml} мл</td>
+                  <td>{volumeLabel(m.volume_ml, m.is_tester)}</td>
                   <td
                     className={`font-semibold tabular-nums ${m.delta > 0 ? "text-emerald-700" : "text-red-600"}`}
                   >

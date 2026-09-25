@@ -2,6 +2,7 @@ import io
 from decimal import Decimal
 
 from openpyxl import Workbook
+from sqlalchemy import select
 
 from app.models import Product, ProductVariant, User, UserRole
 from tests.conftest import login, make_user
@@ -315,7 +316,12 @@ def test_import_template_roundtrip(client, auth, db):
         headers=h,
     ).json()
     assert report["errors"] == []
-    assert (report["products_created"], report["variants_created"]) == (1, 2)
+    assert (report["products_created"], report["variants_created"]) == (1, 3)
+    # The template shows how to mark a tester: the 100 ml bottle and the 100 ml tester.
+    assert report["tester_rows"] == 1
+    variants = db.scalars(select(ProductVariant).order_by(ProductVariant.id)).all()
+    kinds = [(v.volume_ml, v.is_tester) for v in variants]
+    assert kinds == [(50, False), (100, False), (100, True)]
 
 
 def test_stats(client, auth, catalog, db):
@@ -338,7 +344,19 @@ def test_bootstrap_from_env(db, monkeypatch):
     admin = db.query(User).filter_by(email="owner@example.com").one()
     assert admin.role == UserRole.admin
     assert db.query(Product).count() == 20
+    assert db.query(ProductVariant).filter_by(is_tester=True).count() == 3
     assert db.query(User).count() == 4  # admin + 3 demo accounts
+
+
+def test_seed_demo_twice_keeps_one_bottle_and_one_tester(db):
+    from app.seed import seed_demo
+
+    seed_demo()
+    seed_demo()
+    variants = db.scalars(select(ProductVariant)).all()
+    kinds = [(v.product_id, v.volume_ml, v.is_tester) for v in variants]
+    assert len(kinds) == len(set(kinds))
+    assert sum(v.is_tester for v in variants) == 3
 
 
 def test_database_url_gets_psycopg_driver():

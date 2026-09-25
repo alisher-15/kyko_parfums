@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { ErrorBox } from "@/components/ui";
 import { api } from "@/lib/api";
-import { CURRENCY } from "@/lib/format";
+import { CURRENCY, volumeLabel } from "@/lib/format";
 import type { AdminVariant } from "@/lib/types";
 import { BarcodeList } from "./BarcodeList";
 import { ImageUpload } from "./ImageUpload";
 
 type Row = {
   volume_ml: string;
+  is_tester: boolean;
   sku: string;
   stock: string;
   retail_price: string;
@@ -22,6 +23,7 @@ type Row = {
 
 const EMPTY: Row = {
   volume_ml: "",
+  is_tester: false,
   sku: "",
   stock: "0",
   retail_price: "",
@@ -36,6 +38,7 @@ function toRow(v: AdminVariant): Row {
   const s = (n: number | null) => (n === null ? "" : String(n));
   return {
     volume_ml: String(v.volume_ml),
+    is_tester: v.is_tester,
     sku: v.sku ?? "",
     stock: String(v.stock),
     retail_price: String(v.retail_price),
@@ -51,6 +54,7 @@ function toBody(r: Row) {
   const num = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
   return {
     volume_ml: Number(r.volume_ml),
+    is_tester: r.is_tester,
     sku: r.sku.trim() || null,
     stock: Number(r.stock || 0),
     retail_price: num(r.retail_price),
@@ -64,9 +68,12 @@ function toBody(r: Row) {
 
 // Desktop (xl+) lays each volume out as one table-like row; smaller screens get a card per volume.
 const GRID =
-  "xl:grid xl:grid-cols-[112px_80px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
+  "xl:grid xl:grid-cols-[112px_80px_64px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
 
-/** Inline editor for volumes: each volume has its own stock and three price tiers. */
+/**
+ * Inline editor for volumes: each volume has its own stock and three price tiers. A tester is a
+ * volume of its own (the "Тестер" box): its prices, stock and barcodes are separate from the bottle.
+ */
 export function VariantsEditor({
   productId,
   variants,
@@ -95,6 +102,7 @@ export function VariantsEditor({
       >
         <span>Фото</span>
         <span>Объём, мл</span>
+        <span>Тестер</span>
         <span>Артикул</span>
         <span>Остаток</span>
         <span>Розница, {CURRENCY}</span>
@@ -118,7 +126,7 @@ export function VariantsEditor({
               onChanged();
             }}
             onDelete={async () => {
-              if (!confirm(`Удалить объём ${v.volume_ml} мл?`)) return;
+              if (!confirm(`Удалить объём ${volumeLabel(v.volume_ml, v.is_tester)}?`)) return;
               await api(`/admin/variants/${v.id}`, { method: "DELETE" });
               onChanged();
             }}
@@ -214,6 +222,16 @@ function VariantRow({
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:contents">
         {field(`Объём, мл`, "volume_ml", { required: true })}
+        <label className="flex items-center gap-2 self-end pb-2.5 text-sm xl:justify-center xl:self-auto xl:pb-0">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={row.is_tester}
+            onChange={(e) => setRow({ ...row, is_tester: e.target.checked })}
+            aria-label="Тестер"
+          />
+          <span className="xl:hidden">Тестер</span>
+        </label>
         {field("Артикул", "sku", { numeric: false })}
         {field("Остаток, шт.", "stock")}
         {field(`Розница, ${CURRENCY}`, "retail_price", { required: true })}

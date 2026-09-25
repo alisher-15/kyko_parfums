@@ -117,12 +117,10 @@ function Purchase({
     setAdded(false);
   };
   // Switching between the bottle and the tester keeps the volume when there is one.
-  const chooseKind = (tester: boolean) => {
-    const kind = tester ? testers : bottles;
-    if (tester !== variant.is_tester && kind.length > 0) {
-      choose(kind.find((v) => v.volume_ml === variant.volume_ml) ?? kind[0]);
-    }
-  };
+  const target = (kind: VariantPublic[]) =>
+    kind.find((v) => v.id === variant.id) ??
+    kind.find((v) => v.volume_ml === variant.volume_ml) ??
+    kind[0];
 
   const addToCart = () => {
     add(
@@ -148,16 +146,16 @@ function Purchase({
             {bottles.length > 0 && (
               <KindButton
                 title="Товар"
-                variants={bottles}
+                variant={target(bottles)}
                 active={!variant.is_tester}
-                onClick={() => chooseKind(false)}
+                onClick={() => choose(target(bottles))}
               />
             )}
             <KindButton
               title="Тестер"
-              variants={testers}
+              variant={target(testers)}
               active={variant.is_tester}
-              onClick={() => chooseKind(true)}
+              onClick={() => choose(target(testers))}
             />
           </div>
           {variant.is_tester && (
@@ -282,20 +280,18 @@ function Purchase({
   );
 }
 
-/** "Товар" or "Тестер", with the price it starts from. */
+/** "Товар" or "Тестер" with the exact volume and price the button opens. */
 function KindButton({
   title,
-  variants,
+  variant,
   active,
   onClick,
 }: {
   title: string;
-  variants: VariantPublic[];
+  variant: VariantPublic;
   active: boolean;
   onClick: () => void;
 }) {
-  const prices = variants.map((v) => v.price);
-  const min = Math.min(...prices);
   return (
     <button
       onClick={onClick}
@@ -306,7 +302,7 @@ function KindButton({
     >
       <div className="font-semibold">{title}</div>
       <div className={`text-xs ${active ? "text-stone-300" : "text-muted"}`}>
-        {prices.some((p) => p !== min) ? `от ${money(min)}` : money(min)}
+        {variant.volume_ml} мл · {money(variant.price)}
       </div>
     </button>
   );

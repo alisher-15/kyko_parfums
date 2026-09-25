@@ -135,6 +135,12 @@ test("тестер: выбор «Товар / Тестер» в карточке
     await testerButton().click();
     await expect(volumeButton(50)).toBeVisible();
     await expect(volumeButton(100)).toBeVisible();
-    await expect(testerButton()).toContainText(/от 26\s000/);
+    // The switch names an exact price: the tester of the chosen volume.
+    await expect(testerButton()).toContainText(/50 мл · 26\s000/);
+    await volumeButton(100).click();
+    await expect(testerButton()).toContainText(/100 мл · 42\s000/);
+    await expect(bottleButton()).toContainText(/100 мл · 50\s000/);
+    await expect(testerButton()).not.toContainText("от");
+    await expect(bottleButton()).not.toContainText("от");
   });
 });

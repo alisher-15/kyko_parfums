@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { RAIL_ITEM, Rail, Slider } from "@/components/Carousel";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { dayMonth, percentOff } from "@/lib/format";
@@ -20,13 +21,22 @@ function Section({ title, link, children }: { title: string; link: ReactNode; ch
   );
 }
 
-function ProductGrid({ items }: { items: ProductListItem[] }) {
+/** One sideways row of products, ending with a link to all of them. */
+function ProductRail({ label, items, more }: { label: string; items: ProductListItem[]; more: string }) {
   return (
-    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+    <Rail label={label}>
       {items.map((p) => (
-        <ProductCard key={p.id} product={p} />
+        <div key={p.id} className={`${RAIL_ITEM} grid`}>
+          <ProductCard product={p} />
+        </div>
       ))}
-    </div>
+      <Link
+        href={more}
+        className={`${RAIL_ITEM} card flex items-center justify-center p-6 text-center font-semibold text-gold hover:border-gold`}
+      >
+        Смотреть все →
+      </Link>
+    </Rail>
   );
 }
 
@@ -36,12 +46,13 @@ export function HomePromotions() {
   if (!data || data.length === 0) return null;
   return (
     <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
-      <div className={`grid gap-4 ${data.length > 1 ? "md:grid-cols-2" : ""}`}>
-        {data.map((p) => (
+      <Slider
+        label="Акции"
+        slides={data.map((p) => (
           <Link
             key={p.id}
             href={`/catalog?promotion_id=${p.id}`}
-            className="group relative flex min-h-48 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white"
+            className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:p-10"
           >
             {p.image_url && (
               <img
@@ -70,7 +81,7 @@ export function HomePromotions() {
             </div>
           </Link>
         ))}
-      </div>
+      />
     </section>
   );
 }
@@ -78,7 +89,7 @@ export function HomePromotions() {
 /** Products a running promotion gives a discount on. */
 export function HomeSale() {
   const { data } = useApi<Page<ProductListItem>>("/products", {
-    query: { on_sale: true, page_size: 8 },
+    query: { on_sale: true, page_size: 12 },
   });
   if (!data || data.total === 0) return null;
   return (
@@ -90,7 +101,7 @@ export function HomeSale() {
         </Link>
       }
     >
-      <ProductGrid items={data.items} />
+      <ProductRail label="Акции" items={data.items} more="/catalog?on_sale=true" />
     </Section>
   );
 }
@@ -98,11 +109,11 @@ export function HomeSale() {
 /** Products marked «Новинка» in the admin panel; while none are, the latest added. */
 export function HomeNew() {
   const marked = useApi<Page<ProductListItem>>("/products", {
-    query: { is_new: true, sort: "new", page_size: 8 },
+    query: { is_new: true, sort: "new", page_size: 12 },
   });
   const noneMarked = marked.data?.total === 0;
   const latest = useApi<Page<ProductListItem>>(noneMarked ? "/products" : null, {
-    query: { sort: "new", page_size: 8 },
+    query: { sort: "new", page_size: 12 },
   });
   const shown = noneMarked ? latest : marked;
   return (
@@ -119,7 +130,13 @@ export function HomeNew() {
     >
       {shown.error && <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>}
       {!shown.data && !shown.error && <Spinner />}
-      {shown.data && <ProductGrid items={shown.data.items} />}
+      {shown.data && (
+        <ProductRail
+          label="Новые поступления"
+          items={shown.data.items}
+          more={noneMarked ? "/catalog?sort=new" : "/catalog?is_new=true"}
+        />
+      )}
     </Section>
   );
 }

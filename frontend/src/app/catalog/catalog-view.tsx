@@ -7,8 +7,8 @@ import { FilterIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { CURRENCY, GENDER_LABELS, money, plural } from "@/lib/format";
-import type { Filters, Page, ProductListItem } from "@/lib/types";
+import { CURRENCY, GENDER_LABELS, dayMonth, money, percentOff, plural } from "@/lib/format";
+import type { Filters, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 24;
@@ -37,6 +37,9 @@ export function CatalogView() {
       type: params.getAll("type"),
       min_price: params.get("min_price") ?? undefined,
       max_price: params.get("max_price") ?? undefined,
+      is_new: params.get("is_new") === "true" || undefined,
+      on_sale: params.get("on_sale") === "true" || undefined,
+      promotion_id: params.get("promotion_id") ?? undefined,
       sort: params.get("sort") ?? undefined,
       page: Number(params.get("page") ?? 1),
       page_size: PAGE_SIZE,
@@ -46,6 +49,9 @@ export function CatalogView() {
 
   const products = useApi<Page<ProductListItem>>("/products", { query });
   const filters = useApi<Filters>("/filters");
+  const promotion = useApi<PromotionPublic>(
+    query.promotion_id ? `/promotions/${encodeURIComponent(query.promotion_id)}` : null,
+  );
 
   const update = (mutate: (p: URLSearchParams) => void, resetPage = true) => {
     const next = new URLSearchParams(params.toString());
@@ -70,7 +76,10 @@ export function CatalogView() {
     query.category.length +
     query.type.length +
     (query.min_price ? 1 : 0) +
-    (query.max_price ? 1 : 0);
+    (query.max_price ? 1 : 0) +
+    (query.is_new ? 1 : 0) +
+    (query.on_sale ? 1 : 0) +
+    (query.promotion_id ? 1 : 0);
 
   const total = products.data?.total ?? 0;
 
@@ -79,8 +88,28 @@ export function CatalogView() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-4xl font-bold">
-            {query.q ? `«${query.q}»` : "Каталог ароматов"}
+            {query.q
+              ? `«${query.q}»`
+              : query.promotion_id
+                ? (promotion.data?.title ?? "Акция")
+                : query.on_sale
+                  ? "Акции"
+                  : query.is_new
+                    ? "Новинки"
+                    : "Каталог ароматов"}
           </h1>
+          {promotion.data && (
+            <p className="mt-1 max-w-2xl text-sm">
+              {promotion.data.discount_percent !== null && (
+                <b className="text-gold">{percentOff(promotion.data.discount_percent)} </b>
+              )}
+              {promotion.data.ends_on && `до ${dayMonth(promotion.data.ends_on)}. `}
+              {promotion.data.description}
+            </p>
+          )}
+          {promotion.error && (
+            <p className="mt-1 text-sm text-muted">Эта акция уже закончилась.</p>
+          )}
           {products.data && (
             <p className="mt-1 text-sm text-muted">
               {total} {plural(total, "товар", "товара", "товаров")}
@@ -207,6 +236,8 @@ function FilterPanel({
     type: string[];
     min_price?: string;
     max_price?: string;
+    is_new?: boolean;
+    on_sale?: boolean;
   };
   toggle: (key: string, value: string) => void;
   update: (mutate: (p: URLSearchParams) => void) => void;
@@ -230,8 +261,20 @@ function FilterPanel({
     });
   };
 
+  const flag = (key: "is_new" | "on_sale") =>
+    update((p) => (p.get(key) === "true" ? p.delete(key) : p.set(key, "true")));
+
   return (
     <div className="card px-4">
+      <FilterGroup title="Подборки">
+        <Check checked={!!query.on_sale} onChange={() => flag("on_sale")}>
+          Акции
+        </Check>
+        <Check checked={!!query.is_new} onChange={() => flag("is_new")}>
+          Новинки
+        </Check>
+      </FilterGroup>
+
       <FilterGroup title="Для кого">
         {filters.genders.map((g) => (
           <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
@@ -333,9 +376,17 @@ function FilterPanel({
               setMinPrice("");
               setMaxPrice("");
               update((p) =>
-                ["brand_id", "gender", "category", "type", "min_price", "max_price"].forEach(
-                  (k) => p.delete(k),
-                ),
+                [
+                  "brand_id",
+                  "gender",
+                  "category",
+                  "type",
+                  "min_price",
+                  "max_price",
+                  "is_new",
+                  "on_sale",
+                  "promotion_id",
+                ].forEach((k) => p.delete(k)),
               );
             }}
           >

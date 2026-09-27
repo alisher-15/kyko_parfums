@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GENDER_LABELS, money } from "@/lib/format";
+import { GENDER_LABELS, money, percentOff } from "@/lib/format";
 import type { ProductListItem } from "@/lib/types";
 import { ProductImage } from "./ui";
 
@@ -15,6 +15,20 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
         </div>
         {product.type && <span className="absolute top-3 right-3 chip">{product.type}</span>}
+        {(product.deal || product.is_new) && (
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1">
+            {product.deal && (
+              <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-white">
+                {percentOff(product.deal.discount_percent)}
+              </span>
+            )}
+            {product.is_new && (
+              <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-white">
+                Новинка
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-1 border-t border-line p-4">
         <div className="text-xs font-semibold tracking-widest text-gold uppercase">

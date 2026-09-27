@@ -23,6 +23,7 @@ type FormState = {
   description: string;
   image_url: string | null;
   is_active: boolean;
+  is_new: boolean;
 };
 
 function toForm(p?: AdminProduct): FormState {
@@ -39,6 +40,7 @@ function toForm(p?: AdminProduct): FormState {
     description: p?.description ?? "",
     image_url: p?.image_url ?? null,
     is_active: p?.is_active ?? true,
+    is_new: p?.is_new ?? false,
   };
 }
 
@@ -77,6 +79,7 @@ export function ProductForm({
       description: nullIfEmpty(form.description),
       image_url: form.image_url,
       is_active: form.is_active,
+      is_new: form.is_new,
     };
     try {
       const saved = product
@@ -163,6 +166,15 @@ export function ProductForm({
             onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
           />
           Показывать на сайте
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={form.is_new}
+            onChange={(e) => setForm({ ...form, is_new: e.target.checked })}
+          />
+          Новинка — показывать в «Новых поступлениях» на главной
         </label>
         {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
         <button className="btn btn-primary" disabled={busy}>

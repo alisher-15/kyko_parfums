@@ -4,6 +4,7 @@ import type {
   OrderStatus,
   PaymentMethod,
   PriceTier,
+  PromotionStatus,
   StockReason,
   UserRole,
 } from "./types";
@@ -21,6 +22,24 @@ export function money(value: number | null | undefined): string {
 export function volumeLabel(volumeMl: number, isTester?: boolean): string {
   return isTester ? `${volumeMl} мл, тестер` : `${volumeMl} мл`;
 }
+
+/** "30 сентября" for a date such as "2026-09-30" (a calendar date, no time zone shift). */
+export function dayMonth(isoDate: string): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+}
+
+/** "−15%": a discount without trailing zeros. */
+export function percentOff(value: number): string {
+  return `−${Number(value.toFixed(2))}%`;
+}
+
+export const PROMOTION_STATUS_LABELS: Record<PromotionStatus, string> = {
+  running: "Идёт",
+  scheduled: "Запланирована",
+  ended: "Закончилась",
+  off: "Выключена",
+};
 
 export function dateTime(iso: string): string {
   return new Date(iso).toLocaleString("ru-RU", {

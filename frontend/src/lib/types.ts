@@ -54,6 +54,15 @@ export interface Brand extends BrandBrief {
   product_count: number;
 }
 
+/** A running promotion that lowers the price the viewer pays. */
+export interface Deal {
+  promotion_id: number;
+  title: string;
+  /** Percent off the retail price. */
+  discount_percent: number;
+  ends_on: string | null;
+}
+
 export interface VariantPublic {
   id: number;
   volume_ml: number;
@@ -70,6 +79,8 @@ export interface VariantPublic {
   bulk_price: number | null;
   next_tier: PriceTier | null;
   next_tier_price: number | null;
+  /** Set when `price` is a promotion price. */
+  deal: Deal | null;
 }
 
 export interface ProductListItem {
@@ -85,6 +96,20 @@ export interface ProductListItem {
   min_price: number | null;
   /** Distinct volumes: a bottle and a tester of one size count once. */
   volumes: number[];
+  /** Marked «Новинка» by an admin. */
+  is_new: boolean;
+  /** A running promotion lowers a price the viewer pays (the "−15%" badge). */
+  deal: Deal | null;
+}
+
+export interface PromotionPublic {
+  id: number;
+  title: string;
+  description: string | null;
+  image_url: string | null;
+  discount_percent: number | null;
+  starts_on: string | null;
+  ends_on: string | null;
 }
 
 export interface ProductDetail extends ProductListItem {
@@ -131,6 +156,7 @@ export interface QuoteLine {
   unit_price: number;
   retail_unit_price: number;
   line_total: number;
+  promotion_title: string | null;
 }
 
 export interface TierHint {
@@ -172,6 +198,8 @@ export interface OrderItem {
   price_applied: number;
   price_tier: PriceTier;
   line_total: number;
+  /** The promotion the price came from (discount_percent is its discount). */
+  promotion_title: string | null;
 }
 
 export interface OrderReturn {
@@ -262,6 +290,9 @@ export interface AdminProduct {
   description: string | null;
   image_url: string | null;
   is_active: boolean;
+  /** «Новинка»: shown in «Новые поступления» on the home page. */
+  is_new: boolean;
+  new_at: string | null;
   created_at: string;
   updated_at: string;
   variants: AdminVariant[];
@@ -382,9 +413,12 @@ export interface StoreQuoteLine {
   stock: number;
   available: boolean;
   list_price: number;
+  /** The cashier's discount as entered; unit_price may come from a promotion instead. */
   discount_percent: number;
   unit_price: number;
   line_total: number;
+  /** A promotion gave a better price than the cashier's discount (they don't add up). */
+  promotion_title: string | null;
 }
 
 export interface StoreQuote {
@@ -474,4 +508,30 @@ export interface StockCount extends CountBrief {
   posted_by_email: string | null;
   items: CountLine[];
   touched_line_id: number | null;
+}
+
+// ---------- Promotions (admin) ----------
+
+export type PromotionStatus = "running" | "scheduled" | "ended" | "off";
+
+export interface PromotionBrief {
+  id: number;
+  title: string;
+  image_url: string | null;
+  discount_percent: number | null;
+  starts_on: string | null;
+  ends_on: string | null;
+  is_active: boolean;
+  all_products: boolean;
+  brands_count: number;
+  products_count: number;
+  status: PromotionStatus;
+}
+
+export interface Promotion extends PromotionBrief {
+  description: string | null;
+  brands: BrandBrief[];
+  products: { id: number; name: string; brand: BrandBrief }[];
+  created_at: string;
+  updated_at: string;
 }

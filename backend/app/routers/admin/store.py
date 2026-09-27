@@ -25,7 +25,7 @@ from app.models import (
     VariantBarcode,
     volume_label,
 )
-from app.pricing import max_tier_for_role, price_for_tier
+from app.pricing import Deal, deal_price, discount_percent, max_tier_for_role, price_for_tier
 from app.schemas.admin import (
     AdminOrderOut,
     StoreQuoteIn,
@@ -35,6 +35,7 @@ from app.schemas.admin import (
     VariantSearchItem,
 )
 from app.services.orders import add_event, order_load_options
+from app.services.promotions import deals_for_variants
 from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
@@ -106,8 +107,18 @@ class _Line:
     variant: ProductVariant
     quantity: int
     list_price: Decimal
+    # The cashier's discount, as entered.
     discount_percent: Decimal
     unit_price: Decimal
+    # Set when a promotion gave a better price than the cashier's discount (they don't add up).
+    deal: Deal | None = None
+
+    @property
+    def applied_discount(self) -> Decimal:
+        """The discount the unit price reflects: the cashier's or the promotion's."""
+        if self.deal is None:
+            return self.discount_percent
+        return discount_percent(self.list_price, self.unit_price)
 
     @property
     def total(self) -> Decimal:
@@ -150,6 +161,7 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
     if lock:
         stmt = stmt.with_for_update()
     variants = {v.id: v for v in db.scalars(stmt)} if ids else {}
+    deals = deals_for_variants(db, variants.values())
 
     lines: list[_Line] = []
     errors: list[str] = []
@@ -164,7 +176,13 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
             errors.append(f"{name}: на складе только {max(v.stock, 0)} шт.")
         list_price = price_for_tier(v, tier)
         unit = (list_price * (100 - item.discount_percent) / 100).quantize(CENT, ROUND_HALF_UP)
-        lines.append(_Line(v, item.quantity, list_price, item.discount_percent, unit))
+        deal = deals.get(v.id)
+        promo = deal_price(v, tier, deal)
+        if promo is not None and promo < unit:
+            unit = promo
+        else:
+            deal = None
+        lines.append(_Line(v, item.quantity, list_price, item.discount_percent, unit, deal))
     unavailable = [i.variant_id for i in data.items if i.variant_id not in variants]
     if unavailable:
         errors.append("Некоторые позиции больше не продаются — уберите их из чека")
@@ -194,6 +212,7 @@ def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
                 discount_percent=float(ln.discount_percent),
                 unit_price=ln.unit_price,
                 line_total=ln.total,
+                promotion_title=ln.deal.title if ln.deal else None,
             )
             for ln in p.lines
         ],
@@ -239,8 +258,10 @@ def create_sale(
                 quantity=ln.quantity,
                 original_quantity=ln.quantity,
                 list_price=ln.list_price,
-                discount_percent=ln.discount_percent,
+                discount_percent=ln.applied_discount,
                 price_applied=ln.unit_price,
+                promotion_id=ln.deal.promotion_id if ln.deal else None,
+                promotion_title=ln.deal.title if ln.deal else None,
                 price_tier=p.tier,
                 brand_name=v.product.brand.name,
                 product_name=v.product.name,

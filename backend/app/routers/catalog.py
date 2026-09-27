@@ -8,8 +8,10 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.availability import low_stock
 from app.db import get_db
 from app.deps import get_current_user_optional
-from app.models import Brand, Gender, PriceTier, Product, ProductVariant, User
+from app.models import Brand, Gender, PriceTier, Product, ProductVariant, Promotion, User
 from app.pricing import (
+    Deal,
+    deal_price,
     max_tier_for_role,
     next_role,
     price_for_tier,
@@ -19,14 +21,17 @@ from app.pricing import (
 from app.schemas.catalog import (
     BrandBrief,
     BrandOut,
+    DealOut,
     FilterBrand,
     FiltersOut,
     PricingRulesOut,
     ProductDetail,
     ProductListItem,
+    PromotionPublic,
     VariantPublic,
 )
 from app.schemas.common import Page
+from app.services import promotions
 from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 
@@ -41,24 +46,17 @@ class ProductSort(StrEnum):
     new = "new"
 
 
-def tier_price_expr(tier: PriceTier):
-    """SQL counterpart of ``pricing.price_for_tier``."""
-    if tier == PriceTier.bulk:
-        return func.coalesce(
-            ProductVariant.bulk_price, ProductVariant.wholesale_price, ProductVariant.retail_price
-        )
-    if tier == PriceTier.wholesale:
-        return func.coalesce(ProductVariant.wholesale_price, ProductVariant.retail_price)
-    return ProductVariant.retail_price
-
-
 def variant_public(
-    variant: ProductVariant, user: User | None, teaser: PriceTier | None = None
+    variant: ProductVariant,
+    user: User | None,
+    teaser: PriceTier | None = None,
+    deal: Deal | None = None,
 ) -> VariantPublic:
     role = user.role if user else None
     tier = max_tier_for_role(role)
     tiers = visible_tiers(role)
-    price = price_for_tier(variant, tier)
+    promo = deal_price(variant, tier, deal)
+    price = promo if promo is not None else price_for_tier(variant, tier)
     next_price = price_for_tier(variant, teaser) if teaser else None
     if next_price is not None and next_price >= price:
         next_price = None
@@ -78,13 +76,30 @@ def variant_public(
             price_for_tier(variant, PriceTier.wholesale) if PriceTier.wholesale in tiers else None
         ),
         bulk_price=price_for_tier(variant, PriceTier.bulk) if PriceTier.bulk in tiers else None,
+        deal=_deal_out(deal) if promo is not None else None,
+    )
+
+
+def _deal_out(deal: Deal) -> DealOut:
+    return DealOut(
+        promotion_id=deal.promotion_id,
+        title=deal.title,
+        discount_percent=deal.discount_percent,
+        ends_on=deal.ends_on,
     )
 
 
 def _list_item_fields(
-    product: Product, variants: list[ProductVariant], min_price: Decimal | None
+    product: Product,
+    variants: list[ProductVariant],
+    min_price: Decimal | None,
+    user: User | None,
+    deal: Deal | None,
 ) -> dict:
     image = product.image_url or next((v.photo_url for v in variants if v.photo_url), None)
+    tier = max_tier_for_role(user.role if user else None)
+    # The badge "−15%": only when the promotion lowers a price this viewer pays.
+    applies = deal is not None and any(deal_price(v, tier, deal) is not None for v in variants)
     return dict(
         id=product.id,
         name=product.name,
@@ -96,6 +111,8 @@ def _list_item_fields(
         image_url=image,
         min_price=min_price,
         volumes=sorted({v.volume_ml for v in variants}),
+        is_new=product.is_new,
+        deal=_deal_out(deal) if applies and deal else None,
     )
 
 
@@ -108,6 +125,9 @@ def list_products(
     type: list[str] = Query(default=[]),
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
+    is_new: bool = False,
+    on_sale: bool = False,
+    promotion_id: int | None = None,
     sort: ProductSort = ProductSort.default,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
@@ -115,7 +135,8 @@ def list_products(
     db: Session = Depends(get_db),
 ):
     tier = max_tier_for_role(user.role if user else None)
-    price = tier_price_expr(tier)
+    # The price this viewer pays, promotions included (pricing.deal_price).
+    price = promotions.price_expr(tier)
 
     agg = (
         select(
@@ -123,6 +144,7 @@ def list_products(
             func.min(price).label("min_price"),
             func.sum(ProductVariant.stock).label("stock"),
         )
+        .join(Product, Product.id == ProductVariant.product_id)
         .where(ProductVariant.is_active)
         .group_by(ProductVariant.product_id)
         .subquery()
@@ -139,6 +161,12 @@ def list_products(
         conditions.append(Product.category.in_(category))
     if type:
         conditions.append(Product.type.in_(type))
+    if is_new:
+        conditions.append(Product.new_at.is_not(None))
+    if on_sale:
+        conditions.append(promotions.on_sale())
+    if promotion_id is not None:
+        conditions.append(promotions.in_promotion(promotion_id))
     if min_price is not None or max_price is not None:
         variant_conds = [ProductVariant.product_id == Product.id, ProductVariant.is_active]
         if min_price is not None:
@@ -166,7 +194,12 @@ def list_products(
         ProductSort.name: [Brand.name, Product.name],
         ProductSort.price_asc: [agg.c.min_price.asc().nulls_last(), Product.name],
         ProductSort.price_desc: [agg.c.min_price.desc().nulls_last(), Product.name],
-        ProductSort.new: [Product.created_at.desc(), Product.id.desc()],
+        # Marked «Новинка» first (the latest marked first), then the latest added.
+        ProductSort.new: [
+            Product.new_at.desc().nulls_last(),
+            Product.created_at.desc(),
+            Product.id.desc(),
+        ],
     }[sort]
 
     rows = db.execute(
@@ -189,9 +222,12 @@ def list_products(
     ):
         variants_by_product[v.product_id].append(v)
 
+    deals = promotions.deals_for(db, products.values())
     items = [
         ProductListItem(
-            **_list_item_fields(products[pid], variants_by_product[pid], min_prices[pid])
+            **_list_item_fields(
+                products[pid], variants_by_product[pid], min_prices[pid], user, deals.get(pid)
+            )
         )
         for pid in ids
     ]
@@ -213,10 +249,11 @@ def get_product(
         raise HTTPException(404, "Товар не найден")
     variants = [v for v in product.variants if v.is_active]
     teaser = teaser_tier(user.role if user else None, get_pricing_settings(db))
-    public_variants = [variant_public(v, user, teaser) for v in variants]
+    deal = promotions.deals_for(db, [product]).get(product.id)
+    public_variants = [variant_public(v, user, teaser, deal) for v in variants]
     min_price = min((v.price for v in public_variants), default=None)
     return ProductDetail(
-        **_list_item_fields(product, variants, min_price),
+        **_list_item_fields(product, variants, min_price, user, deal),
         top_notes=product.top_notes,
         mid_notes=product.mid_notes,
         base_notes=product.base_notes,
@@ -276,7 +313,7 @@ def filters(user: User | None = Depends(get_current_user_optional), db: Session 
         db.scalars(select(Product.gender).where(active, Product.gender.is_not(None)).distinct())
     )
 
-    price = tier_price_expr(max_tier_for_role(user.role if user else None))
+    price = promotions.price_expr(max_tier_for_role(user.role if user else None))
     pmin, pmax = db.execute(
         select(func.min(price), func.max(price))
         .join(Product, Product.id == ProductVariant.product_id)
@@ -314,3 +351,21 @@ def pricing_rules(
     if out.next_tier:
         out.next_tier_terms = s.next_tier_terms
     return out
+
+
+@router.get("/promotions", response_model=list[PromotionPublic])
+def running_promotions(db: Session = Depends(get_db)):
+    """Promotions running today: the banners of the home page."""
+    return db.scalars(
+        select(Promotion).where(promotions.running()).order_by(Promotion.id.desc())
+    ).all()
+
+
+@router.get("/promotions/{promotion_id}", response_model=PromotionPublic)
+def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
+    promotion = db.scalar(
+        select(Promotion).where(Promotion.id == promotion_id, promotions.running())
+    )
+    if promotion is None:
+        raise HTTPException(404, "Акция не найдена или уже закончилась")
+    return promotion

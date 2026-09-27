@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic import BaseModel
 
 from app.models import Gender, PriceTier, PricingMode, UserRole
@@ -15,6 +17,16 @@ class BrandOut(ORMModel):
     logo_url: str | None
     description: str | None
     product_count: int = 0
+
+
+class DealOut(BaseModel):
+    """A promotion that lowers the price the viewer pays."""
+
+    promotion_id: int
+    title: str
+    # Percent off the retail price.
+    discount_percent: float
+    ends_on: date | None = None
 
 
 class VariantPublic(BaseModel):
@@ -36,6 +48,8 @@ class VariantPublic(BaseModel):
     # Upsell teaser: the price of the next level (bulk for wholesale customers), if cheaper.
     next_tier: PriceTier | None = None
     next_tier_price: Money | None = None
+    # Set when `price` is a promotion price.
+    deal: DealOut | None = None
 
 
 class ProductListItem(BaseModel):
@@ -51,6 +65,10 @@ class ProductListItem(BaseModel):
     min_price: Money | None
     # Distinct volumes (a bottle and a tester of the same size count once).
     volumes: list[int]
+    # Marked «Новинка» by an admin.
+    is_new: bool = False
+    # A running promotion lowers a price this viewer pays (the badge "−15%").
+    deal: DealOut | None = None
 
 
 class ProductDetail(ProductListItem):
@@ -59,6 +77,16 @@ class ProductDetail(ProductListItem):
     base_notes: str | None
     description: str | None
     variants: list[VariantPublic]
+
+
+class PromotionPublic(ORMModel):
+    id: int
+    title: str
+    description: str | None
+    image_url: str | None
+    discount_percent: float | None
+    starts_on: date | None
+    ends_on: date | None
 
 
 class FilterBrand(BaseModel):

@@ -6,7 +6,7 @@ import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { GENDER_LABELS, TIER_LABELS, money, splitNotes } from "@/lib/format";
+import { GENDER_LABELS, TIER_LABELS, dayMonth, money, percentOff, splitNotes } from "@/lib/format";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -189,9 +189,20 @@ function Purchase({
           {discounted && (
             <span className="text-lg text-muted line-through">{money(variant.retail_price)}</span>
           )}
-          <span className="chip">{TIER_LABELS[variant.price_tier]}</span>
+          {variant.deal ? (
+            <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-white">
+              Акция {percentOff(variant.deal.discount_percent)}
+            </span>
+          ) : (
+            <span className="chip">{TIER_LABELS[variant.price_tier]}</span>
+          )}
           {variant.is_tester && <span className="chip">Тестер</span>}
         </div>
+        {variant.deal && (
+          <p className="mt-1 text-sm text-muted">
+            «{variant.deal.title}»{variant.deal.ends_on && ` — до ${dayMonth(variant.deal.ends_on)}`}
+          </p>
+        )}
 
         {(variant.wholesale_price !== null || variant.bulk_price !== null) && (
           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
@@ -209,7 +220,7 @@ function Purchase({
           </div>
         )}
 
-        {discounted && rules && hasThresholds(rules) && <ThresholdNote rules={rules} />}
+        {discounted && !variant.deal && rules && hasThresholds(rules) && <ThresholdNote rules={rules} />}
 
         <div className="mt-4 text-sm">
           <StockNote variant={variant} />

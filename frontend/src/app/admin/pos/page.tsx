@@ -254,9 +254,14 @@ export default function PosPage() {
                         </label>
                         <div className="ml-auto min-w-24 text-right">
                           <div className="font-bold">{money(q?.line_total)}</div>
-                          {q && q.discount_percent > 0 && (
+                          {q && q.unit_price < q.list_price && (
                             <div className="text-xs text-muted line-through">
                               {money(q.list_price * q.quantity)}
+                            </div>
+                          )}
+                          {q?.promotion_title && (
+                            <div className="text-[11px] font-semibold text-gold">
+                              Акция «{q.promotion_title}»
                             </div>
                           )}
                           <div className="text-[11px] text-muted">

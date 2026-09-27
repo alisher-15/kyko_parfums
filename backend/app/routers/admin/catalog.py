@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -127,6 +129,7 @@ def list_products(
     is_active: bool | None = None,
     no_variants: bool = False,
     backordered: bool = False,
+    is_new: bool = False,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -143,6 +146,8 @@ def list_products(
     if backordered:
         # Customers ordered more than the shop has: these must be bought from a supplier.
         conds.append(Product.variants.any(ProductVariant.stock < 0))
+    if is_new:
+        conds.append(Product.new_at.is_not(None))
 
     base = select(Product).join(Brand, Brand.id == Product.brand_id).where(*conds)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
@@ -172,7 +177,8 @@ def create_product(
     kinds = [(v.volume_ml, v.is_tester) for v in data.variants]
     if len(kinds) != len(set(kinds)):
         raise HTTPException(422, "Объёмы вариантов не должны повторяться")
-    product = Product(**data.model_dump(exclude={"variants"}))
+    product = Product(**data.model_dump(exclude={"variants", "is_new"}))
+    _mark_new(product, data.is_new)
     for v in data.variants:
         variant = ProductVariant(**v.model_dump(exclude={"stock"}), stock=0)
         product.variants.append(variant)
@@ -188,10 +194,20 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
     changes = data.model_dump(exclude_unset=True)
     if "brand_id" in changes and db.get(Brand, changes["brand_id"]) is None:
         raise HTTPException(422, "Бренд не найден")
+    if "is_new" in changes:
+        _mark_new(product, changes.pop("is_new"))
     for k, v in changes.items():
         setattr(product, k, v)
     db.commit()
     return _load_product(db, product_id)
+
+
+def _mark_new(product: Product, is_new: bool | None) -> None:
+    """Marking keeps the first date: the home page shows the latest marked first."""
+    if is_new and product.new_at is None:
+        product.new_at = datetime.now(UTC)
+    elif is_new is False:
+        product.new_at = None
 
 
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)

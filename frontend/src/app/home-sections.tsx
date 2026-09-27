@@ -1,21 +1,126 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
-import type { Brand, Page, ProductListItem } from "@/lib/types";
+import { dayMonth, percentOff } from "@/lib/format";
+import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
-export function HomeProducts() {
-  const { data, error, loading } = useApi<Page<ProductListItem>>("/products", {
-    query: { sort: "new", page_size: 8 },
-  });
-  if (error) return <ErrorBox>Не удалось загрузить товары: {error.message}</ErrorBox>;
-  if (loading && !data) return <Spinner />;
+function Section({ title, link, children }: { title: string; link: ReactNode; children: ReactNode }) {
+  return (
+    <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6">
+      <div className="mb-6 flex items-end justify-between gap-4">
+        <h2 className="font-serif text-3xl font-bold">{title}</h2>
+        {link}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function ProductGrid({ items }: { items: ProductListItem[] }) {
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-      {data?.items.map((p) => <ProductCard key={p.id} product={p} />)}
+      {items.map((p) => (
+        <ProductCard key={p.id} product={p} />
+      ))}
     </div>
+  );
+}
+
+/** Banners of the promotions running today, each opening its products in the catalog. */
+export function HomePromotions() {
+  const { data } = useApi<PromotionPublic[]>("/promotions");
+  if (!data || data.length === 0) return null;
+  return (
+    <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
+      <div className={`grid gap-4 ${data.length > 1 ? "md:grid-cols-2" : ""}`}>
+        {data.map((p) => (
+          <Link
+            key={p.id}
+            href={`/catalog?promotion_id=${p.id}`}
+            className="group relative flex min-h-48 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white"
+          >
+            {p.image_url && (
+              <img
+                src={p.image_url}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+            <div className="relative">
+              <div className="flex flex-wrap items-center gap-2">
+                {p.discount_percent !== null && (
+                  <span className="rounded-full bg-gold px-3 py-1 text-sm font-bold">
+                    {percentOff(p.discount_percent)}
+                  </span>
+                )}
+                {p.ends_on && (
+                  <span className="text-xs text-stone-200">до {dayMonth(p.ends_on)}</span>
+                )}
+              </div>
+              <div className="mt-2 font-serif text-3xl leading-tight font-bold">{p.title}</div>
+              {p.description && (
+                <p className="mt-1 max-w-xl text-sm text-stone-200">{p.description}</p>
+              )}
+              <span className="mt-3 inline-block text-sm font-semibold text-gold">Смотреть →</span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Products a running promotion gives a discount on. */
+export function HomeSale() {
+  const { data } = useApi<Page<ProductListItem>>("/products", {
+    query: { on_sale: true, page_size: 8 },
+  });
+  if (!data || data.total === 0) return null;
+  return (
+    <Section
+      title="Акции"
+      link={
+        <Link href="/catalog?on_sale=true" className="text-sm font-semibold text-gold">
+          Все акции →
+        </Link>
+      }
+    >
+      <ProductGrid items={data.items} />
+    </Section>
+  );
+}
+
+/** Products marked «Новинка» in the admin panel; while none are, the latest added. */
+export function HomeNew() {
+  const marked = useApi<Page<ProductListItem>>("/products", {
+    query: { is_new: true, sort: "new", page_size: 8 },
+  });
+  const noneMarked = marked.data?.total === 0;
+  const latest = useApi<Page<ProductListItem>>(noneMarked ? "/products" : null, {
+    query: { sort: "new", page_size: 8 },
+  });
+  const shown = noneMarked ? latest : marked;
+  return (
+    <Section
+      title="Новые поступления"
+      link={
+        <Link
+          href={noneMarked ? "/catalog?sort=new" : "/catalog?is_new=true"}
+          className="text-sm font-semibold text-gold"
+        >
+          {noneMarked ? "Все товары →" : "Все новинки →"}
+        </Link>
+      }
+    >
+      {shown.error && <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>}
+      {!shown.data && !shown.error && <Spinner />}
+      {shown.data && <ProductGrid items={shown.data.items} />}
+    </Section>
   );
 }
 

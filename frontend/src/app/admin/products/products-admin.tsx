@@ -14,10 +14,12 @@ const PAGE_SIZE = 50;
 export function ProductsAdmin({
   initialNoVariants,
   initialBackordered,
+  initialNew,
   initialBrandId,
 }: {
   initialNoVariants: boolean;
   initialBackordered: boolean;
+  initialNew: boolean;
   initialBrandId: string;
 }) {
   const [q, setQ] = useState("");
@@ -26,6 +28,7 @@ export function ProductsAdmin({
   const [active, setActive] = useState("");
   const [noVariants, setNoVariants] = useState(initialNoVariants);
   const [backordered, setBackordered] = useState(initialBackordered);
+  const [onlyNew, setOnlyNew] = useState(initialNew);
   const [page, setPage] = useState(1);
   const router = useRouter();
 
@@ -37,6 +40,7 @@ export function ProductsAdmin({
       is_active: active,
       no_variants: noVariants || undefined,
       backordered: backordered || undefined,
+      is_new: onlyNew || undefined,
       page,
       page_size: PAGE_SIZE,
     },
@@ -105,6 +109,15 @@ export function ProductsAdmin({
           />
           Нужно заказать
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={onlyNew}
+            onChange={(e) => resetPage(setOnlyNew)(e.target.checked)}
+          />
+          Новинки
+        </label>
       </div>
 
       {error && <ErrorBox>{error.message}</ErrorBox>}
@@ -128,9 +141,12 @@ export function ProductsAdmin({
                       <div className="text-xs text-muted">{p.brand.name}</div>
                       <div className="font-semibold">{p.name}</div>
                     </div>
-                    <span className={`chip shrink-0 ${p.is_active ? "text-emerald-700" : ""}`}>
-                      {p.is_active ? "На сайте" : "Скрыт"}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                        {p.is_active ? "На сайте" : "Скрыт"}
+                      </span>
+                      {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                    </div>
                   </div>
                   <div className="mt-1 space-y-0.5 text-xs">
                     {p.variants.length === 0 ? (
@@ -209,9 +225,12 @@ export function ProductsAdmin({
                       ))}
                     </td>
                     <td>
-                      <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
-                        {p.is_active ? "На сайте" : "Скрыт"}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                          {p.is_active ? "На сайте" : "Скрыт"}
+                        </span>
+                        {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                      </div>
                     </td>
                   </tr>
                 ))}

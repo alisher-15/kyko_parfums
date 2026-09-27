@@ -92,7 +92,11 @@ export default function CartPage() {
                           {money(line.retail_unit_price)}
                         </div>
                       )}
-                      <div className="mt-1 text-[11px] text-gold">{TIER_LABELS[line.price_tier]}</div>
+                      <div className="mt-1 text-[11px] text-gold">
+                        {line.promotion_title
+                          ? `Акция «${line.promotion_title}»`
+                          : TIER_LABELS[line.price_tier]}
+                      </div>
                     </>
                   )}
                 </div>

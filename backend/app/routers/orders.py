@@ -16,7 +16,14 @@ from app.models import (
     StockReason,
     User,
 )
-from app.pricing import Quote, QuoteItem, build_quote, price_for_tier, teaser_tier
+from app.pricing import (
+    Quote,
+    QuoteItem,
+    build_quote,
+    discount_percent,
+    price_for_tier,
+    teaser_tier,
+)
 from app.schemas.common import Page
 from app.schemas.orders import (
     CheckoutIn,
@@ -33,6 +40,7 @@ from app.services.orders import (
     load_sellable_variants,
     order_load_options,
 )
+from app.services.promotions import deals_for_variants
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
 
@@ -58,6 +66,7 @@ def _quote_out(quote: Quote, unavailable: list[int]) -> QuoteOut:
                 unit_price=line.unit_price,
                 retail_unit_price=line.retail_unit_price,
                 line_total=line.line_total,
+                promotion_title=line.deal.title if line.deal else None,
             )
         )
     return QuoteOut(
@@ -85,7 +94,12 @@ def quote_cart(
     for item in data.items:
         quantities[item.variant_id] = quantities.get(item.variant_id, 0) + item.quantity
     variants = load_sellable_variants(db, quantities)
-    items = [QuoteItem(variants[vid], qty) for vid, qty in quantities.items() if vid in variants]
+    deals = deals_for_variants(db, variants.values())
+    items = [
+        QuoteItem(variants[vid], qty, deals.get(vid))
+        for vid, qty in quantities.items()
+        if vid in variants
+    ]
     unavailable = [vid for vid in quantities if vid not in variants]
     settings = get_pricing_settings(db)
     role = user.role if user else None
@@ -116,8 +130,14 @@ def create_order(
             {"message": "Некоторые товары больше недоступны", "variant_ids": missing},
         )
 
+    deals = deals_for_variants(db, variants.values())
     quote = build_quote(
-        [QuoteItem(variants[i.variant_id], i.quantity) for i in data.items], user.role, settings
+        [
+            QuoteItem(variants[i.variant_id], i.quantity, deals.get(i.variant_id))
+            for i in data.items
+        ],
+        user.role,
+        settings,
     )
     order = Order(
         user_id=user.id,
@@ -151,9 +171,11 @@ def create_order(
                 quantity=line.quantity,
                 original_quantity=line.quantity,
                 backordered=backordered,
-                list_price=line.unit_price,
-                discount_percent=0,
+                list_price=line.list_price,
+                discount_percent=discount_percent(line.list_price, line.unit_price),
                 price_applied=line.unit_price,
+                promotion_id=line.deal.promotion_id if line.deal else None,
+                promotion_title=line.deal.title if line.deal else None,
                 price_tier=line.tier,
                 brand_name=v.product.brand.name,
                 product_name=v.product.name,

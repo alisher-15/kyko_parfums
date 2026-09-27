@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Column,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
     Integer,
     Numeric,
     String,
+    Table,
     Text,
     UniqueConstraint,
     func,
@@ -190,6 +193,9 @@ class Product(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     image_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    # Marked "Новинка" by an admin: shown in «Новые поступления» on the home page, the latest
+    # marked first. NULL = not marked.
+    new_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     brand: Mapped[Brand] = relationship(back_populates="products")
     variants: Mapped[list[ProductVariant]] = relationship(
@@ -198,6 +204,10 @@ class Product(TimestampMixin, Base):
         # Bottles first, then testers; each by volume.
         order_by="[ProductVariant.is_tester, ProductVariant.volume_ml]",
     )
+
+    @property
+    def is_new(self) -> bool:
+        return self.new_at is not None
 
 
 class ProductVariant(TimestampMixin, Base):
@@ -368,6 +378,11 @@ class OrderItem(Base):
     product_id: Mapped[int | None] = mapped_column(Integer)
     volume_ml: Mapped[int] = mapped_column(Integer)
     is_tester: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    # The promotion the unit price came from (its discount is in discount_percent).
+    promotion_id: Mapped[int | None] = mapped_column(
+        ForeignKey("promotions.id", ondelete="SET NULL"), index=True
+    )
+    promotion_title: Mapped[str | None] = mapped_column(String(255))
     # Cost of one unit when it was sold (the variant's average cost then); NULL = unknown.
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
 
@@ -628,3 +643,58 @@ class OrderEvent(Base):
     )
 
     order: Mapped[Order] = relationship(back_populates="events")
+
+
+promotion_brands = Table(
+    "promotion_brands",
+    Base.metadata,
+    Column("promotion_id", ForeignKey("promotions.id", ondelete="CASCADE"), primary_key=True),
+    Column("brand_id", ForeignKey("brands.id", ondelete="CASCADE"), primary_key=True, index=True),
+)
+
+promotion_products = Table(
+    "promotion_products",
+    Base.metadata,
+    Column("promotion_id", ForeignKey("promotions.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "product_id", ForeignKey("products.id", ondelete="CASCADE"), primary_key=True, index=True
+    ),
+)
+
+
+class Promotion(TimestampMixin, Base):
+    """A promotion: a banner on the home page and, optionally, a discount off the retail price.
+
+    It runs from starts_on to ends_on inclusive, in the shop's time zone (settings.timezone), and
+    covers the whole catalog or the brands and products listed. See services/promotions.py.
+    """
+
+    __tablename__ = "promotions"
+    __table_args__ = (
+        CheckConstraint(
+            "discount_percent IS NULL OR (discount_percent > 0 AND discount_percent < 100)",
+            name="ck_promotion_discount",
+        ),
+        CheckConstraint(
+            "starts_on IS NULL OR ends_on IS NULL OR ends_on >= starts_on",
+            name="ck_promotion_dates",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255))
+    description: Mapped[str | None] = mapped_column(Text)
+    # The banner picture.
+    image_url: Mapped[str | None] = mapped_column(String(1024))
+    # Percent off the retail price. NULL = a banner only, prices don't change.
+    discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # NULL = from now on / until switched off.
+    starts_on: Mapped[date | None] = mapped_column(Date)
+    ends_on: Mapped[date | None] = mapped_column(Date)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    all_products: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+
+    brands: Mapped[list[Brand]] = relationship(secondary=promotion_brands, order_by="Brand.name")
+    products: Mapped[list[Product]] = relationship(
+        secondary=promotion_products, order_by="Product.name"
+    )

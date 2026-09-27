@@ -16,13 +16,18 @@ Whether the capped tier actually applies depends on the thresholds in ``PricingS
 
 If no threshold is reached the line falls back to retail, so a wholesale customer can always
 check out; the quote tells them how much is missing to unlock the better price.
+
+Promotions (``Deal``) take a percent off the retail price, rounded to whole currency units. The
+customer pays the lower of the tier price and the promotion price: retail buyers and guests get
+the discount, wholesale buyers only when it beats their price. Discounts don't add up.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from decimal import Decimal
+from datetime import date
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.models import PriceTier, PricingMode, PricingSettings, ProductVariant, UserRole
 
@@ -80,6 +85,36 @@ def price_for_tier(variant: ProductVariant, tier: PriceTier) -> Decimal:
     return variant.retail_price
 
 
+@dataclass(frozen=True)
+class Deal:
+    """The running promotion with the best discount for a product."""
+
+    promotion_id: int
+    title: str
+    discount_percent: Decimal
+    ends_on: date | None = None
+
+
+def promo_price(retail_price: Decimal, discount_percent: Decimal) -> Decimal:
+    """Retail price minus the discount, rounded to whole currency units (SQL: round())."""
+    return (retail_price * (100 - discount_percent) / 100).quantize(Decimal(1), ROUND_HALF_UP)
+
+
+def deal_price(variant: ProductVariant, tier: PriceTier, deal: Deal | None) -> Decimal | None:
+    """The promotion price when it beats the tier price, else None."""
+    if deal is None:
+        return None
+    price = promo_price(variant.retail_price, deal.discount_percent)
+    return price if price < price_for_tier(variant, tier) else None
+
+
+def discount_percent(list_price: Decimal, price: Decimal) -> Decimal:
+    """How much below the list price a price is, in percent (for the order line snapshot)."""
+    if list_price <= 0 or price >= list_price:
+        return ZERO
+    return ((list_price - price) * 100 / list_price).quantize(Decimal("0.01"), ROUND_HALF_UP)
+
+
 def _tiers_desc(max_tier: PriceTier) -> list[PriceTier]:
     """Non-retail tiers from best to worst, up to ``max_tier``."""
     return [t for t in (PriceTier.bulk, PriceTier.wholesale) if TIER_RANK[t] <= TIER_RANK[max_tier]]
@@ -105,6 +140,7 @@ def min_qty(settings: PricingSettings, tier: PriceTier) -> int:
 class QuoteItem:
     variant: ProductVariant
     quantity: int
+    deal: Deal | None = None
 
 
 @dataclass
@@ -114,6 +150,9 @@ class QuoteLine:
     tier: PriceTier
     unit_price: Decimal
     retail_unit_price: Decimal
+    # The tier price before the promotion, and the promotion when it made the price lower.
+    list_price: Decimal = ZERO
+    deal: Deal | None = None
 
     @property
     def line_total(self) -> Decimal:
@@ -163,12 +202,16 @@ def build_quote(
 
 
 def _line(item: QuoteItem, tier: PriceTier) -> QuoteLine:
+    list_price = price_for_tier(item.variant, tier)
+    promo = deal_price(item.variant, tier, item.deal)
     return QuoteLine(
         variant=item.variant,
         quantity=item.quantity,
         tier=tier,
-        unit_price=price_for_tier(item.variant, tier),
+        unit_price=promo if promo is not None else list_price,
         retail_unit_price=item.variant.retail_price,
+        list_price=list_price,
+        deal=item.deal if promo is not None else None,
     )
 
 

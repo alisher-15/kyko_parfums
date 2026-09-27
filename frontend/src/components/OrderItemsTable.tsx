@@ -56,7 +56,9 @@ export function OrderItemsTable({
                       {i.discount_percent}%
                     </div>
                   )}
-                  <div className="text-[11px] text-gold">{TIER_LABELS[i.price_tier]}</div>
+                  <div className="text-[11px] text-gold">
+                    {i.promotion_title ? `Акция «${i.promotion_title}»` : TIER_LABELS[i.price_tier]}
+                  </div>
                 </td>
                 <td>
                   {i.quantity}

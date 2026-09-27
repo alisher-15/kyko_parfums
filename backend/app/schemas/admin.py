@@ -131,6 +131,8 @@ class ProductIn(BaseModel):
     description: str | None = None
     image_url: str | None = Field(default=None, max_length=1024)
     is_active: bool = True
+    # «Новинка»: shown in «Новые поступления» on the home page.
+    is_new: bool = False
     variants: list[VariantIn] = Field(default_factory=list)
 
 
@@ -147,6 +149,7 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     image_url: str | None = Field(default=None, max_length=1024)
     is_active: bool | None = None
+    is_new: bool | None = None
 
 
 class AdminBrandBrief(ORMModel):
@@ -169,6 +172,8 @@ class AdminProductOut(ORMModel):
     description: str | None
     image_url: str | None
     is_active: bool
+    is_new: bool = False
+    new_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
     variants: list[AdminVariantOut]
@@ -330,9 +335,12 @@ class StoreQuoteLine(BaseModel):
     stock: int
     available: bool
     list_price: Money
+    # The cashier's discount as entered; unit_price may come from a promotion instead.
     discount_percent: float
     unit_price: Money
     line_total: Money
+    # A promotion gave a better price than the cashier's discount (they don't add up).
+    promotion_title: str | None = None
 
 
 class StoreQuoteOut(BaseModel):

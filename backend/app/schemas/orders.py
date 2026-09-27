@@ -36,6 +36,8 @@ class QuoteLineOut(BaseModel):
     unit_price: Money
     retail_unit_price: Money
     line_total: Money
+    # The promotion that set unit_price.
+    promotion_title: str | None = None
 
 
 class TierHintOut(BaseModel):
@@ -95,6 +97,8 @@ class OrderItemOut(ORMModel):
     price_applied: Money
     price_tier: PriceTier
     line_total: Money
+    # The promotion the price came from (discount_percent is its discount).
+    promotion_title: str | None = None
 
 
 class OrderReturnItemOut(ORMModel):

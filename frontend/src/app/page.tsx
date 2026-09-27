@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HomeBrands, HomeProducts } from "./home-sections";
+import { HomeBrands, HomeNew, HomePromotions, HomeSale } from "./home-sections";
 
 export default function Home() {
   return (
@@ -49,15 +49,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6">
-        <div className="mb-6 flex items-end justify-between">
-          <h2 className="font-serif text-3xl font-bold">Новые поступления</h2>
-          <Link href="/catalog?sort=new" className="text-sm font-semibold text-gold">
-            Все товары →
-          </Link>
-        </div>
-        <HomeProducts />
-      </section>
+      <HomePromotions />
+      <HomeSale />
+      <HomeNew />
 
       <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6">
         <div className="mb-6 flex items-end justify-between">

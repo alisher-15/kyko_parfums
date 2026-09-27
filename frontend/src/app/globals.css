@@ -58,3 +58,11 @@ body {
     @apply border-b border-line px-3 py-2 align-middle;
   }
 }
+
+/* Sideways rails and sliders (components/Carousel.tsx): swipe or arrows, no scrollbar. */
+.rail {
+  scrollbar-width: none;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}

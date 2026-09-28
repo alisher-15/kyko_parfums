@@ -8,7 +8,7 @@ import { PickingPanel } from "@/components/admin/PickingPanel";
 import { OrderHistory } from "@/components/OrderHistory";
 import { OrderItemsTable } from "@/components/OrderItemsTable";
 import { ErrorBox, Spinner, StatusBadge, SuccessBox } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, downloadFile } from "@/lib/api";
 import { CHANNEL_LABELS, PAYMENT_LABELS, ROLE_LABELS, STATUS_LABELS, dateTime } from "@/lib/format";
 import type { AdminOrder, OrderStatus } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
@@ -84,10 +84,32 @@ export function OrderAdmin({ id }: { id: number }) {
           </>
         }
         actions={
-          <span className={`chip ${isStore ? "border-gold text-gold" : ""}`}>
-            {CHANNEL_LABELS[order.channel]}
-            {order.payment_method ? ` · ${PAYMENT_LABELS[order.payment_method]}` : ""}
-          </span>
+          <>
+            <span className={`chip ${isStore ? "border-gold text-gold" : ""}`}>
+              {CHANNEL_LABELS[order.channel]}
+              {order.payment_method ? ` · ${PAYMENT_LABELS[order.payment_method]}` : ""}
+            </span>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() =>
+                downloadFile(
+                  `/admin/orders/${order.id}/invoice.xlsx`,
+                  `nakladnaya_${order.id}.xlsx`,
+                ).catch((err: unknown) =>
+                  setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) }),
+                )
+              }
+            >
+              Накладная Excel
+            </button>
+            <Link
+              href={`/admin/orders/${order.id}/invoice`}
+              target="_blank"
+              className="btn btn-outline btn-sm"
+            >
+              Накладная PDF / печать
+            </Link>
+          </>
         }
       />
       <div className="card flex flex-wrap items-center gap-2 p-4">

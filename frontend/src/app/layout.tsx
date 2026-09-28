@@ -17,7 +17,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: { default: "Kyko Parfums — парфюмерия и косметика", template: "%s — Kyko Parfums" },
+  title: { default: "Kyko Parfum — парфюмерия и косметика", template: "%s — Kyko Parfum" },
   description: "Оригинальная парфюмерия и косметика в розницу и оптом.",
 };
 

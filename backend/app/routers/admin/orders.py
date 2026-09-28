@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.schemas.admin import (
     ReturnIn,
 )
 from app.schemas.common import Page
+from app.services.invoice import build_invoice, invoice_filename
 from app.services.orders import (
     ReturnLine,
     change_status,
@@ -130,6 +131,17 @@ def list_orders(
 @router.get("/orders/{order_id}", response_model=AdminOrderOut)
 def get_order(order_id: int, db: Session = Depends(get_db)):
     return _out(db, _load_order(db, order_id))
+
+
+@router.get("/orders/{order_id}/invoice.xlsx")
+def order_invoice(order_id: int, db: Session = Depends(get_db)):
+    """Delivery note to print and put in the parcel."""
+    order = _load_order(db, order_id)
+    return Response(
+        content=build_invoice(order),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{invoice_filename(order)}"'},
+    )
 
 
 @router.patch("/orders/{order_id}", response_model=AdminOrderOut)

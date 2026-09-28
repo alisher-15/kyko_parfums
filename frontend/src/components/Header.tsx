@@ -52,7 +52,7 @@ export function Header() {
         </button>
 
         <Link href="/" className="font-serif text-2xl font-bold tracking-wide whitespace-nowrap">
-          Kyko <span className="text-gold">Parfums</span>
+          Kyko <span className="text-gold">Parfum</span>
         </Link>
 
         <nav className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">

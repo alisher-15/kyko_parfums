@@ -10,6 +10,7 @@ PYTHON="${PYTHON:-python}"
 export DATABASE_URL="${E2E_DATABASE_URL:-postgresql+psycopg://kyko:kyko@localhost:5432/kyko_e2e}"
 export JWT_SECRET="e2e-secret-with-enough-length-for-hs256"
 export ADMIN_EMAIL=admin ADMIN_PASSWORD=admin12345 SEED_DEMO=true SMTP_HOST=""
+export RATE_SOURCE_URL=""  # tests type the dollar rate; they never ask the real mig.kz
 
 mkdir -p "$E2E_DIR/.logs"
 LOG="$E2E_DIR/.logs/backend.log"

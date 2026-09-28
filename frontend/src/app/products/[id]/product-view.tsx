@@ -6,7 +6,15 @@ import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { GENDER_LABELS, TIER_LABELS, dayMonth, money, percentOff, splitNotes } from "@/lib/format";
+import { useCurrency } from "@/lib/currency";
+import {
+  GENDER_LABELS,
+  TIER_LABELS,
+  dayMonth,
+  money as tenge,
+  percentOff,
+  splitNotes,
+} from "@/lib/format";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -103,6 +111,7 @@ function Purchase({
 }) {
   const { user } = useAuth();
   const { add } = useCart();
+  const { money } = useCurrency();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
 
@@ -319,6 +328,7 @@ function StockNote({ variant }: { variant: VariantPublic }) {
 }
 
 function PriceCell({ label, value, hint }: { label: string; value: number; hint?: string | null }) {
+  const { money } = useCurrency();
   return (
     <div className="rounded-lg bg-cream p-2">
       <div className="text-muted">{label}</div>
@@ -333,7 +343,7 @@ function thresholdHint(rules: PricingRules | undefined, tier: "wholesale" | "bul
   if (rules.mode === "order_total") {
     const amount =
       tier === "wholesale" ? rules.wholesale_min_order_amount : rules.bulk_min_order_amount;
-    return amount ? `от ${money(amount)} в заказе` : null;
+    return amount ? `от ${tenge(amount)} в заказе` : null;
   }
   const qty = tier === "wholesale" ? rules.wholesale_min_item_qty : rules.bulk_min_item_qty;
   return qty && qty > 1 ? `от ${qty} шт.` : null;

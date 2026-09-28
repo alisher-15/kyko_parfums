@@ -31,7 +31,8 @@ from app.schemas.catalog import (
     VariantPublic,
 )
 from app.schemas.common import Page
-from app.services import promotions
+from app.schemas.currency import CurrencyOut
+from app.services import promotions, rates
 from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 
@@ -369,3 +370,10 @@ def get_promotion(promotion_id: int, db: Session = Depends(get_db)):
     if promotion is None:
         raise HTTPException(404, "Акция не найдена или уже закончилась")
     return promotion
+
+
+@router.get("/currency", response_model=CurrencyOut)
+def currency(db: Session = Depends(get_db)):
+    """Tenge per dollar for the ₸ / $ switch. The parts of the rate stay in the admin panel."""
+    row = rates.refresh_if_stale(db)
+    return CurrencyOut(usd_rate=row.effective_rate, updated_at=row.source_updated_at)

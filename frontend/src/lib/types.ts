@@ -54,6 +54,12 @@ export interface Brand extends BrandBrief {
   product_count: number;
 }
 
+export interface CurrencyInfo {
+  /** Tenge per dollar; null while the shop has no rate. */
+  usd_rate: number | null;
+  updated_at: string | null;
+}
+
 /** A running promotion that lowers the price the viewer pays. */
 export interface Deal {
   promotion_id: number;
@@ -537,4 +543,17 @@ export interface Promotion extends PromotionBrief {
   products: { id: number; name: string; brand: BrandBrief }[];
   created_at: string;
   updated_at: string;
+}
+
+// ---------- Dollar rate (admin) ----------
+
+export interface RateInfo {
+  effective_rate: number | null;
+  source_rate: number | null;
+  source_updated_at: string | null;
+  checked_at: string | null;
+  /** Why the last read of mig.kz failed; null when it worked. */
+  source_error: string | null;
+  adjustment: number;
+  manual_rate: number | null;
 }

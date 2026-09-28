@@ -5,6 +5,8 @@ test.describe("Витрина для гостя", () => {
     await page.goto("/");
     await expect(page.getByText("Новые поступления")).toBeVisible();
     await expect(page.locator("a[href^='/products/']").first()).toBeVisible();
+    // No big banner: one line invites shops to wholesale, a guest goes to registration.
+    await expect(page.getByRole("link", { name: "Стать оптовым клиентом →" })).toHaveAttribute("href", "/register");
   });
 
   test("каталог: поиск, фильтры, сортировка", async ({ page }) => {

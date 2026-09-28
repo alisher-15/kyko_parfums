@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    app_name: str = "Kyko Parfums API"
+    app_name: str = "Kyko Parfum API"
     database_url: str = "postgresql+psycopg://kyko:kyko@localhost:5432/kyko"
 
     # JWT

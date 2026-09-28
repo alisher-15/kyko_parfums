@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Kyko Parfums is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
+Kyko Parfum is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
 
 ## Commands
 

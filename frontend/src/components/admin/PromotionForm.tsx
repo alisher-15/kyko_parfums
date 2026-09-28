@@ -17,10 +17,20 @@ type FormState = {
   starts_on: string;
   ends_on: string;
   is_active: boolean;
-  all_products: boolean;
+  scope: Scope;
   brands: BrandBrief[];
   products: ProductChoice[];
 };
+
+// One of three: a promotion on both brands and products would cover the whole brand,
+// which is rarely what is meant ("Bvlgari Tygar" showing all of Bvlgari).
+type Scope = "all" | "brands" | "products";
+
+function scopeOf(p?: Promotion): Scope {
+  if (p?.all_products) return "all";
+  if (p?.brands.length && !p.products.length) return "brands";
+  return "products";
+}
 
 function toForm(p?: Promotion): FormState {
   return {
@@ -31,7 +41,7 @@ function toForm(p?: Promotion): FormState {
     starts_on: p?.starts_on ?? "",
     ends_on: p?.ends_on ?? "",
     is_active: p?.is_active ?? true,
-    all_products: p?.all_products ?? false,
+    scope: scopeOf(p),
     brands: p?.brands ?? [],
     products: p?.products ?? [],
   };
@@ -66,9 +76,9 @@ export function PromotionForm({
       starts_on: form.starts_on || null,
       ends_on: form.ends_on || null,
       is_active: form.is_active,
-      all_products: form.all_products,
-      brand_ids: form.all_products ? [] : form.brands.map((b) => b.id),
-      product_ids: form.all_products ? [] : form.products.map((p) => p.id),
+      all_products: form.scope === "all",
+      brand_ids: form.scope === "brands" ? form.brands.map((b) => b.id) : [],
+      product_ids: form.scope === "products" ? form.products.map((p) => p.id) : [],
     };
     try {
       const saved = promotion
@@ -140,37 +150,43 @@ export function PromotionForm({
         <div>
           <span className="label">На что действует</span>
           <div className="flex flex-wrap gap-4 text-sm">
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                className="accent-gold"
-                checked={form.all_products}
-                onChange={() => setForm({ ...form, all_products: true })}
-              />
-              Весь каталог
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                type="radio"
-                className="accent-gold"
-                checked={!form.all_products}
-                onChange={() => setForm({ ...form, all_products: false })}
-              />
-              Выбранные бренды и товары
-            </label>
+            {(
+              [
+                ["all", "Весь каталог"],
+                ["brands", "Бренды целиком"],
+                ["products", "Отдельные товары"],
+              ] as [Scope, string][]
+            ).map(([value, label]) => (
+              <label key={value} className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="promotion-scope"
+                  className="accent-gold"
+                  checked={form.scope === value}
+                  onChange={() => setForm({ ...form, scope: value })}
+                />
+                {label}
+              </label>
+            ))}
           </div>
         </div>
-        {!form.all_products && (
-          <div className="grid gap-4 md:grid-cols-2">
-            <BrandPicker
-              selected={form.brands}
-              onChange={(brands) => setForm({ ...form, brands })}
-            />
-            <ProductPicker
-              selected={form.products}
-              onChange={(products) => setForm({ ...form, products })}
-            />
-          </div>
+        {promotion && promotion.brands.length > 0 && promotion.products.length > 0 && (
+          <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+            Сейчас у акции выбраны и бренды ({promotion.brands.map((b) => b.name).join(", ")}), и
+            товары, поэтому она действует на бренды целиком. Оставьте что-то одно и сохраните.
+          </p>
+        )}
+        {form.scope === "brands" && (
+          <BrandPicker
+            selected={form.brands}
+            onChange={(brands) => setForm({ ...form, brands })}
+          />
+        )}
+        {form.scope === "products" && (
+          <ProductPicker
+            selected={form.products}
+            onChange={(products) => setForm({ ...form, products })}
+          />
         )}
 
         <label className="flex items-center gap-2 text-sm">

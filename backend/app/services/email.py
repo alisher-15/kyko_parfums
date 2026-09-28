@@ -40,4 +40,4 @@ def send_password_reset(to: str, raw_token: str) -> None:
         f"перейдите по ссылке (действует {s.password_reset_ttl_minutes} мин.):\n\n{link}\n\n"
         "Если вы не запрашивали восстановление, просто проигнорируйте это письмо."
     )
-    send_email(to, "Восстановление пароля — Kyko Parfums", body)
+    send_email(to, "Восстановление пароля — Kyko Parfum", body)

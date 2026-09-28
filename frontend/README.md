@@ -1,4 +1,4 @@
-# Kyko Parfums — frontend
+# Kyko Parfum — frontend
 
 Next.js 16 (App Router) + Tailwind CSS 4. Запуск и описание проекта — в [корневом README](../README.md).
 

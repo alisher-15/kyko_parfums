@@ -33,7 +33,6 @@ export function CatalogView() {
       q: params.get("q") ?? undefined,
       brand_id: params.getAll("brand_id"),
       gender: params.getAll("gender"),
-      category: params.getAll("category"),
       type: params.getAll("type"),
       min_price: params.get("min_price") ?? undefined,
       max_price: params.get("max_price") ?? undefined,
@@ -73,7 +72,6 @@ export function CatalogView() {
   const activeCount =
     query.brand_id.length +
     query.gender.length +
-    query.category.length +
     query.type.length +
     (query.min_price ? 1 : 0) +
     (query.max_price ? 1 : 0) +
@@ -232,7 +230,6 @@ function FilterPanel({
   query: {
     brand_id: string[];
     gender: string[];
-    category: string[];
     type: string[];
     min_price?: string;
     max_price?: string;
@@ -332,21 +329,6 @@ function FilterPanel({
         </div>
       </FilterGroup>
 
-      {filters.categories.length > 0 && (
-        <FilterGroup title="Олфактивная группа">
-          <div className="max-h-64 overflow-y-auto pr-1">
-            {filters.categories.map((c) => (
-              <Check
-                key={c}
-                checked={query.category.includes(c)}
-                onChange={() => toggle("category", c)}
-              >
-                {c}
-              </Check>
-            ))}
-          </div>
-        </FilterGroup>
-      )}
 
       {filters.types.length > 0 && (
         <FilterGroup title="Тип">
@@ -379,7 +361,6 @@ function FilterPanel({
                 [
                   "brand_id",
                   "gender",
-                  "category",
                   "type",
                   "min_price",
                   "max_price",

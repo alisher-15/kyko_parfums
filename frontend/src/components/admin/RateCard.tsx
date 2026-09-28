@@ -18,16 +18,30 @@ const toNumber = (s: string): number => Number(s.replace(",", ".").trim());
  */
 export function RateCard() {
   const { data, error, reload } = useApi<RateInfo>("/admin/currency");
+  // The form starts over when the saved rate changes (its fields take the new values), so the
+  // result message lives out here: kept inside, the reload would wipe it before it is read.
+  const [msg, setMsg] = useState<Message | null>(null);
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!data) return <Spinner />;
   const key = [data.source_rate, data.adjustment, data.manual_rate, data.checked_at].join("|");
-  return <RateForm key={key} rate={data} onChanged={reload} />;
+  return <RateForm key={key} rate={data} onChanged={reload} msg={msg} setMsg={setMsg} />;
 }
 
-function RateForm({ rate: r, onChanged }: { rate: RateInfo; onChanged: () => void }) {
+type Message = { ok: boolean; text: string };
+
+function RateForm({
+  rate: r,
+  onChanged,
+  msg,
+  setMsg,
+}: {
+  rate: RateInfo;
+  onChanged: () => void;
+  msg: Message | null;
+  setMsg: (msg: Message | null) => void;
+}) {
   const [adjustment, setAdjustment] = useState(String(r.adjustment));
   const [manual, setManual] = useState(r.manual_rate === null ? "" : String(r.manual_rate));
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const adj = adjustment.trim() === "" ? 0 : toNumber(adjustment);

@@ -1,39 +1,65 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { startTransition, useEffect, useOptimistic, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
 import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
+import { PRODUCTS_LIST, rememberProductsList } from "@/lib/products-list";
 import type { AdminProduct, Brand, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
 
-export function ProductsAdmin({
-  initialNoVariants,
-  initialBackordered,
-  initialNew,
-  initialNoPhoto,
-  initialBrandId,
-}: {
-  initialNoVariants: boolean;
-  initialBackordered: boolean;
-  initialNew: boolean;
-  initialNoPhoto: boolean;
-  initialBrandId: string;
-}) {
-  const [q, setQ] = useState("");
-  const [search, setSearch] = useState("");
-  const [brandId, setBrandId] = useState(initialBrandId);
-  const [active, setActive] = useState("");
-  const [noVariants, setNoVariants] = useState(initialNoVariants);
-  const [backordered, setBackordered] = useState(initialBackordered);
-  const [onlyNew, setOnlyNew] = useState(initialNew);
-  const [noPhoto, setNoPhoto] = useState(initialNoPhoto);
-  const [page, setPage] = useState(1);
+type Filter =
+  | "q"
+  | "brand_id"
+  | "is_active"
+  | "no_variants"
+  | "backordered"
+  | "is_new"
+  | "no_photo"
+  | "page";
+
+/**
+ * The search, filters and page are the URL's (/admin/products?no_photo=true&page=2), so the list
+ * comes back as it was after opening a product: by the browser's back button, and by the
+ * product's «← К списку товаров», which leads to the list last shown here.
+ */
+export function ProductsAdmin() {
+  const committed = useSearchParams().toString();
+  // A changed filter shows at once; the URL catches up when the navigation completes.
+  const [query, setOptimisticQuery] = useOptimistic(committed);
+  const params = new URLSearchParams(query);
   const router = useRouter();
+  const search = params.get("q") ?? "";
+  const brandId = params.get("brand_id") ?? "";
+  const active = params.get("is_active") ?? "";
+  const noVariants = params.get("no_variants") === "true";
+  const backordered = params.get("backordered") === "true";
+  const onlyNew = params.get("is_new") === "true";
+  const noPhoto = params.get("no_photo") === "true";
+  const page = Math.max(1, Math.floor(Number(params.get("page"))) || 1);
+
+  useEffect(() => {
+    rememberProductsList(committed ? `${PRODUCTS_LIST}?${committed}` : PRODUCTS_LIST);
+  }, [committed]);
+
+  /** Changes the list's URL; any change but the page itself starts from page 1. */
+  const setFilters = (changes: Partial<Record<Filter, string | number | boolean>>) => {
+    const next = new URLSearchParams(query);
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === "" || value === false) next.delete(key);
+      else next.set(key, String(value));
+    }
+    if (!("page" in changes) || next.get("page") === "1") next.delete("page");
+    const qs = next.toString();
+    startTransition(() => {
+      setOptimisticQuery(qs);
+      router.replace(qs ? `${PRODUCTS_LIST}?${qs}` : PRODUCTS_LIST, { scroll: false });
+    });
+  };
 
   const brands = useApi<Brand[]>("/admin/brands");
   const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
@@ -50,11 +76,6 @@ export function ProductsAdmin({
     },
   });
 
-  const resetPage = <T,>(setter: (v: T) => void) => (v: T) => {
-    setter(v);
-    setPage(1);
-  };
-
   return (
     <>
       <AdminHeader
@@ -66,23 +87,8 @@ export function ProductsAdmin({
         }
       />
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-3">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            setSearch(q);
-            setPage(1);
-          }}
-          className="flex flex-1 gap-2"
-        >
-          <input
-            className="input min-w-48"
-            placeholder="Название или бренд"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <button className="btn btn-outline btn-sm">Найти</button>
-        </form>
-        <select className="input w-auto" value={brandId} onChange={(e) => resetPage(setBrandId)(e.target.value)}>
+        <SearchForm key={search} search={search} onSearch={(q) => setFilters({ q })} />
+        <select className="input w-auto" value={brandId} onChange={(e) => setFilters({ brand_id: e.target.value })}>
           <option value="">Все бренды</option>
           {brands.data?.map((b) => (
             <option key={b.id} value={b.id}>
@@ -90,7 +96,7 @@ export function ProductsAdmin({
             </option>
           ))}
         </select>
-        <select className="input w-auto" value={active} onChange={(e) => resetPage(setActive)(e.target.value)}>
+        <select className="input w-auto" value={active} onChange={(e) => setFilters({ is_active: e.target.value })}>
           <option value="">Все</option>
           <option value="true">Опубликованные</option>
           <option value="false">Скрытые</option>
@@ -100,7 +106,7 @@ export function ProductsAdmin({
             type="checkbox"
             className="accent-gold"
             checked={noVariants}
-            onChange={(e) => resetPage(setNoVariants)(e.target.checked)}
+            onChange={(e) => setFilters({ no_variants: e.target.checked })}
           />
           Без цен/объёмов
         </label>
@@ -109,7 +115,7 @@ export function ProductsAdmin({
             type="checkbox"
             className="accent-gold"
             checked={backordered}
-            onChange={(e) => resetPage(setBackordered)(e.target.checked)}
+            onChange={(e) => setFilters({ backordered: e.target.checked })}
           />
           Нужно заказать
         </label>
@@ -118,7 +124,7 @@ export function ProductsAdmin({
             type="checkbox"
             className="accent-gold"
             checked={onlyNew}
-            onChange={(e) => resetPage(setOnlyNew)(e.target.checked)}
+            onChange={(e) => setFilters({ is_new: e.target.checked })}
           />
           Новинки
         </label>
@@ -127,7 +133,7 @@ export function ProductsAdmin({
             type="checkbox"
             className="accent-gold"
             checked={noPhoto}
-            onChange={(e) => resetPage(setNoPhoto)(e.target.checked)}
+            onChange={(e) => setFilters({ no_photo: e.target.checked })}
           />
           Без фото
         </label>
@@ -252,7 +258,34 @@ export function ProductsAdmin({
           </div>
         </div>
       )}
-      {data && <Pagination page={page} total={data.total} pageSize={PAGE_SIZE} onChange={setPage} />}
+      {data && <Pagination
+          page={page}
+          total={data.total}
+          pageSize={PAGE_SIZE}
+          onChange={(p) => setFilters({ page: p })}
+        />}
     </>
+  );
+}
+
+/** The search box: typed text is only applied on «Найти». Keyed by the applied search. */
+function SearchForm({ search, onSearch }: { search: string; onSearch: (q: string) => void }) {
+  const [q, setQ] = useState(search);
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSearch(q.trim());
+      }}
+      className="flex flex-1 gap-2"
+    >
+      <input
+        className="input min-w-48"
+        placeholder="Название или бренд"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      <button className="btn btn-outline btn-sm">Найти</button>
+    </form>
   );
 }

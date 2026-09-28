@@ -1,14 +1,12 @@
+import { Suspense } from "react";
+import { Spinner } from "@/components/ui";
 import { ProductsAdmin } from "./products-admin";
 
-export default async function AdminProductsPage(props: PageProps<"/admin/products">) {
-  const sp = await props.searchParams;
+// The search, filters and page live in the URL and are read on the client (see ProductsAdmin).
+export default function AdminProductsPage() {
   return (
-    <ProductsAdmin
-      initialNoVariants={sp.no_variants === "true"}
-      initialBackordered={sp.backordered === "true"}
-      initialNew={sp.is_new === "true"}
-      initialNoPhoto={sp.no_photo === "true"}
-      initialBrandId={typeof sp.brand_id === "string" ? sp.brand_id : ""}
-    />
+    <Suspense fallback={<Spinner />}>
+      <ProductsAdmin />
+    </Suspense>
   );
 }

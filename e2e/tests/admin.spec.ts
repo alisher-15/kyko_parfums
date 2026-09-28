@@ -73,6 +73,24 @@ test.describe("Админка", () => {
     await page.getByRole("button", { name: "Найти" }).click();
     await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
     await expect(page.getByRole("link", { name }).first()).toBeVisible();
+
+    // Opening a product and going back keeps the search and the filters: by the product's link
+    // back to the list and by the browser's back button.
+    const listIsAsLeft = async () => {
+      await expect(page).toHaveURL(/\/admin\/products\?.*no_photo=true/);
+      await expect(page.getByLabel("Без фото")).toBeChecked();
+      await expect(page.getByPlaceholder("Название или бренд")).toHaveValue(name);
+      await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
+    };
+    await page.getByRole("link", { name }).first().click();
+    await page.waitForURL(`/admin/products/${productId}`);
+    await page.getByRole("link", { name: "← К списку товаров" }).click();
+    await listIsAsLeft();
+    await page.getByRole("link", { name }).first().click();
+    await page.waitForURL(`/admin/products/${productId}`);
+    await page.goBack();
+    await listIsAsLeft();
+
     await api("PATCH", `/admin/products/${productId}`, admin, { image_url: "/bottles/adidas-ice-dive.jpg" });
     await page.getByLabel("Без фото").uncheck();
     await page.getByLabel("Без фото").check();

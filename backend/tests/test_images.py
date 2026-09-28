@@ -50,6 +50,44 @@ def test_phone_rotation_is_applied():
     assert bottom - top > right - left
 
 
+def gradient_photo(top=(235, 235, 238), bottom=(175, 175, 180), size=(900, 1000)) -> Image.Image:
+    """A studio shot: the grey background gets darker from top to bottom."""
+    w, h = size
+    im = Image.new("RGB", size)
+    draw = ImageDraw.Draw(im)
+    for y in range(h):
+        t = y / (h - 1)
+        draw.line(
+            [(0, y), (w, y)],
+            fill=tuple(round(a + (b - a) * t) for a, b in zip(top, bottom, strict=True)),
+        )
+    return im
+
+
+def test_light_gradient_background_becomes_white():
+    im = gradient_photo()
+    ImageDraw.Draw(im).rectangle((350, 250, 550, 850), fill=(40, 30, 20))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG", quality=92)
+    p = prepare_upload(buf.getvalue(), "product")
+    assert (p.normalized, p.note) == (True, None)
+    out = Image.open(io.BytesIO(p.data))
+    assert out.size == (600, 600)
+    for xy in ((5, 5), (594, 5), (5, 594), (594, 594), (300, 20), (300, 580)):
+        assert min(out.getpixel(xy)) >= 250, xy
+    left, top, right, bottom = dark_box(out)
+    assert abs((bottom - top) - 516) <= 4
+
+
+def test_bottle_cut_off_by_the_frame_is_left_alone():
+    # The bottle touches the bottom edge: the background can't be estimated there.
+    im = gradient_photo()
+    ImageDraw.Draw(im).rectangle((350, 250, 550, 1000), fill=(40, 30, 20))
+    buf = io.BytesIO()
+    im.save(buf, "JPEG")
+    assert prepare_upload(buf.getvalue(), "product").normalized is False
+
+
 def test_uneven_background_is_kept_with_a_note():
     im = Image.new("RGB", (800, 800), (250, 250, 250))
     ImageDraw.Draw(im).rectangle((0, 600, 800, 800), fill=(120, 80, 40))  # a table

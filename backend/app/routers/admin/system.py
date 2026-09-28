@@ -1,5 +1,7 @@
+import logging
 import uuid
 from decimal import Decimal
+from typing import Literal
 from zipfile import BadZipFile
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -31,24 +33,15 @@ from app.schemas.admin import (
     StatsOut,
     UploadOut,
 )
+from app.services import storage
+from app.services.images import NotAnImage, prepare_upload
 from app.services.importer import build_template, import_catalog
 from app.services.settings import get_pricing_settings
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
-IMAGE_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
-# Magic bytes, so a renamed non-image file is rejected.
-IMAGE_SIGNATURES = {
-    ".jpg": (b"\xff\xd8\xff",),
-    ".png": (b"\x89PNG\r\n\x1a\n",),
-    ".gif": (b"GIF87a", b"GIF89a"),
-    ".webp": (b"RIFF",),
-}
+IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 LOW_STOCK = 3
 IN_PROGRESS = (OrderStatus.new, OrderStatus.processing, OrderStatus.shipped)
 
@@ -75,23 +68,33 @@ def update_pricing(data: PricingSettingsIO, db: Session = Depends(get_db)):
 
 
 @router.post("/uploads", response_model=UploadOut, status_code=status.HTTP_201_CREATED)
-async def upload_image(file: UploadFile = File(...)):
+async def upload_image(
+    file: UploadFile = File(...),
+    kind: Literal["product", "original"] = Query(default="product"),
+):
+    """Store a picture. kind=product (the default) turns a product photo into the shop format
+    (white 600×600 square, see app/services/images.py); kind=original is for banners and logos,
+    which are only made smaller."""
     settings = get_settings()
-    ext = IMAGE_TYPES.get(file.content_type or "")
-    if ext is None:
+    if (file.content_type or "") not in IMAGE_TYPES:
         raise HTTPException(415, "Допустимы только изображения JPEG, PNG, WEBP или GIF")
     max_bytes = settings.max_upload_mb * 1024 * 1024
     data = await file.read(max_bytes + 1)
     if len(data) > max_bytes:
         raise HTTPException(413, f"Файл больше {settings.max_upload_mb} МБ")
-    if not data.startswith(IMAGE_SIGNATURES[ext]) or (ext == ".webp" and data[8:12] != b"WEBP"):
-        raise HTTPException(415, "Файл не похож на изображение указанного формата")
+    try:
+        # Pillow work is CPU-bound: keep it off the event loop.
+        prepared = await run_in_threadpool(prepare_upload, data, kind)
+    except NotAnImage as e:
+        raise HTTPException(415, "Файл не похож на изображение") from e
 
-    name = f"{uuid.uuid4().hex}{ext}"
-    target_dir = settings.media_dir / "products"
-    target_dir.mkdir(parents=True, exist_ok=True)
-    (target_dir / name).write_bytes(data)
-    return UploadOut(url=f"{settings.media_url_prefix}/products/{name}")
+    key = f"products/{uuid.uuid4().hex}{prepared.ext}"
+    try:
+        url = await run_in_threadpool(storage.save, key, prepared.data, prepared.content_type)
+    except Exception as e:  # network / credentials of the bucket
+        log.exception("Upload to storage failed")
+        raise HTTPException(502, "Не удалось сохранить фото в хранилище, попробуйте ещё раз") from e
+    return UploadOut(url=url, normalized=prepared.normalized, note=prepared.note)
 
 
 # ---------- Import ----------

@@ -33,10 +33,18 @@ class Settings(BaseSettings):
     # Used in human-readable order history messages.
     currency_sign: str = "₸"
 
-    # Media (uploaded product photos / brand logos)
+    # Media (uploaded product photos / brand logos). Phone photos are often 5-10 MB; they are
+    # made small when uploaded (app/services/images.py).
     media_dir: Path = BASE_DIR / "media"
     media_url_prefix: str = "/media"
-    max_upload_mb: int = 5
+    max_upload_mb: int = 15
+    # Cloudflare R2 (or any S3-compatible storage) for uploads. All five set => files go to the
+    # bucket and survive redeploys; otherwise to media_dir (app/services/storage.py).
+    r2_endpoint: str = ""  # https://<account id>.r2.cloudflarestorage.com
+    r2_access_key_id: str = ""
+    r2_secret_access_key: str = ""
+    r2_bucket: str = ""
+    r2_public_url: str = ""  # https://pub-<id>.r2.dev or your own domain
 
     # SMTP for password recovery. Empty host => reset links are written to the log (dev mode).
     smtp_host: str = ""

@@ -8,12 +8,15 @@ import { StockHistory } from "@/components/admin/StockHistory";
 import { VariantsEditor } from "@/components/admin/VariantsEditor";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
+import { useProductsListHref } from "@/lib/products-list";
 import type { AdminProduct } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 export function ProductEdit({ id }: { id: number }) {
   const router = useRouter();
   const { data: product, error, reload } = useApi<AdminProduct>(`/admin/products/${id}`);
+  // Back to the list as it was: the same search, filters and page.
+  const listHref = useProductsListHref();
 
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!product) return <Spinner />;
@@ -22,7 +25,7 @@ export function ProductEdit({ id }: { id: number }) {
     if (!confirm(`Удалить «${product.name}» со всеми объёмами? История заказов сохранится.`)) return;
     try {
       await api(`/admin/products/${id}`, { method: "DELETE" });
-      router.replace("/admin/products");
+      router.replace(listHref);
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     }
@@ -30,8 +33,8 @@ export function ProductEdit({ id }: { id: number }) {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/products" className="text-sm text-muted hover:text-ink">
-        ← Все товары
+      <Link href={listHref} className="text-sm text-muted hover:text-ink">
+        ← К списку товаров
       </Link>
       <AdminHeader
         title={

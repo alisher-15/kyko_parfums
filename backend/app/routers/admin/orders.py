@@ -21,7 +21,7 @@ from app.schemas.admin import (
     ReturnIn,
 )
 from app.schemas.common import Page
-from app.services.invoice import build_invoice, invoice_filename
+from app.services.invoice import build_invoice, invoice_filename, product_details
 from app.services.orders import (
     ReturnLine,
     change_status,
@@ -50,7 +50,11 @@ def _out(db: Session, order: Order) -> AdminOrderOut:
         select(ProductVariant.id, ProductVariant.stock).where(ProductVariant.id.in_(ids))
     )
     stock = {variant_id: s for variant_id, s in rows}
-    return AdminOrderOut.model_validate(order).model_copy(update={"variant_stock": stock})
+    out = AdminOrderOut.model_validate(order)
+    details = product_details(db, order.items)
+    for item in out.items:
+        item.product_type, item.gender = details.get(item.product_id, (None, None))
+    return out.model_copy(update={"variant_stock": stock})
 
 
 @router.get("/orders", response_model=Page[AdminOrderBrief])
@@ -138,7 +142,7 @@ def order_invoice(order_id: int, db: Session = Depends(get_db)):
     """Delivery note to print and put in the parcel."""
     order = _load_order(db, order_id)
     return Response(
-        content=build_invoice(order),
+        content=build_invoice(order, product_details(db, order.items)),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{invoice_filename(order)}"'},
     )

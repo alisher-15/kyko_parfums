@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ErrorBox, Spinner } from "@/components/ui";
-import { PAYMENT_LABELS, money, volumeLabel } from "@/lib/format";
+import { GENDER_LABELS, PAYMENT_LABELS, money } from "@/lib/format";
 import type { AdminOrder } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -11,7 +11,7 @@ const PRINT_CSS = `
 @media print {
   header, footer, aside, .no-print { display: none !important; }
   html, body, main, main * { background: white !important; }
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4 landscape; margin: 12mm; }
 }
 `;
 
@@ -43,7 +43,7 @@ export function InvoiceView({ id }: { id: number }) {
   ];
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-4xl">
       <style>{PRINT_CSS}</style>
       <div className="no-print mb-6 flex flex-wrap items-center gap-3">
         <Link href={`/admin/orders/${order.id}`} className="text-sm text-muted hover:text-ink">
@@ -75,7 +75,10 @@ export function InvoiceView({ id }: { id: number }) {
             <tr className="[&>th]:border [&>th]:border-stone-400 [&>th]:px-2 [&>th]:py-1">
               <th>№</th>
               <th>Товар</th>
-              <th>Объём</th>
+              <th>Тип</th>
+              <th>Пол</th>
+              <th className="text-right">Объём, мл</th>
+              <th>Тестер</th>
               <th className="text-right">Кол-во</th>
               <th className="text-right">Цена</th>
               <th className="text-right">Сумма</th>
@@ -91,7 +94,10 @@ export function InvoiceView({ id }: { id: number }) {
                 <td>
                   {item.brand_name} {item.product_name}
                 </td>
-                <td className="whitespace-nowrap">{volumeLabel(item.volume_ml, item.is_tester)}</td>
+                <td>{item.product_type ?? "—"}</td>
+                <td>{item.gender ? GENDER_LABELS[item.gender] : "—"}</td>
+                <td className="text-right">{item.volume_ml}</td>
+                <td>{item.is_tester ? "Да" : "Нет"}</td>
                 <td className="text-right">{item.quantity}</td>
                 <td className="text-right whitespace-nowrap">{money(item.price_applied)}</td>
                 <td className="text-right whitespace-nowrap">{money(item.line_total)}</td>
@@ -100,7 +106,7 @@ export function InvoiceView({ id }: { id: number }) {
           </tbody>
           <tfoot>
             <tr className="font-bold [&>td]:px-2 [&>td]:py-1">
-              <td colSpan={3} className="text-right">
+              <td colSpan={7} className="text-right">
                 Итого
               </td>
               <td className="text-right">{units}</td>

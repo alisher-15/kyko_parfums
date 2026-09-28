@@ -192,6 +192,9 @@ export interface OrderItem {
   original_quantity: number;
   /** Admin only: units not in stock at checkout, ordered from a supplier. */
   backordered?: number;
+  /** Admin only: type and gender of the catalog product (for the delivery note). */
+  product_type?: string | null;
+  gender?: Gender | null;
   returned_quantity: number;
   list_price: number;
   discount_percent: number;

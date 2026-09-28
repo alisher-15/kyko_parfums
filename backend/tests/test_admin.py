@@ -98,6 +98,23 @@ def test_product_and_variant_crud(client, auth, catalog):
     assert client.delete(f"/api/admin/products/{product['id']}", headers=h).status_code == 204
 
 
+def test_filter_products_without_a_photo(client, auth, catalog, db):
+    h = auth(UserRole.admin)
+    # A product photo, a bottle photo only, and an emptied field that is no photo at all.
+    catalog["coco"].image_url = "/media/coco.jpg"
+    catalog["sauvage100"].photo_url = "/media/sauvage-100.jpg"
+    catalog["hidden"].image_url = ""
+    db.commit()
+
+    r = client.get("/api/admin/products", params={"no_photo": True}, headers=h).json()
+    assert (r["total"], [p["name"] for p in r["items"]]) == (2, ["Hidden", "J'adore"])
+    # It adds to the other filters.
+    r = client.get(
+        "/api/admin/products", params={"no_photo": True, "is_active": True}, headers=h
+    ).json()
+    assert [p["name"] for p in r["items"]] == ["J'adore"]
+
+
 def test_deleting_product_keeps_order_history(client, auth, catalog, db):
     buyer = auth()
     order = client.post(

@@ -15,11 +15,13 @@ export function ProductsAdmin({
   initialNoVariants,
   initialBackordered,
   initialNew,
+  initialNoPhoto,
   initialBrandId,
 }: {
   initialNoVariants: boolean;
   initialBackordered: boolean;
   initialNew: boolean;
+  initialNoPhoto: boolean;
   initialBrandId: string;
 }) {
   const [q, setQ] = useState("");
@@ -29,6 +31,7 @@ export function ProductsAdmin({
   const [noVariants, setNoVariants] = useState(initialNoVariants);
   const [backordered, setBackordered] = useState(initialBackordered);
   const [onlyNew, setOnlyNew] = useState(initialNew);
+  const [noPhoto, setNoPhoto] = useState(initialNoPhoto);
   const [page, setPage] = useState(1);
   const router = useRouter();
 
@@ -41,6 +44,7 @@ export function ProductsAdmin({
       no_variants: noVariants || undefined,
       backordered: backordered || undefined,
       is_new: onlyNew || undefined,
+      no_photo: noPhoto || undefined,
       page,
       page_size: PAGE_SIZE,
     },
@@ -117,6 +121,15 @@ export function ProductsAdmin({
             onChange={(e) => resetPage(setOnlyNew)(e.target.checked)}
           />
           Новинки
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={noPhoto}
+            onChange={(e) => resetPage(setNoPhoto)(e.target.checked)}
+          />
+          Без фото
         </label>
       </div>
 

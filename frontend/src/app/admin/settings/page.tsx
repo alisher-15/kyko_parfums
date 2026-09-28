@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { RateCard } from "@/components/admin/RateCard";
 import { ErrorBox, Field, Spinner, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CURRENCY, dateTime } from "@/lib/format";
@@ -15,15 +16,18 @@ export default function PricingSettingsPage() {
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
   if (!data) return <Spinner />;
   return (
-    <SettingsForm
-      key={data.updated_at}
-      initial={data}
-      saved={saved}
-      onSaved={() => {
-        setSaved(true);
-        reload();
-      }}
-    />
+    <div className="space-y-8">
+      <SettingsForm
+        key={data.updated_at}
+        initial={data}
+        saved={saved}
+        onSaved={() => {
+          setSaved(true);
+          reload();
+        }}
+      />
+      <RateCard />
+    </div>
   );
 }
 

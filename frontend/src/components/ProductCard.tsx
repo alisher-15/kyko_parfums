@@ -1,9 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { GENDER_LABELS, money, percentOff } from "@/lib/format";
+import { useCurrency } from "@/lib/currency";
+import { GENDER_LABELS, percentOff } from "@/lib/format";
 import type { ProductListItem } from "@/lib/types";
 import { ProductImage } from "./ui";
 
 export function ProductCard({ product }: { product: ProductListItem }) {
+  const { money } = useCurrency();
   return (
     <Link
       href={`/products/${product.id}`}

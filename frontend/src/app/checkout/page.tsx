@@ -9,7 +9,8 @@ import { Empty, ErrorBox, Field, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { money, volumeLabel } from "@/lib/format";
+import { TengeNote, useCurrency } from "@/lib/currency";
+import { volumeLabel } from "@/lib/format";
 import type { Order, User } from "@/lib/types";
 import { useQuote } from "@/lib/use-quote";
 
@@ -25,6 +26,7 @@ function Checkout() {
   const { user } = useAuth() as { user: User };
   const { items, clear, ready } = useCart();
   const { quote, loading } = useQuote();
+  const { money } = useCurrency();
   const router = useRouter();
   const [form, setForm] = useState({
     contact_name: user.full_name ?? "",
@@ -168,6 +170,7 @@ function Checkout() {
               <span>Итого</span>
               <span>{money(quote?.total)}</span>
             </div>
+            <TengeNote total={quote?.total} />
           </div>
         </aside>
       </div>

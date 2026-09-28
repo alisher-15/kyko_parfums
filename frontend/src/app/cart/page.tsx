@@ -6,13 +6,15 @@ import { QuoteHints } from "@/components/QuoteHints";
 import { Empty, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
-import { TIER_LABELS, money, volumeLabel } from "@/lib/format";
+import { TengeNote, useCurrency } from "@/lib/currency";
+import { TIER_LABELS, volumeLabel } from "@/lib/format";
 import { useQuote } from "@/lib/use-quote";
 
 export default function CartPage() {
   const { items, setQuantity, remove, ready } = useCart();
   const { user } = useAuth();
   const { quote, error, loading } = useQuote();
+  const { money } = useCurrency();
 
   if (!ready) return <Spinner />;
   if (items.length === 0) {
@@ -133,6 +135,7 @@ export default function CartPage() {
               <span>Итого</span>
               <span>{money(quote?.total)}</span>
             </div>
+            <TengeNote total={quote?.total} />
             <p className="mt-2 text-xs text-muted">
               Оплата по факту или переводом после подтверждения менеджером.
             </p>

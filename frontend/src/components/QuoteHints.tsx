@@ -1,10 +1,14 @@
-import { money, plural, volumeLabel } from "@/lib/format";
+"use client";
+
+import { useCurrency } from "@/lib/currency";
+import { plural, volumeLabel } from "@/lib/format";
 import type { Quote } from "@/lib/types";
 
 const TIER_NAMES = { retail: "розничной", wholesale: "оптовой", bulk: "крупнооптовой" } as const;
 
 /** Tells a wholesale customer what is missing to unlock a better price tier. */
 export function QuoteHints({ quote }: { quote: Quote }) {
+  const { money } = useCurrency();
   if (quote.hints.length === 0) return null;
   const names = new Map(
     quote.lines.map((l) => [l.variant_id, `${l.product_name}, ${volumeLabel(l.volume_ml, l.is_tester)}`]),

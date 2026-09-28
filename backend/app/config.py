@@ -28,6 +28,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("FRONTEND_URL", "RENDER_EXTERNAL_URL"),
     )
 
+    # Page with the dollar rate (app/services/rates.py). Empty = never read it: the admin types
+    # the rate by hand.
+    rate_source_url: str = "https://www.mig.kz/"
+
     # Business day boundaries for "today" figures on the dashboard.
     timezone: str = "Asia/Almaty"
     # Used in human-readable order history messages.

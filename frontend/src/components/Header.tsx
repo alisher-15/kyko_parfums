@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
+import { CurrencySwitch } from "@/lib/currency";
 import { ROLE_LABELS } from "@/lib/format";
 import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 
@@ -76,6 +77,7 @@ export function Header() {
         </form>
 
         <div className="ml-auto flex items-center gap-1 md:ml-0">
+          <CurrencySwitch className="mr-1" />
           {user?.role === "admin" && (
             <Link href="/admin" className="btn btn-outline btn-sm mr-1 hidden sm:inline-flex">
               Админка

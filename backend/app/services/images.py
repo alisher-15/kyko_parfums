@@ -12,8 +12,12 @@ For a photo on a plain background:
 
 Light backgrounds become pure white (the catalog cards are white). A pure black background is
 usually a lost transparency (a PNG saved as JPEG) and is painted white from the edges; black bars
-around a light photo go the same way. A photo whose corners differ (a table, an interior, a
-gradient) can't be cut out this way and is left as it is.
+around a light photo go the same way.
+
+A light background whose corners differ (a studio gradient, uneven light) is estimated row by row
+from the left and right edges of the photo; what stands out from it is the bottle, the rest is
+painted white (see remove_smooth_background). Dark or busy backgrounds (a table, an interior)
+can't be cut out reliably and the photo is left as it is.
 """
 
 import io
@@ -32,6 +36,13 @@ MAX_CORNER_SPREAD = 20
 WHITE_ENOUGH = 215
 # Pure black backgrounds are usually a lost transparency (PNG saved as JPEG): they become white.
 NEAR_BLACK = 16
+# A gradient background is replaced only when all its corners are at least this light.
+LIGHT_BACKGROUND = 150
+# Around the estimated background: below LOW it is background, above HIGH it is the bottle,
+# in between (soft edges, glass) it is blended.
+SOFT_LOW, SOFT_HIGH = 14, 40
+# Photos are made this small before processing: the result is 600 px anyway.
+WORK_SIDE = 1600
 
 PHOTO_SIZE = 600
 PHOTO_MARGIN = 0.07
@@ -47,10 +58,7 @@ SKIP_REASONS = {
 
 def corner_colour(im: Image.Image) -> tuple[tuple[int, int, int], int]:
     """Median colour of the four corners and how much the corners differ."""
-    w, h = im.size
-    k = max(2, min(w, h) // 40)
-    boxes = [(0, 0, k, k), (w - k, 0, w, k), (0, h - k, k, h), (w - k, h - k, w, h)]
-    corners = [im.crop(b).resize((1, 1), Image.Resampling.BOX).getpixel((0, 0)) for b in boxes]
+    corners = _corners(im)
     colour = tuple(int(statistics.median(c[i] for c in corners)) for i in range(3))
     spread = max(max(c[i] for c in corners) - min(c[i] for c in corners) for i in range(3))
     return colour, spread
@@ -85,6 +93,53 @@ def black_to_white(im: Image.Image) -> Image.Image:
     return im
 
 
+def remove_smooth_background(im: Image.Image) -> Image.Image | None:
+    """The photo with its light, smoothly changing background painted white, or None.
+
+    The background of each row is interpolated between the colours at its left and right edges.
+    That is right only if the top and bottom edges are background too, so they are checked
+    against the estimate; a bottle touching the side edges, a table line or a busy background
+    makes the check fail and the photo is left alone.
+    """
+    im = im.convert("RGB")
+    w, h = im.size
+    if min(min(c) for c in _corners(im)) < LIGHT_BACKGROUND:
+        return None
+    k = max(2, w // 60)
+    left = im.crop((0, 0, k, h)).resize((1, h), Image.Resampling.BOX)
+    right = im.crop((w - k, 0, w, h)).resize((1, h), Image.Resampling.BOX)
+    edges = Image.new("RGB", (2, h))
+    edges.paste(left, (0, 0))
+    edges.paste(right, (1, 0))
+    background = edges.resize((w, h), Image.Resampling.BILINEAR)
+    diff = ImageChops.difference(im, background).convert("L")
+
+    # The top and bottom edges must agree with the estimate (they are background).
+    band = max(2, h // 60)
+    for box in ((0, 0, w, band), (0, h - band, w, h)):
+        edge = diff.crop(box)
+        hist = edge.histogram()
+        outliers = sum(hist[THRESHOLD:])
+        if outliers > 0.05 * edge.width * edge.height:
+            return None
+
+    span = SOFT_HIGH - SOFT_LOW
+    alpha = diff.point(
+        lambda v: 0 if v <= SOFT_LOW else 255 if v >= SOFT_HIGH else (v - SOFT_LOW) * 255 // span
+    )
+    alpha = alpha.filter(ImageFilter.MedianFilter(3))
+    if alpha.getbbox() is None:
+        return None
+    return Image.composite(im, Image.new("RGB", (w, h), (255, 255, 255)), alpha)
+
+
+def _corners(im: Image.Image) -> list[tuple[int, int, int]]:
+    w, h = im.size
+    k = max(2, min(w, h) // 40)
+    boxes = [(0, 0, k, k), (w - k, 0, w, k), (0, h - k, k, h), (w - k, h - k, w, h)]
+    return [im.crop(b).resize((1, 1), Image.Resampling.BOX).getpixel((0, 0)) for b in boxes]
+
+
 def is_marked(im: Image.Image) -> bool:
     comment = im.info.get("comment", b"")
     if isinstance(comment, bytes):
@@ -109,9 +164,15 @@ def normalize(
     if is_marked(im):
         return None, "already normalized"
     im = flatten(im)
+    if max(im.size) > WORK_SIDE:
+        im.thumbnail((WORK_SIDE, WORK_SIDE), Image.Resampling.LANCZOS)
     bg, spread = corner_colour(im)
     if spread > MAX_CORNER_SPREAD:
-        return None, "uneven background"
+        cleaned = remove_smooth_background(im)
+        if cleaned is None:
+            return None, "uneven background"
+        im = cleaned
+        bg, spread = corner_colour(im)
     if max(bg) <= NEAR_BLACK:
         im, bg = black_to_white(im), (255, 255, 255)
         box = object_box(im, bg)

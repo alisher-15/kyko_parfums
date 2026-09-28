@@ -65,6 +65,18 @@ test.describe("Админка", () => {
     expect(moves).toHaveLength(1);
     expect(moves[0].delta).toBe(7);
     expect((await api("GET", `/products?q=${encodeURIComponent(name)}`)).total).toBe(1);
+
+    // No photo was added: the filter «Без фото» finds it, and loses it once a photo is set.
+    await page.goto("/admin/products");
+    await page.getByLabel("Без фото").check();
+    await page.getByPlaceholder("Название или бренд").fill(name);
+    await page.getByRole("button", { name: "Найти" }).click();
+    await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
+    await expect(page.getByRole("link", { name }).first()).toBeVisible();
+    await api("PATCH", `/admin/products/${productId}`, admin, { image_url: "/bottles/adidas-ice-dive.jpg" });
+    await page.getByLabel("Без фото").uncheck();
+    await page.getByLabel("Без фото").check();
+    await expect(page.getByRole("heading", { name: "Товары · 0" })).toBeVisible();
   });
 
   test("импорт каталога: шаблон и проверка без сохранения", async ({ page }, testInfo) => {

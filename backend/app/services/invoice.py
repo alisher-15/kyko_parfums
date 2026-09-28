@@ -10,9 +10,11 @@ from zoneinfo import ZoneInfo
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, Side
 from openpyxl.utils import get_column_letter
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import Order, OrderChannel, volume_label
+from app.models import Gender, Order, OrderChannel, OrderItem, Product
 
 SHOP_NAME = "Kyko Parfum"
 PAYMENT_LABELS = {
@@ -23,6 +25,24 @@ PAYMENT_LABELS = {
 }
 
 
+GENDER_LABELS = {Gender.female: "Женский", Gender.male: "Мужской", Gender.unisex: "Унисекс"}
+
+
+def product_details(
+    db: Session, items: list[OrderItem]
+) -> dict[int, tuple[str | None, Gender | None]]:
+    """Type (EDP, EDT, ...) and gender of the products in the order, by product id.
+
+    Order lines keep brand, name and volume, but not these: they are read from the catalog
+    (a product deleted since then has none).
+    """
+    ids = {i.product_id for i in items if i.product_id is not None}
+    if not ids:
+        return {}
+    rows = db.execute(select(Product.id, Product.type, Product.gender).where(Product.id.in_(ids)))
+    return {pid: (ptype, gender) for pid, ptype, gender in rows}
+
+
 def invoice_filename(order: Order) -> str:
     return f"nakladnaya_{order.id}.xlsx"
 
@@ -31,7 +51,7 @@ def _local(dt: datetime) -> datetime:
     return dt.astimezone(ZoneInfo(get_settings().timezone))
 
 
-def build_invoice(order: Order) -> bytes:
+def build_invoice(order: Order, details: dict[int, tuple[str | None, Gender | None]]) -> bytes:
     """Lines removed before delivery (quantity 0) are left out; returns don't change the note."""
     settings = get_settings()
     money_fmt = f'#,##0 "{settings.currency_sign}"'
@@ -71,7 +91,11 @@ def build_invoice(order: Order) -> bytes:
             ws.cell(ws.max_row, 1).font = bold
     ws.append([])
 
-    header = ["№", "Бренд", "Товар", "Объём", "Артикул", "Кол-во", "Цена", "Сумма"]
+    header = [
+        "№", "Бренд", "Товар", "Тип", "Пол", "Объём, мл", "Тестер", "Артикул", "Кол-во", "Цена",
+        "Сумма",
+    ]  # fmt: skip
+    qty_col, price_col, sum_col = 9, 10, 11
     ws.append(header)
     head_row = ws.max_row
     for col in range(1, len(header) + 1):
@@ -82,12 +106,16 @@ def build_invoice(order: Order) -> bytes:
 
     lines = [i for i in order.items if i.quantity > 0]
     for n, item in enumerate(lines, 1):
+        ptype, gender = details.get(item.product_id, (None, None))
         ws.append(
             [
                 n,
                 item.brand_name,
                 item.product_name,
-                volume_label(item.volume_ml, item.is_tester),
+                ptype,
+                GENDER_LABELS.get(gender) if gender else None,
+                item.volume_ml,
+                "Да" if item.is_tester else "Нет",
                 item.variant.sku if item.variant else None,
                 item.quantity,
                 float(item.price_applied),
@@ -97,23 +125,26 @@ def build_invoice(order: Order) -> bytes:
         row = ws.max_row
         for col in range(1, len(header) + 1):
             ws.cell(row, col).border = box
-        ws.cell(row, 7).number_format = money_fmt
-        ws.cell(row, 8).number_format = money_fmt
+        for col in (4, 5, 6, 7, qty_col):
+            ws.cell(row, col).alignment = Alignment(horizontal="center")
+        ws.cell(row, price_col).number_format = money_fmt
+        ws.cell(row, sum_col).number_format = money_fmt
 
     total_row = ws.max_row + 1
-    ws.cell(total_row, 5, "Итого").font = bold
-    ws.cell(total_row, 6, sum(i.quantity for i in lines)).font = bold
-    total = ws.cell(total_row, 8, float(sum(i.line_total for i in lines)))
+    ws.cell(total_row, qty_col - 1, "Итого").font = bold
+    ws.cell(total_row, qty_col, sum(i.quantity for i in lines)).font = bold
+    total = ws.cell(total_row, sum_col, float(sum(i.line_total for i in lines)))
     total.font = bold
     total.number_format = money_fmt
 
     ws.append([])
     ws.append([])
-    ws.append(["Отпустил: ____________________", None, None, "Получил: ____________________"])
+    ws.append(["Отпустил: ____________________", None, None, None, None, None, None,
+               "Получил: ____________________"])  # fmt: skip
 
-    for col, width in enumerate([5, 18, 34, 16, 16, 9, 13, 14], 1):
+    for col, width in enumerate([5, 16, 30, 9, 11, 10, 8, 14, 8, 12, 13], 1):
         ws.column_dimensions[get_column_letter(col)].width = width
-    ws.page_setup.orientation = "portrait"
+    ws.page_setup.orientation = "landscape"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True

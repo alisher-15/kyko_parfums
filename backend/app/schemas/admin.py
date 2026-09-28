@@ -217,6 +217,9 @@ class AdminUserUpdate(BaseModel):
 class AdminOrderItemOut(OrderItemOut):
     # Units that were not in stock at checkout (ordered from a supplier). Admin only.
     backordered: int
+    # From the catalog product (not kept in the order line): for the delivery note.
+    product_type: str | None = None
+    gender: Gender | None = None
 
 
 class AdminOrderOut(OrderOut):

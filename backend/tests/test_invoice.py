@@ -6,9 +6,9 @@ from app.models import UserRole
 from tests.test_orders import CHECKOUT
 
 
-def rows(content: bytes) -> list[list]:
+def rows(content: bytes) -> list[tuple]:
     ws = load_workbook(io.BytesIO(content)).active
-    return [list(r) for r in ws.iter_rows(values_only=True)]
+    return list(ws.iter_rows(values_only=True))
 
 
 def test_invoice_lists_what_is_shipped(client, catalog, auth):
@@ -44,10 +44,19 @@ def test_invoice_lists_what_is_shipped(client, catalog, auth):
     assert table[0][0].startswith(f"Накладная № {order['id']} от ")
     flat = [v for row in table for v in row if v is not None]
     assert "Анна" in flat and "Алматы, ул. Абая, 1" in flat
-    items = [row for row in table if row and row[0] == 1]
-    assert items == [[1, "Chanel", "Coco Mademoiselle", "50 мл", None, 3, 100, 300]]
+    header = next(row for row in table if row[0] == "№")
+    assert header[3:7] == ("Тип", "Пол", "Объём, мл", "Тестер")
+    items = [row for row in table if row[0] == 1]
+    assert items == [
+        (1, "Chanel", "Coco Mademoiselle", "EDP", "Женский", 50, "Нет", None, 3, 100, 300)
+    ]
     total = next(row for row in table if "Итого" in row)
-    assert (total[5], total[7]) == (3, 300)
+    assert (total[8], total[10]) == (3, 300)
+
+    # The admin order has the same product details for the printable note.
+    admin_order = client.get(f"/api/admin/orders/{order['id']}", headers=admin).json()
+    line = next(i for i in admin_order["items"] if i["volume_ml"] == 50)
+    assert (line["product_type"], line["gender"], line["is_tester"]) == ("EDP", "female", False)
 
 
 def test_invoice_is_admin_only(client, catalog, auth):

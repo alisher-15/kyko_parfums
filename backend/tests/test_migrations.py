@@ -30,6 +30,30 @@ def test_database_records_the_oldest_code_it_can_run_with():
     assert marker() == "0003"
 
 
+def test_a_rate_misread_by_the_first_parser_is_forgotten():
+    # 0012 drops the mig.kz rate that was read wrongly, and keeps what the admin set.
+    cfg = alembic_config()
+    command.downgrade(cfg, "0011")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO exchange_rates (id, source_rate, source_updated_at, checked_at, "
+                "source_error, adjustment, manual_rate) "
+                "VALUES (1, 500.50, now(), now(), 'x', 5, 441.90)"
+            )
+        )
+    command.upgrade(cfg, "head")
+    with engine.connect() as conn:
+        row = conn.execute(text("SELECT * FROM exchange_rates")).one()
+    assert (row.source_rate, row.source_updated_at, row.checked_at, row.source_error) == (
+        None,
+        None,
+        None,
+        None,
+    )
+    assert (float(row.adjustment), float(row.manual_rate)) == (5, 441.9)
+
+
 @pytest.fixture
 def newer_database():
     """newer_database(revision, min_code) pretends a newer deploy migrated the database."""

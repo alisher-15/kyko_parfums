@@ -46,27 +46,30 @@ def fetch_html() -> str:
     return raw.decode(charset, errors="replace")
 
 
+_NUMBER = r"\d{3,4}(?:[.,]\d{1,2})?"
+# mig.kz shows every currency as one row, "buy  CODE  sell": 439.3 USD 441.9. The numbers next
+# to the code are the ones in the row; anything looser reads the next row (EUR) by mistake.
+_USD_ROW = re.compile(rf"(?<![\d.,])({_NUMBER})\s*\bUSD\b\s*({_NUMBER})(?![\d.,])")
+# Buy and sell rates of an exchange office are close; a wider gap means two unrelated numbers.
+MAX_SPREAD = Decimal("0.05")
+
+
 def parse_usd_rate(page: str) -> Decimal:
     """The dollar's selling rate from the text of the page.
 
-    Reads the numbers that follow the first "USD" (or "$") that has plausible rates after it:
-    buy and sell, in this order. The sell rate is used (the second number, else the only one).
+    Reads only the row "buy USD sell" and takes the sell rate. A page that doesn't have such a
+    row is refused rather than guessed at: the admin can type the rate by hand.
     """
     text = re.sub(r"(?is)<(script|style)\b.*?</\1>", " ", page)
     text = re.sub(r"(?s)<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", html.unescape(text))
-    for label in re.finditer(r"USD|\$|доллар", text, flags=re.IGNORECASE):
-        window = text[label.end() : label.end() + 60]
-        rates = []
-        for number in re.findall(r"\d{3,4}(?:[.,]\d{1,2})?", window):
-            try:
-                value = Decimal(number.replace(",", "."))
-            except InvalidOperation:
-                continue
-            if MIN_RATE <= value <= MAX_RATE:
-                rates.append(value)
-        if rates:
-            return rates[1] if len(rates) > 1 else rates[0]
+    for row in _USD_ROW.finditer(text):
+        try:
+            buy, sell = (Decimal(n.replace(",", ".")) for n in row.groups())
+        except InvalidOperation:
+            continue
+        if MIN_RATE <= buy <= sell <= MAX_RATE and sell <= buy * (1 + MAX_SPREAD):
+            return sell
     raise RateError("на странице mig.kz не найден курс доллара")
 
 

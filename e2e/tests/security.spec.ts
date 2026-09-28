@@ -72,7 +72,8 @@ test.describe("Безопасность", () => {
     const { url } = await good.json();
     const served = await page.request.get(url);
     expect(served.ok()).toBe(true);
-    expect(served.headers()["content-type"]).toBe("image/png");
+    // Product photos are stored as JPEG in the shop format (app/services/images.py).
+    expect(served.headers()["content-type"]).toBe("image/jpeg");
 
     const fake = await upload(admin, Buffer.from("<html>not an image</html>"), "image/png", "fake.png");
     expect(fake.status).toBe(415);

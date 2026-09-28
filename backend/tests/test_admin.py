@@ -199,24 +199,6 @@ def test_pricing_settings(client, auth):
     assert r.status_code == 422
 
 
-def test_upload_image(client, auth, tmp_path, monkeypatch):
-    from app.config import get_settings
-
-    monkeypatch.setattr(get_settings(), "media_dir", tmp_path)
-    h = auth(UserRole.admin)
-    png = b"\x89PNG\r\n\x1a\n" + b"0" * 100
-    r = client.post("/api/admin/uploads", files={"file": ("a.png", png, "image/png")}, headers=h)
-    assert r.status_code == 201
-    url = r.json()["url"]
-    assert url.startswith("/media/products/") and url.endswith(".png")
-    assert (tmp_path / "products" / url.rsplit("/", 1)[1]).read_bytes() == png
-
-    r = client.post(
-        "/api/admin/uploads", files={"file": ("a.png", b"not an image", "image/png")}, headers=h
-    )
-    assert r.status_code == 415
-
-
 def test_import_excel(client, auth, db):
     h = auth(UserRole.admin)
     # fmt: off

@@ -10,3 +10,5 @@ PyJWT==2.14.0
 bcrypt==5.0.0
 python-multipart==0.0.32
 openpyxl==3.1.5
+Pillow==12.3.0
+boto3==1.43.103

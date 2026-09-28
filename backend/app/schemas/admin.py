@@ -451,6 +451,9 @@ class ImportReport(BaseModel):
 
 class UploadOut(BaseModel):
     url: str
+    # A product photo was brought to the shop format (white square); note says why not.
+    normalized: bool = False
+    note: str | None = None
 
 
 class StatsOut(BaseModel):

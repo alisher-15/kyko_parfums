@@ -98,6 +98,7 @@ export function PromotionForm({
       <div>
         <span className="label">Баннер</span>
         <ImageUpload
+          kind="original"
           value={form.image_url}
           onChange={(url) => setForm({ ...form, image_url: url })}
           seed={promotion?.id ?? 0}

@@ -105,7 +105,7 @@ function BrandRow({
   return (
     <tr>
       <td>
-        <ImageUpload compact value={logo} onChange={setLogo} seed={brand.id} />
+        <ImageUpload compact kind="original" value={logo} onChange={setLogo} seed={brand.id} />
       </td>
       <td>
         <input className="input max-w-xs" value={name} onChange={(e) => setName(e.target.value)} />

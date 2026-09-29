@@ -120,6 +120,8 @@ test("тестер: выбор «Товар / Тестер» в карточке
     );
     expect(created).toMatchObject({ retail_price: 26000, stock: 0 });
     expect(volume(50).id).not.toBe(created.id);
+    // The page shows it too (the row for a new volume starts over), before the next one is typed.
+    await expect(boxes).toHaveCount(5);
 
     // The same volume as a tester twice is refused with a clear message.
     await field("Объём, мл").fill("100");

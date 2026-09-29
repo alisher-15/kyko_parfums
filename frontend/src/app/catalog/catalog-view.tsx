@@ -309,13 +309,15 @@ function FilterPanel({
         </Check>
       </FilterGroup>
 
-      <FilterGroup title="Для кого">
-        {filters.genders.map((g) => (
-          <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
-            {GENDER_LABELS[g]}
-          </Check>
-        ))}
-      </FilterGroup>
+      {filters.genders.length > 0 && (
+        <FilterGroup title="Для кого">
+          {filters.genders.map((g) => (
+            <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
+              {GENDER_LABELS[g]}
+            </Check>
+          ))}
+        </FilterGroup>
+      )}
 
       <FilterGroup title={`Цена, ${CURRENCY}`}>
         <form onSubmit={applyPrice} className="flex items-center gap-2">

@@ -133,7 +133,8 @@ export function ProductForm({
           <Field label="Категория" hint="Разделы и группы — в «Категориях»">
             <select
               className="input"
-              required
+              // A product added by the API or before the tree may have none yet: it still saves.
+              required={!product || product.category_id !== null}
               value={form.category_id}
               onChange={set("category_id")}
             >

@@ -96,6 +96,15 @@ test("разделы: админ добавляет группу и товар �
     await expect(shop.getByRole("checkbox", { name: "Женский" })).toBeChecked();
   });
 
+  await test.step("товар без категории (добавлен через API) сохраняется в админке", async () => {
+    const loose = await api("POST", "/admin/products", admin, { brand_id: brand.id, name: `Loose E2E ${tag}` });
+    await page.goto(`/admin/products/${loose.id}`);
+    await page.getByLabel(/^Новинка/).check();
+    await page.getByRole("button", { name: "Сохранить изменения" }).click();
+    await expect.poll(async () => (await api("GET", `/admin/products/${loose.id}`, admin)).is_new).toBe(true);
+    await api("DELETE", `/admin/products/${loose.id}`, admin);
+  });
+
   await test.step("группу с товаром не удалить; пустую — можно", async () => {
     await page.goto("/admin/categories");
     const row = page.locator("div", { hasText: group }).filter({ has: page.getByRole("button", { name: "Удалить" }) }).last();

@@ -36,7 +36,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 37 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 38 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -55,6 +55,8 @@ Full stack: `docker compose up -d --build`.
 **Deploy.** There are two packaging modes:
 - `docker-compose.yml` uses the separate `backend/` and `frontend/` images.
 - The root `Dockerfile` plus `deploy/start.sh` is an all-in-one image for Render (`render.yaml`): migrate → bootstrap → uvicorn on 127.0.0.1:8000 → Next standalone server on `$PORT`.
+
+**Catalog tree** (`services/categories.py`, `routers/admin/categories.py`, `frontend/src/lib/categories.ts`). Products sit in `categories`, a tree the admin edits: sections (the shop's menu: «Парфюмерия», «Макияж»…), groups and kinds below them, three levels at most (`MAX_DEPTH`). A section's `kind` (perfume / cosmetics) is copied to its whole subtree and decides the product's fields: `type` (concentration), `olfactory_group`, `longevity` and notes are for perfumes only. A product without a category counts as a perfume (`kind_of`). `Product.olfactory_group` maps the old `products.category` column; `Product.category` is the tree node. The tree is small, so it is loaded whole (`load_tree`) and walked in Python: a section's page and filters cover its subtree (`subtree_ids`), counts are per subtree. The shop hides nodes without active products. Migration 0016 created the starter tree and put every existing product into «Парфюмерия»; tests get the same tree from the `tree` fixture (`categories.create_default`).
 
 **Pricing** (`app/pricing.py`, pure functions). There are three tiers: retail, wholesale and bulk. The customer's role caps the best tier they can get. The tier is chosen by the thresholds in the `pricing_settings` row, in `order_total` mode (one tier for the whole order) or `item_quantity` mode (a tier per line). A missing wholesale or bulk price falls back to the tier above it. Business rule: the wholesale level is decided by the role, not by the order size, so in production both thresholds are 0 (the threshold modes stay available in «Настройки»). Wholesale customers additionally see the bulk price as a teaser (`next_tier_price`, `teaser_tier`), switchable by `pricing_settings.show_next_tier`; upgrade requests always target the next role (`next_role`). The server always computes prices (`POST /api/cart/quote`, `POST /api/orders`), and order items store a snapshot of price, tier, cost and product. Retail users and guests must never see wholesale prices in API responses; see `visible_tiers`.
 

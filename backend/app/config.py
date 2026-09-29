@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     r2_bucket: str = ""
     r2_public_url: str = ""  # https://pub-<id>.r2.dev or your own domain
 
+    # Telegram bot for new-order messages (app/services/telegram.py), from @BotFather.
+    # Empty => no messages; who gets them is set in the admin panel.
+    telegram_bot_token: str = ""
+
     # SMTP for password recovery. Empty host => reset links are written to the log (dev mode).
     smtp_host: str = ""
     smtp_port: int = 587

@@ -29,3 +29,7 @@ services:
       # catalog with them, for a test deploy only.
       - key: SEED_DEMO
         value: "false"
+      # Telegram bot for new-order messages, made in @BotFather. Empty = no messages; who gets
+      # them is set in the admin panel («Настройки» → «Уведомления в Telegram»).
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

@@ -17,7 +17,7 @@ const NAV = [
   { href: "/admin/brands", label: "Бренды" },
   { href: "/admin/users", label: "Пользователи" },
   { href: "/admin/import", label: "Импорт Excel" },
-  { href: "/admin/settings", label: "Цены и скидки" },
+  { href: "/admin/settings", label: "Настройки" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

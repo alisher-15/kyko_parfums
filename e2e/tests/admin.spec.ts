@@ -130,6 +130,8 @@ test.describe("Админка", () => {
     await page.getByPlaceholder("№, email, имя, телефон").fill(String(order.id));
     await page.getByPlaceholder("№, email, имя, телефон").press("Enter");
     await page.locator(`a[href='/admin/orders/${order.id}']`).filter({ visible: true }).first().click();
+    // The list has a «В обработке» filter too: click the status only once the order page is open.
+    await expect(page).toHaveURL(new RegExp(`/admin/orders/${order.id}$`));
     await page.getByRole("button", { name: "В обработке" }).click();
     await expect(page.getByText("Статус изменён")).toBeVisible();
 
@@ -165,6 +167,17 @@ test.describe("Админка", () => {
     } finally {
       await api("PUT", "/admin/settings/pricing", admin, settings);
     }
+  });
+
+  test("Telegram: без бота настройки объясняют, как его подключить", async ({ page }) => {
+    await page.goto("/admin");
+    await page.getByRole("link", { name: "Настройки", exact: true }).click();
+    const card = page.getByRole("region", { name: "Уведомления в Telegram" });
+    await expect(card.getByText("Бот ещё не подключён")).toBeVisible();
+    await expect(card.getByText("TELEGRAM_BOT_TOKEN")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Добавить получателя" })).toHaveCount(0);
+    const state = await api("GET", "/admin/telegram", await adminToken());
+    expect(state).toEqual({ enabled: false, bot_username: null, error: null, recipients: [] });
   });
 
   test("разделы склада и кассы открываются", async ({ page }) => {

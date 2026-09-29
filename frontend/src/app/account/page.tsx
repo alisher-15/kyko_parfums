@@ -68,7 +68,7 @@ function StatusCard({ user }: { user: User }) {
       )}
 
       {user.role === "retail" && (
-        <div className="mt-6 space-y-3">
+        <div className="mt-6 space-y-3" id="upgrade">
           <div className="font-semibold">Хотите покупать оптом?</div>
           <p className="text-sm text-muted">
             Оставьте данные компании — после проверки менеджер присвоит оптовый статус, и цены в

@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { RAIL_ITEM, Rail, Slider } from "@/components/Carousel";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 import { dayMonth, percentOff } from "@/lib/format";
 import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
@@ -37,6 +38,26 @@ function ProductRail({ label, items, more }: { label: string; items: ProductList
         Смотреть все →
       </Link>
     </Rail>
+  );
+}
+
+/**
+ * One line for shops and resellers: wholesale prices come with the wholesale status. Guests go
+ * to registration (it ends on the account page with the request), a retail customer straight to
+ * the request; wholesale customers and admins don't see it.
+ */
+export function WholesaleStrip() {
+  const { user, loading } = useAuth();
+  if (loading || (user && user.role !== "retail")) return null;
+  return (
+    <div className="border-b border-line bg-cream">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2.5 text-center text-sm sm:px-6">
+        <span className="text-muted">Для магазинов и перепродажи — оптовые цены</span>
+        <Link href={user ? "/account#upgrade" : "/register"} className="font-semibold text-gold hover:text-ink">
+          Стать оптовым клиентом →
+        </Link>
+      </div>
+    </div>
   );
 }
 

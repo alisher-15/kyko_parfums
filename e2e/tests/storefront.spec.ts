@@ -7,6 +7,14 @@ test.describe("Витрина для гостя", () => {
     await expect(page.locator("a[href^='/products/']").first()).toBeVisible();
     // No big banner: one line invites shops to wholesale, a guest goes to registration.
     await expect(page.getByRole("link", { name: "Стать оптовым клиентом →" })).toHaveAttribute("href", "/register");
+    // The shop's contacts in the footer.
+    for (const [name, href] of [
+      [/^WhatsApp/, "https://wa.me/77474848194"],
+      [/^Telegram/, "https://t.me/KYK0_parfum"],
+      [/^Instagram/, "https://www.instagram.com/kyk0_parfum"],
+    ] as const) {
+      await expect(page.getByRole("link", { name })).toHaveAttribute("href", href);
+    }
   });
 
   test("каталог: поиск, фильтры, сортировка", async ({ page }) => {

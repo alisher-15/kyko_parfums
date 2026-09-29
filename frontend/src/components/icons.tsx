@@ -83,3 +83,25 @@ export const ChevronRightIcon = (p: IconProps) => (
     <path d="m9 18 6-6-6-6" />
   </Icon>
 );
+
+export const WhatsAppIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 20l1.3-3.9A8 8 0 1 1 8 18.8L4 20Z" />
+    <path d="M9.5 9c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2-1.5 1Z" />
+  </Icon>
+);
+
+export const TelegramIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m21 4-18 7 6 2 2 6 3-4 5 4 2-15Z" />
+    <path d="m9 13 8-6" />
+  </Icon>
+);
+
+export const InstagramIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+    <circle cx="12" cy="12" r="4" />
+    <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" />
+  </Icon>
+);

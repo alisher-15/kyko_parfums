@@ -99,12 +99,15 @@ export function PromotionForm({
         <span className="label">Баннер</span>
         <ImageUpload
           kind="original"
+          minWidth={1200}
           value={form.image_url}
           onChange={(url) => setForm({ ...form, image_url: url })}
           seed={promotion?.id ?? 0}
         />
         <p className="mt-2 text-xs text-muted">
-          Широкая картинка, например 1600×600. Без картинки баннер будет тёмным с текстом.
+          Широкая картинка от 1200 px в ширину, лучше 2400×900. Главное держите в центре: на
+          телефоне обрезаются края, на компьютере — верх и низ. Без картинки баннер будет тёмным
+          с текстом.
         </p>
       </div>
       <div className="space-y-4">

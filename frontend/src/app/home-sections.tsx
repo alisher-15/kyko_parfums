@@ -73,7 +73,7 @@ export function HomePromotions() {
           <Link
             key={p.id}
             href={`/catalog?promotion_id=${p.id}`}
-            className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:p-10"
+            className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:px-20 md:py-10"
           >
             {p.image_url && (
               <img

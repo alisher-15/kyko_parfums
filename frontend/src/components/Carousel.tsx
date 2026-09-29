@@ -91,7 +91,8 @@ export function Slider({ label, slides }: { label: string; slides: ReactNode[] }
           <button type="button" className={`${ARROW} right-3`} onClick={() => go(index + 1)} aria-label="Следующий баннер">
             <ChevronRightIcon />
           </button>
-          <div className="mt-3 flex justify-center gap-2">
+          {/* On the banner itself, white on a dark pill: visible on any picture. */}
+          <div className="absolute right-4 bottom-4 z-10 flex items-center rounded-full bg-black/40 px-1.5 py-1 backdrop-blur-sm md:right-6 md:bottom-6">
             {slides.map((_, i) => (
               <button
                 key={i}
@@ -99,8 +100,14 @@ export function Slider({ label, slides }: { label: string; slides: ReactNode[] }
                 onClick={() => go(i)}
                 aria-label={`Баннер ${i + 1}`}
                 aria-current={i === index}
-                className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-ink" : "w-2 bg-line"}`}
-              />
+                className="flex h-5 items-center px-1"
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all ${
+                    i === index ? "w-6 bg-white" : "w-2 bg-white/50 hover:bg-white/80"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>

@@ -107,10 +107,13 @@ def test_transparent_png_bottle_goes_on_white():
 
 
 def test_banners_and_logos_are_only_made_smaller():
+    # Kept sharp enough for a retina screen: up to 2400 px, never enlarged.
     banner = photo((3200, 1200), (200, 60, 60), (100, 100, 300, 300))
     p = prepare_upload(banner, "original")
     assert (p.normalized, p.ext) == (False, ".jpg")
-    assert Image.open(io.BytesIO(p.data)).size == (1600, 600)
+    assert Image.open(io.BytesIO(p.data)).size == (2400, 900)
+    small = prepare_upload(photo((512, 512), (200, 60, 60), (100, 100, 300, 300)), "original")
+    assert Image.open(io.BytesIO(small.data)).size == (512, 512)
 
     logo = photo((400, 200), (0, 0, 0, 0), (10, 10, 100, 100), fmt="PNG", mode="RGBA")
     p = prepare_upload(logo, "original")
@@ -144,7 +147,7 @@ def test_upload_to_local_media(client, auth, tmp_path, monkeypatch):
         headers=h,
     )
     saved = Image.open(tmp_path / "products" / r.json()["url"].rsplit("/", 1)[1])
-    assert saved.size == (1600, 640)
+    assert saved.size == (2000, 800)
 
     for content, ctype in ((b"not an image", "image/png"), (data, "application/pdf")):
         r = client.post("/api/admin/uploads", files={"file": ("a.png", content, ctype)}, headers=h)

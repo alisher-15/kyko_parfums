@@ -84,6 +84,7 @@ class PromotionPublic(ORMModel):
     title: str
     description: str | None
     image_url: str | None
+    image_only: bool
     discount_percent: float | None
     starts_on: date | None
     ends_on: date | None

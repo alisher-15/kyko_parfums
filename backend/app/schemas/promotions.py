@@ -25,6 +25,8 @@ class PromotionIn(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=2000)
     image_url: str | None = Field(default=None, max_length=1024)
+    # A finished banner with its own text: shown whole, without the site's text over it.
+    image_only: bool = False
     # Percent off the retail price; None = a banner only.
     discount_percent: Decimal | None = Field(default=None, gt=0, lt=100, decimal_places=2)
     # Inclusive; None = from now on / until switched off.
@@ -73,6 +75,7 @@ class PromotionBrief(ORMModel):
     id: int
     title: str
     image_url: str | None
+    image_only: bool
     discount_percent: float | None
     starts_on: date | None
     ends_on: date | None

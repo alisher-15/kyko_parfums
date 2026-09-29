@@ -113,6 +113,8 @@ export interface PromotionPublic {
   title: string;
   description: string | null;
   image_url: string | null;
+  /** A finished banner with its own text: shown whole, without the site's text over it. */
+  image_only: boolean;
   discount_percent: number | null;
   starts_on: string | null;
   ends_on: string | null;
@@ -527,6 +529,7 @@ export interface PromotionBrief {
   id: number;
   title: string;
   image_url: string | null;
+  image_only: boolean;
   discount_percent: number | null;
   starts_on: string | null;
   ends_on: string | null;

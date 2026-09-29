@@ -13,6 +13,7 @@ type FormState = {
   title: string;
   description: string;
   image_url: string | null;
+  image_only: boolean;
   discount: string;
   starts_on: string;
   ends_on: string;
@@ -37,6 +38,7 @@ function toForm(p?: Promotion): FormState {
     title: p?.title ?? "",
     description: p?.description ?? "",
     image_url: p?.image_url ?? null,
+    image_only: p?.image_only ?? false,
     discount: p?.discount_percent != null ? String(p.discount_percent) : "",
     starts_on: p?.starts_on ?? "",
     ends_on: p?.ends_on ?? "",
@@ -72,6 +74,7 @@ export function PromotionForm({
       title: form.title.trim(),
       description: form.description.trim() || null,
       image_url: form.image_url,
+      image_only: form.image_only,
       discount_percent: form.discount.trim() ? Number(form.discount.replace(",", ".")) : null,
       starts_on: form.starts_on || null,
       ends_on: form.ends_on || null,
@@ -104,10 +107,26 @@ export function PromotionForm({
           onChange={(url) => setForm({ ...form, image_url: url })}
           seed={promotion?.id ?? 0}
         />
+        {form.image_url && (
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 accent-gold"
+              checked={form.image_only}
+              onChange={(e) => setForm({ ...form, image_only: e.target.checked })}
+            />
+            <span>
+              Готовый баннер: текст уже на картинке
+              <span className="block text-xs text-muted">
+                Сайт покажет картинку целиком, без своего названия, дат и скидки поверх неё.
+              </span>
+            </span>
+          </label>
+        )}
         <p className="mt-2 text-xs text-muted">
-          Широкая картинка от 1200 px в ширину, лучше 2400×900. Главное держите в центре: на
-          телефоне обрезаются края, на компьютере — верх и низ. Без картинки баннер будет тёмным
-          с текстом.
+          {form.image_url && form.image_only
+            ? "Картинка показывается целиком, края не обрезаются. Лучше всего подходит 2400×900: на телефоне она встанет по ширине, на компьютере — по высоте, свободное место заполнит размытый фон."
+            : "Широкая картинка от 1200 px в ширину, лучше 2400×900. Главное держите в центре: на телефоне обрезаются края, на компьютере — верх и низ. Без картинки баннер будет тёмным с текстом."}
         </p>
       </div>
       <div className="space-y-4">

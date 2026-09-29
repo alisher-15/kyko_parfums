@@ -109,12 +109,18 @@ test("баннеры акций сменяются сами, пока их не 
         title: `Баннер E2E ${n} ${Date.now()}`,
         all_products: true,
         is_active: true,
+        // The second one is a finished banner: its text is on the picture.
+        ...(n === 2 ? { image_url: "/bottles/adidas-ice-dive.jpg", image_only: true } : {}),
       });
       ids.push(created.id);
     }
     // The tests run with reduced motion (see the config); a visitor without it sees them turn.
     const guest = await openPage({ reducedMotion: "no-preference" });
     await guest.goto("/");
+    // A finished banner is the picture alone: its title is the picture's alt text, not written.
+    const finished = guest.locator(`a[href='/catalog?promotion_id=${ids[1]}']`);
+    await expect(finished.getByRole("img")).toBeAttached();
+    await expect(finished).not.toContainText("Смотреть");
     const dot = (n: number) => guest.getByRole("button", { name: `Баннер ${n}`, exact: true });
     await expect(dot(1)).toHaveAttribute("aria-current", "true");
     await expect(dot(2)).toHaveAttribute("aria-current", "true", { timeout: 8000 });

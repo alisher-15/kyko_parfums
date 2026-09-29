@@ -686,6 +686,9 @@ class Promotion(TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(Text)
     # The banner picture.
     image_url: Mapped[str | None] = mapped_column(String(1024))
+    # The picture is a finished banner with its own text: the site shows it whole, without
+    # writing the title, dates and discount over it. Ignored without a picture.
+    image_only: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Percent off the retail price. NULL = a banner only, prices don't change.
     discount_percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     # NULL = from now on / until switched off.

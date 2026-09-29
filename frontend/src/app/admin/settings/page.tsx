@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { RateCard } from "@/components/admin/RateCard";
+import { TelegramCard } from "@/components/admin/TelegramCard";
 import { ErrorBox, Field, Spinner, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CURRENCY, dateTime } from "@/lib/format";
@@ -27,6 +28,7 @@ export default function PricingSettingsPage() {
         }}
       />
       <RateCard />
+      <TelegramCard />
     </div>
   );
 }

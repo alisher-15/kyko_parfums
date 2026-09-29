@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -34,6 +34,7 @@ from app.schemas.orders import (
     QuoteOut,
     TierHintOut,
 )
+from app.services import telegram
 from app.services.orders import (
     add_event,
     change_status,
@@ -117,7 +118,10 @@ def quote_cart(
 
 @router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
 def create_order(
-    data: CheckoutIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    data: CheckoutIn,
+    background: BackgroundTasks,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     settings = get_pricing_settings(db)
     variants = load_sellable_variants(db, (i.variant_id for i in data.items), lock=True)
@@ -189,7 +193,13 @@ def create_order(
     add_event(order, OrderEventKind.created, "Заказ оформлен на сайте", user)
     db.add(order)
     db.commit()
-    return _own_order(db, order.id, user)
+    placed = _own_order(db, order.id, user)
+    # The shop learns about it in Telegram, after the customer has the answer.
+    if telegram.enabled():
+        chat_ids = [r.chat_id for r in telegram.recipients(db)]
+        if chat_ids:
+            background.add_task(telegram.send_to_all, chat_ids, telegram.order_message(placed))
+    return placed
 
 
 @router.get("/orders", response_model=Page[OrderBrief])

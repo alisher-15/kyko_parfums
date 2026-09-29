@@ -560,3 +560,38 @@ export interface RateInfo {
   adjustment: number;
   manual_rate: number | null;
 }
+
+// ---------- Telegram notifications (admin) ----------
+
+export interface TelegramRecipient {
+  id: number;
+  /** The chat's name when it was connected: a person or a group. */
+  title: string;
+  created_at: string;
+}
+
+export interface TelegramState {
+  /** False until TELEGRAM_BOT_TOKEN is set on the server. */
+  enabled: boolean;
+  bot_username: string | null;
+  /** Why Telegram couldn't be reached (wrong token, Telegram down). */
+  error: string | null;
+  recipients: TelegramRecipient[];
+}
+
+export interface TelegramLink {
+  private_url: string;
+  group_url: string;
+  valid_hours: number;
+}
+
+export interface TelegramCheck {
+  added: TelegramRecipient[];
+  recipients: TelegramRecipient[];
+}
+
+export interface TelegramTest {
+  sent: number;
+  /** Names of the chats the message didn't reach. */
+  failed: string[];
+}

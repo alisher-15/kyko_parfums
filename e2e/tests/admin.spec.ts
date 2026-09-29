@@ -167,6 +167,17 @@ test.describe("Админка", () => {
     }
   });
 
+  test("Telegram: без бота настройки объясняют, как его подключить", async ({ page }) => {
+    await page.goto("/admin");
+    await page.getByRole("link", { name: "Настройки", exact: true }).click();
+    const card = page.getByRole("region", { name: "Уведомления в Telegram" });
+    await expect(card.getByText("Бот ещё не подключён")).toBeVisible();
+    await expect(card.getByText("TELEGRAM_BOT_TOKEN")).toBeVisible();
+    await expect(card.getByRole("button", { name: "Добавить получателя" })).toHaveCount(0);
+    const state = await api("GET", "/admin/telegram", await adminToken());
+    expect(state).toEqual({ enabled: false, bot_username: null, error: null, recipients: [] });
+  });
+
   test("разделы склада и кассы открываются", async ({ page }) => {
     for (const [path, heading] of [
       ["/admin/receipts", "Приёмка"],

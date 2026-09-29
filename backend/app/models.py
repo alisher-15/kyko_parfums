@@ -5,6 +5,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -740,3 +741,21 @@ class ExchangeRate(Base):
         if self.source_rate is not None:
             return self.source_rate + self.adjustment
         return None
+
+
+class TelegramRecipient(Base):
+    """A Telegram chat (a person or a group) that gets the new-order messages.
+
+    Connected by the admin with a link to the shop's bot (services/telegram.py) and removed in
+    the admin panel; the bot's token is TELEGRAM_BOT_TOKEN.
+    """
+
+    __tablename__ = "telegram_recipients"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, unique=True)
+    # The name the chat had when it was connected: "Айгерим (@aigerim)", "Kyko заказы".
+    title: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

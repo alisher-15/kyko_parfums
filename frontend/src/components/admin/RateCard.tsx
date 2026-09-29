@@ -13,8 +13,9 @@ const STEPS = [-10, -5, 5, 10];
 const toNumber = (s: string): number => Number(s.replace(",", ".").trim());
 
 /**
- * The dollar rate behind the ₸ / $ switch on the site. It comes from mig.kz and the last good one
- * is kept; here the admin shifts it by a few tenge, types a rate by hand, or reads mig.kz again.
+ * The dollar rate behind the ₸ / $ switch on the site: the mig.kz rate plus the admin's shift of
+ * a few tenge. The site reads mig.kz by itself and keeps the last good rate; a rate typed by hand
+ * only stands in while mig.kz has never answered.
  */
 export function RateCard() {
   const { data, error, reload } = useApi<RateInfo>("/admin/currency");
@@ -44,14 +45,15 @@ function RateForm({
   const [manual, setManual] = useState(r.manual_rate === null ? "" : String(r.manual_rate));
   const [busy, setBusy] = useState(false);
 
+  // Once mig.kz has answered, the site always uses it plus the shift; there is nothing to type.
+  const fromMig = r.source_rate !== null;
   const adj = adjustment.trim() === "" ? 0 : toNumber(adjustment);
-  const manualValue = manual.trim() === "" ? null : toNumber(manual);
+  const manualValue = fromMig || manual.trim() === "" ? null : toNumber(manual);
   const valid =
     Number.isFinite(adj) &&
     Math.abs(adj) <= 50 &&
     (manualValue === null || (Number.isFinite(manualValue) && manualValue > 0));
-  const preview =
-    manualValue !== null ? manualValue : r.source_rate !== null ? r.source_rate + adj : null;
+  const preview = r.source_rate !== null ? r.source_rate + adj : manualValue;
 
   const run = async (fn: () => Promise<unknown>, ok: string) => {
     setBusy(true);
@@ -89,8 +91,8 @@ function RateForm({
         <h2 className="font-serif text-2xl font-semibold">Курс доллара</h2>
         <p className="mt-1 text-sm text-muted">
           Покупатели могут смотреть цены в долларах (кнопка ₸ / $ в шапке сайта). Считаются они
-          только для просмотра: заказ оформляется и оплачивается в тенге. Курс берётся с mig.kz
-          сам, раз в несколько часов.
+          только для просмотра: заказ оформляется и оплачивается в тенге. Сайт сам берёт курс с
+          mig.kz раз в 3 часа и прибавляет к нему вашу поправку.
         </p>
       </div>
 
@@ -102,10 +104,10 @@ function RateForm({
           {r.effective_rate !== null ? `1 $ = ${rate.format(r.effective_rate)} ₸` : "курс не задан"}
         </div>
         <div className="mt-1 text-sm text-muted">
-          {r.manual_rate !== null
-            ? "Указан вручную."
-            : r.source_rate !== null
-              ? `mig.kz ${rate.format(r.source_rate)} ₸ ${r.adjustment >= 0 ? "+" : "−"} ${rate.format(Math.abs(r.adjustment))} ₸ поправка.`
+          {r.source_rate !== null
+            ? `mig.kz ${rate.format(r.source_rate)} ₸ ${r.adjustment >= 0 ? "+" : "−"} ${rate.format(Math.abs(r.adjustment))} ₸ поправка.`
+            : r.manual_rate !== null
+              ? "Указан вручную, пока mig.kz не ответил."
               : "С mig.kz курс ещё не получен. Без курса кнопки ₸ / $ на сайте нет."}
         </div>
       </div>
@@ -132,7 +134,10 @@ function RateForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <Field label="Поправка, ₸" hint="От −50 до +50 к курсу mig.kz">
+          <Field
+            label="Поправка, ₸"
+            hint="От −50 до +50. Прибавляется к курсу mig.kz при каждом обновлении."
+          >
             <input
               className="input"
               inputMode="decimal"
@@ -158,18 +163,20 @@ function RateForm({
             </button>
           </div>
         </div>
-        <Field
-          label="Свой курс, ₸"
-          hint="Если заполнено, используется он, а mig.kz и поправка не учитываются. Очистите поле, чтобы вернуться к mig.kz."
-        >
-          <input
-            className="input"
-            inputMode="decimal"
-            placeholder="например, 505"
-            value={manual}
-            onChange={(e) => setManual(e.target.value.replace(/[^\d.,]/g, ""))}
-          />
-        </Field>
+        {!fromMig && (
+          <Field
+            label="Курс вручную, ₸"
+            hint="Нужен, только пока mig.kz не дал ни одного курса. Как только mig.kz ответит, сайт перейдёт на его курс с вашей поправкой, а этот сотрётся."
+          >
+            <input
+              className="input"
+              inputMode="decimal"
+              placeholder="например, 505"
+              value={manual}
+              onChange={(e) => setManual(e.target.value.replace(/[^\d.,]/g, ""))}
+            />
+          </Field>
+        )}
       </div>
 
       <div className="text-sm">

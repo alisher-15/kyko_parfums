@@ -29,5 +29,5 @@ class RateAdminOut(BaseModel):
 class RateIn(BaseModel):
     # Tenge added to the rate from mig.kz, up to 50 either way.
     adjustment: Decimal = Field(default=Decimal(0), ge=-50, le=50, decimal_places=2)
-    # A rate typed by hand; empty = take it from mig.kz.
+    # A rate typed by hand, kept only while mig.kz has given none (then mig.kz is used).
     manual_rate: Decimal | None = Field(default=None, gt=0, le=10_000, decimal_places=2)

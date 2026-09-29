@@ -66,3 +66,15 @@ body {
 .rail::-webkit-scrollbar {
   display: none;
 }
+
+/* iPhone Safari zooms the page into a text field whose font is under 16px when it is tapped, and
+   keeps the zoom afterwards (on this site, where pages change without reloading, on the next pages
+   too). On touch screens the fields get 16px; on computers they stay text-sm. Outside the layers,
+   so it wins over text-sm on the fields. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

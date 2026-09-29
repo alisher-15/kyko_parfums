@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { ProductImage } from "../ui";
 
@@ -10,6 +10,7 @@ type Uploaded = { url: string; normalized: boolean; note: string | null };
  * Upload a photo to the backend (/admin/uploads) or paste an external URL.
  * kind="product" (default): the server makes a product photo a white 600×600 square with the
  * bottle at the shop's scale. kind="original": banners and logos, only made smaller.
+ * minWidth: a picture narrower than this (px) gets a warning that it will look blurry.
  */
 export function ImageUpload({
   value,
@@ -17,17 +18,20 @@ export function ImageUpload({
   seed = 0,
   compact = false,
   kind = "product",
+  minWidth,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
   seed?: number;
   compact?: boolean;
   kind?: "product" | "original";
+  minWidth?: number;
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const width = useNaturalWidth(minWidth ? value : null);
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -88,6 +92,27 @@ export function ImageUpload({
       )}
       {error && <div className="text-xs text-red-600">{error}</div>}
       {note && <div className="max-w-56 text-xs text-amber-700">{note}</div>}
+      {minWidth && width !== null && width < minWidth && (
+        <div className="text-xs text-amber-700">
+          Картинка всего {width} px в ширину: на сайте её растянет, и она будет размытой. Нужна
+          от {minWidth} px, лучше около 2400.
+        </div>
+      )}
     </div>
   );
+}
+
+/** The picture's real width in px, once it has loaded; null before that or without a picture. */
+function useNaturalWidth(src: string | null): number | null {
+  const [loaded, setLoaded] = useState<{ src: string; width: number } | null>(null);
+  useEffect(() => {
+    if (!src) return;
+    const img = new window.Image();
+    img.onload = () => setLoaded({ src, width: img.naturalWidth });
+    img.src = src;
+    return () => {
+      img.onload = null;
+    };
+  }, [src]);
+  return loaded && loaded.src === src ? loaded.width : null;
 }

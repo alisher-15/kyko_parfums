@@ -47,8 +47,12 @@ WORK_SIDE = 1600
 PHOTO_SIZE = 600
 PHOTO_MARGIN = 0.07
 JPEG_QUALITY = 85
-# Banners and logos are not cropped, only made smaller than this (longer side, px).
+# A product photo that can't be normalized is kept at most this large (longer side, px).
 MAX_OTHER_SIDE = 1600
+# Banners and logos are not cropped, only made smaller than this. A banner spans the page:
+# about 1200 px of a computer screen, twice that on a retina one, so it is kept that sharp.
+MAX_ORIGINAL_SIDE = 2400
+ORIGINAL_JPEG_QUALITY = 90
 
 SKIP_REASONS = {
     "uneven background": "фон неоднородный (стол, тень, интерьер) — фото загружено как есть",
@@ -200,10 +204,10 @@ def normalize(
     return canvas, "normalized"
 
 
-def jpeg_bytes(im: Image.Image, *, marked: bool) -> bytes:
+def jpeg_bytes(im: Image.Image, *, marked: bool, quality: int = JPEG_QUALITY) -> bytes:
     buf = io.BytesIO()
     extra = {"comment": MARKER} if marked else {}
-    im.save(buf, "JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True, **extra)
+    im.save(buf, "JPEG", quality=quality, optimize=True, progressive=True, **extra)
     return buf.getvalue()
 
 
@@ -240,18 +244,20 @@ def prepare_upload(data: bytes, kind: str) -> Prepared:
     im = open_image(data)
     if kind == "product":
         result, status = normalize(im)
+        if result is None and status == "already normalized":
+            result = flatten(im)
         if result is not None:
-            return Prepared(jpeg_bytes(result, marked=True), ".jpg", "image/jpeg", True)
-        if status == "already normalized":
-            return Prepared(jpeg_bytes(flatten(im), marked=True), ".jpg", "image/jpeg", True)
+            data = jpeg_bytes(result, marked=True)
+            return Prepared(data, ".jpg", "image/jpeg", True)
         im = flatten(im)
         im.thumbnail((MAX_OTHER_SIDE, MAX_OTHER_SIDE), Image.Resampling.LANCZOS)
         note = SKIP_REASONS.get(status, status)
         return Prepared(jpeg_bytes(im, marked=False), ".jpg", "image/jpeg", False, note)
 
-    im.thumbnail((MAX_OTHER_SIDE, MAX_OTHER_SIDE), Image.Resampling.LANCZOS)
+    im.thumbnail((MAX_ORIGINAL_SIDE, MAX_ORIGINAL_SIDE), Image.Resampling.LANCZOS)
     if im.mode in ("RGBA", "LA", "P") and (im.mode != "P" or "transparency" in im.info):
         buf = io.BytesIO()
         im.convert("RGBA").save(buf, "PNG", optimize=True)
         return Prepared(buf.getvalue(), ".png", "image/png", False)
-    return Prepared(jpeg_bytes(im.convert("RGB"), marked=False), ".jpg", "image/jpeg", False)
+    data = jpeg_bytes(im.convert("RGB"), marked=False, quality=ORIGINAL_JPEG_QUALITY)
+    return Prepared(data, ".jpg", "image/jpeg", False)

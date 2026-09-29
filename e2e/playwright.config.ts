@@ -20,6 +20,9 @@ export default defineConfig({
     viewport: { width: 1280, height: 860 },
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // The promotion banners turn by themselves except for visitors who reduce motion: tests
+    // click banners, so they must not move under the pointer (promotions.spec turns it on).
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     {

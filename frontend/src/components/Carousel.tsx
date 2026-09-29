@@ -58,10 +58,14 @@ export function Rail({ label, children }: { label: string; children: ReactNode }
 /** Width of one card in a Rail: 2 and a bit on phones, 3 on tablets, 4 on computers. */
 export const RAIL_ITEM = "w-[44%] shrink-0 snap-start sm:w-[31%] md:w-[calc((100%-3rem)/4)]";
 
-/** One slide at a time: swipe on phones, arrows on computers, dots to jump. */
+const AUTOPLAY_MS = 5000;
+
+/** One slide at a time: swipe on phones, arrows on computers, dots to jump; turns by itself. */
 export function Slider({ label, slides }: { label: string; slides: ReactNode[] }) {
   const track = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  // The pointer is on it (a touch counts until the finger is lifted) or the keyboard is in it.
+  const [held, setHeld] = useState(false);
   const count = slides.length;
 
   const go = (i: number) => {
@@ -69,13 +73,35 @@ export function Slider({ label, slides }: { label: string; slides: ReactNode[] }
     if (el) el.scrollTo({ left: ((i + count) % count) * el.clientWidth, behavior: "smooth" });
   };
 
+  // Like an ad: the next banner every AUTOPLAY_MS, the last one followed by the first. It waits
+  // while the visitor holds or reads it, in a hidden tab, and for those who asked the system to
+  // reduce motion. Every change of the banner, by hand too, gives the new one the full time.
+  useEffect(() => {
+    if (count < 2 || held || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setTimeout(() => {
+      const el = track.current;
+      if (el && document.visibilityState === "visible") {
+        el.scrollTo({ left: ((index + 1) % count) * el.clientWidth, behavior: "smooth" });
+      }
+    }, AUTOPLAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [count, held, index]);
+
   const onScroll = () => {
     const el = track.current;
     if (el && el.clientWidth > 0) setIndex(Math.round(el.scrollLeft / el.clientWidth));
   };
 
   return (
-    <div className="relative" role="region" aria-label={label}>
+    <div
+      className="relative"
+      role="region"
+      aria-label={label}
+      onPointerEnter={() => setHeld(true)}
+      onPointerLeave={() => setHeld(false)}
+      onFocus={(e) => e.target.matches(":focus-visible") && setHeld(true)}
+      onBlur={() => setHeld(false)}
+    >
       <div ref={track} onScroll={onScroll} className="rail flex snap-x snap-mandatory overflow-x-auto rounded-2xl">
         {slides.map((slide, i) => (
           <div key={i} className="w-full shrink-0 snap-start">
@@ -91,7 +117,8 @@ export function Slider({ label, slides }: { label: string; slides: ReactNode[] }
           <button type="button" className={`${ARROW} right-3`} onClick={() => go(index + 1)} aria-label="Следующий баннер">
             <ChevronRightIcon />
           </button>
-          <div className="mt-3 flex justify-center gap-2">
+          {/* On the banner itself, white on a dark pill: visible on any picture. */}
+          <div className="absolute right-4 bottom-4 z-10 flex items-center rounded-full bg-black/40 px-1.5 py-1 backdrop-blur-sm md:right-6 md:bottom-6">
             {slides.map((_, i) => (
               <button
                 key={i}
@@ -99,8 +126,14 @@ export function Slider({ label, slides }: { label: string; slides: ReactNode[] }
                 onClick={() => go(i)}
                 aria-label={`Баннер ${i + 1}`}
                 aria-current={i === index}
-                className={`h-2 rounded-full transition-all ${i === index ? "w-6 bg-ink" : "w-2 bg-line"}`}
-              />
+                className="flex h-5 items-center px-1"
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all ${
+                    i === index ? "w-6 bg-white" : "w-2 bg-white/50 hover:bg-white/80"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </>

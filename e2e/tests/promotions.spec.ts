@@ -99,3 +99,34 @@ test("акция: баннер, скидка в карточке и корзин
     if (promotionId) await api("DELETE", `/admin/promotions/${promotionId}`, admin).catch(() => {});
   }
 });
+
+test("баннеры акций сменяются сами, пока их не держат", async ({ openPage }) => {
+  const admin = await adminToken();
+  const ids: number[] = [];
+  try {
+    for (const n of [1, 2]) {
+      const created = await api("POST", "/admin/promotions", admin, {
+        title: `Баннер E2E ${n} ${Date.now()}`,
+        all_products: true,
+        is_active: true,
+      });
+      ids.push(created.id);
+    }
+    // The tests run with reduced motion (see the config); a visitor without it sees them turn.
+    const guest = await openPage({ reducedMotion: "no-preference" });
+    await guest.goto("/");
+    const dot = (n: number) => guest.getByRole("button", { name: `Баннер ${n}`, exact: true });
+    await expect(dot(1)).toHaveAttribute("aria-current", "true");
+    await expect(dot(2)).toHaveAttribute("aria-current", "true", { timeout: 8000 });
+
+    // Under the pointer it waits: the visitor is reading it.
+    await guest.getByRole("region", { name: "Баннеры акций" }).hover();
+    const current = guest.locator("button[aria-label^='Баннер '][aria-current='true']");
+    const held = await current.getAttribute("aria-label");
+    await guest.waitForTimeout(6500);
+    await expect(current).toHaveAttribute("aria-label", held!);
+  } finally {
+    for (const id of ids) await api("DELETE", `/admin/promotions/${id}`, admin).catch(() => {});
+  }
+});
+

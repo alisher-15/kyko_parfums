@@ -36,7 +36,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 35 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 36 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 

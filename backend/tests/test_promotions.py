@@ -87,6 +87,16 @@ def test_admin_manages_promotions(client, auth, catalog, today):
     # Only running promotions reach the home page.
     public = client.get("/api/promotions").json()
     assert [p["title"] for p in public] == ["Осенняя распродажа", "Новая коллекция"]
+    assert [p["image_only"] for p in public] == [False, False]
+
+    # A finished banner (its text is on the picture) is shown whole: the site says so.
+    r = client.put(
+        f"/api/admin/promotions/{banner['id']}",
+        json={"title": "Новая коллекция", "image_url": "/media/b.jpg", "image_only": True},
+        headers=h,
+    )
+    assert r.json()["image_only"] is True
+    assert client.get(f"/api/promotions/{banner['id']}").json()["image_only"] is True
     assert client.get(f"/api/promotions/{later['id']}").status_code == 404
 
     # The whole catalog replaces the lists.

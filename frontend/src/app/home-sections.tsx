@@ -70,40 +70,63 @@ export function HomePromotions() {
       <Slider
         label="Баннеры акций"
         slides={data.map((p) => (
-          <Link
-            key={p.id}
-            href={`/catalog?promotion_id=${p.id}`}
-            className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:px-20 md:py-10"
-          >
-            {p.image_url && (
-              <img
-                src={p.image_url}
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
-            <div className="relative">
-              <div className="flex flex-wrap items-center gap-2">
-                {p.discount_percent !== null && (
-                  <span className="rounded-full bg-gold px-3 py-1 text-sm font-bold">
-                    {percentOff(p.discount_percent)}
-                  </span>
-                )}
-                {p.ends_on && (
-                  <span className="text-xs text-stone-200">до {dayMonth(p.ends_on)}</span>
-                )}
-              </div>
-              <div className="mt-2 font-serif text-3xl leading-tight font-bold">{p.title}</div>
-              {p.description && (
-                <p className="mt-1 max-w-xl text-sm text-stone-200">{p.description}</p>
-              )}
-              <span className="mt-3 inline-block text-sm font-semibold text-gold">Смотреть →</span>
-            </div>
-          </Link>
+          <PromotionSlide key={p.id} promotion={p} />
         ))}
       />
     </section>
+  );
+}
+
+/**
+ * One banner. A finished banner (its text is on the picture) is shown whole, with a blurred
+ * copy of it filling the rest of the slot; otherwise the site writes the title, dates and
+ * discount over the picture, or over a dark background without one.
+ */
+function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
+  const href = `/catalog?promotion_id=${p.id}`;
+  if (p.image_only && p.image_url) {
+    return (
+      <Link
+        href={href}
+        className="relative block h-full min-h-56 overflow-hidden rounded-2xl bg-ink md:min-h-72"
+      >
+        <img
+          src={p.image_url}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
+        />
+        <img src={p.image_url} alt={p.title} className="absolute inset-0 h-full w-full object-contain" />
+      </Link>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:px-20 md:py-10"
+    >
+      {p.image_url && (
+        <img
+          src={p.image_url}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+      <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          {p.discount_percent !== null && (
+            <span className="rounded-full bg-gold px-3 py-1 text-sm font-bold">
+              {percentOff(p.discount_percent)}
+            </span>
+          )}
+          {p.ends_on && <span className="text-xs text-stone-200">до {dayMonth(p.ends_on)}</span>}
+        </div>
+        <div className="mt-2 font-serif text-3xl leading-tight font-bold">{p.title}</div>
+        {p.description && <p className="mt-1 max-w-xl text-sm text-stone-200">{p.description}</p>}
+        <span className="mt-3 inline-block text-sm font-semibold text-gold">Смотреть →</span>
+      </div>
+    </Link>
   );
 }
 

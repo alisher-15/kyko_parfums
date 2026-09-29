@@ -9,6 +9,7 @@ from app.db import get_db
 from app.deps import require_admin
 from app.models import (
     Brand,
+    Category,
     Product,
     ProductVariant,
     StockMovement,
@@ -30,6 +31,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
+from app.services import categories
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
 
@@ -126,6 +128,8 @@ def _load_product(db: Session, product_id: int) -> Product:
 def list_products(
     q: str | None = Query(default=None, max_length=200),
     brand_id: int | None = None,
+    # A node of the catalog tree with everything below it.
+    category_id: int | None = None,
     is_active: bool | None = None,
     no_variants: bool = False,
     backordered: bool = False,
@@ -140,6 +144,8 @@ def list_products(
         conds.append(product_name_match(q))
     if brand_id is not None:
         conds.append(Product.brand_id == brand_id)
+    if category_id is not None:
+        conds.append(Product.category_id.in_(categories.load_tree(db).subtree_ids(category_id)))
     if is_active is not None:
         conds.append(Product.is_active == is_active)
     if no_variants:
@@ -179,6 +185,8 @@ def create_product(
 ):
     if db.get(Brand, data.brand_id) is None:
         raise HTTPException(422, "Бренд не найден")
+    if data.category_id is not None and db.get(Category, data.category_id) is None:
+        raise HTTPException(422, "Категория не найдена")
     kinds = [(v.volume_ml, v.is_tester) for v in data.variants]
     if len(kinds) != len(set(kinds)):
         raise HTTPException(422, "Объёмы вариантов не должны повторяться")
@@ -199,6 +207,8 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
     changes = data.model_dump(exclude_unset=True)
     if "brand_id" in changes and db.get(Brand, changes["brand_id"]) is None:
         raise HTTPException(422, "Бренд не найден")
+    if changes.get("category_id") is not None and db.get(Category, changes["category_id"]) is None:
+        raise HTTPException(422, "Категория не найдена")
     if "is_new" in changes:
         _mark_new(product, changes.pop("is_new"))
     for k, v in changes.items():

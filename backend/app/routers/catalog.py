@@ -30,9 +30,10 @@ from app.schemas.catalog import (
     PromotionPublic,
     VariantPublic,
 )
+from app.schemas.categories import CategoryBrief, CategoryPublic
 from app.schemas.common import Page
 from app.schemas.currency import CurrencyOut
-from app.services import promotions, rates
+from app.services import categories, promotions, rates
 from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
 
@@ -105,8 +106,14 @@ def _list_item_fields(
         id=product.id,
         name=product.name,
         brand=BrandBrief.model_validate(product.brand),
+        kind=categories.kind_of(product),
+        category=(
+            CategoryBrief(id=product.category.id, name=product.category.name)
+            if product.category is not None
+            else None
+        ),
         type=product.type,
-        category=product.category,
+        olfactory_group=product.olfactory_group,
         gender=product.gender,
         longevity=product.longevity,
         image_url=image,
@@ -121,8 +128,10 @@ def _list_item_fields(
 def list_products(
     q: str | None = Query(default=None, max_length=200),
     brand_id: list[int] = Query(default=[]),
+    # A node of the catalog tree: its products and those of all nodes below it.
+    category_id: int | None = None,
     gender: list[Gender] = Query(default=[]),
-    category: list[str] = Query(default=[]),
+    olfactory_group: list[str] = Query(default=[]),
     type: list[str] = Query(default=[]),
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
@@ -156,10 +165,12 @@ def list_products(
         conditions.append(product_name_match(q))
     if brand_id:
         conditions.append(Product.brand_id.in_(brand_id))
+    if category_id is not None:
+        conditions.append(_in_category(db, category_id))
     if gender:
         conditions.append(Product.gender.in_(gender))
-    if category:
-        conditions.append(Product.category.in_(category))
+    if olfactory_group:
+        conditions.append(Product.olfactory_group.in_(olfactory_group))
     if type:
         conditions.append(Product.type.in_(type))
     if is_new:
@@ -212,7 +223,9 @@ def list_products(
     products = {
         p.id: p
         for p in db.scalars(
-            select(Product).where(Product.id.in_(ids)).options(joinedload(Product.brand))
+            select(Product)
+            .where(Product.id.in_(ids))
+            .options(joinedload(Product.brand), joinedload(Product.category))
         )
     }
     variants_by_product: dict[int, list[ProductVariant]] = {pid: [] for pid in ids}
@@ -244,7 +257,11 @@ def get_product(
     product = db.scalar(
         select(Product)
         .where(Product.id == product_id, Product.is_active)
-        .options(joinedload(Product.brand), selectinload(Product.variants))
+        .options(
+            joinedload(Product.brand),
+            joinedload(Product.category),
+            selectinload(Product.variants),
+        )
     )
     if product is None:
         raise HTTPException(404, "Товар не найден")
@@ -253,8 +270,14 @@ def get_product(
     deal = promotions.deals_for(db, [product]).get(product.id)
     public_variants = [variant_public(v, user, teaser, deal) for v in variants]
     min_price = min((v.price for v in public_variants), default=None)
+    path = (
+        categories.load_tree(db).path(product.category_id)
+        if product.category_id is not None
+        else []
+    )
     return ProductDetail(
         **_list_item_fields(product, variants, min_price, user, deal),
+        category_path=[CategoryBrief(id=c.id, name=c.name) for c in path],
         top_notes=product.top_notes,
         mid_notes=product.mid_notes,
         base_notes=product.base_notes,
@@ -263,10 +286,17 @@ def get_product(
     )
 
 
-def _brand_counts():
+def _in_category(db: Session, category_id: int):
+    """Products of this node of the catalog tree and of all nodes below it."""
+    return Product.category_id.in_(categories.load_tree(db).subtree_ids(category_id))
+
+
+def _brand_counts(*product_conditions):
     return (
         select(Brand, func.count(Product.id).label("cnt"))
-        .outerjoin(Product, and_(Product.brand_id == Brand.id, Product.is_active))
+        .outerjoin(
+            Product, and_(Product.brand_id == Brand.id, Product.is_active, *product_conditions)
+        )
         .group_by(Brand.id)
     )
 
@@ -297,12 +327,18 @@ def get_brand(brand_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/filters", response_model=FiltersOut)
-def filters(user: User | None = Depends(get_current_user_optional), db: Session = Depends(get_db)):
-    active = Product.is_active
+def filters(
+    category_id: int | None = None,
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """What the catalog can be filtered by: within a node of the tree, only what it has."""
+    scope = [_in_category(db, category_id)] if category_id is not None else []
+    active = and_(Product.is_active, *scope)
 
     brands = [
         FilterBrand(id=b.id, name=b.name, product_count=c)
-        for b, c in db.execute(_brand_counts().order_by(Brand.name)).all()
+        for b, c in db.execute(_brand_counts(*scope).order_by(Brand.name)).all()
         if c > 0
     ]
 
@@ -324,11 +360,34 @@ def filters(user: User | None = Depends(get_current_user_optional), db: Session 
     return FiltersOut(
         brands=brands,
         genders=sorted(genders, key=lambda g: list(Gender).index(g)),
-        categories=distinct(Product.category),
+        olfactory_groups=distinct(Product.olfactory_group),
         types=distinct(Product.type),
         price_min=pmin,
         price_max=pmax,
     )
+
+
+@router.get("/categories", response_model=list[CategoryPublic])
+def list_categories(db: Session = Depends(get_db)):
+    """The catalog tree for the shop's menus, sections first, each with the number of products
+    in it and below it (the shop hides nodes without products)."""
+    tree = categories.load_tree(db)
+    counts = categories.product_counts(db, tree, active_only=True)
+    return [
+        CategoryPublic(
+            id=c.id, parent_id=c.parent_id, name=c.name, kind=c.kind, product_count=counts[c.id]
+        )
+        for c in _tree_order(tree)
+    ]
+
+
+def _tree_order(tree: categories.Tree):
+    """Sections in their order, each followed by its groups (depth first)."""
+    stack = list(reversed(tree.children.get(None, [])))
+    while stack:
+        node = stack.pop()
+        yield node
+        stack.extend(reversed(tree.children.get(node.id, [])))
 
 
 @router.get("/pricing/rules", response_model=PricingRulesOut)

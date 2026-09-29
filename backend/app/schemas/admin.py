@@ -121,8 +121,9 @@ class AdminVariantOut(ORMModel):
 class ProductIn(BaseModel):
     brand_id: int
     name: str = Field(min_length=1, max_length=255)
+    category_id: int | None = None
     type: str | None = Field(default=None, max_length=32)
-    category: str | None = Field(default=None, max_length=128)
+    olfactory_group: str | None = Field(default=None, max_length=128)
     gender: Gender | None = None
     longevity: str | None = Field(default=None, max_length=64)
     top_notes: str | None = None
@@ -139,8 +140,9 @@ class ProductIn(BaseModel):
 class ProductUpdate(BaseModel):
     brand_id: int | None = None
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    category_id: int | None = None
     type: str | None = Field(default=None, max_length=32)
-    category: str | None = Field(default=None, max_length=128)
+    olfactory_group: str | None = Field(default=None, max_length=128)
     gender: Gender | None = None
     longevity: str | None = Field(default=None, max_length=64)
     top_notes: str | None = None
@@ -162,8 +164,9 @@ class AdminProductOut(ORMModel):
     brand_id: int
     brand: AdminBrandBrief
     name: str
+    category_id: int | None
     type: str | None
-    category: str | None
+    olfactory_group: str | None
     gender: Gender | None
     longevity: str | None
     top_notes: str | None

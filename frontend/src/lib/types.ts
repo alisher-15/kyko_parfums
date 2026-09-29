@@ -89,12 +89,40 @@ export interface VariantPublic {
   deal: Deal | null;
 }
 
+/** Perfumes have a concentration, notes and an olfactory group; cosmetics don't. */
+export type CategoryKind = "perfume" | "cosmetics";
+
+export interface CategoryBrief {
+  id: number;
+  name: string;
+}
+
+/** A node of the catalog tree: a section («Макияж») or a group in it («Губы»). */
+export interface Category {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  kind: CategoryKind;
+  /** Active products in this node and below it; the shop hides nodes without products. */
+  product_count: number;
+}
+
+export interface AdminCategory extends Category {
+  position: number;
+  /** Products placed right in this node. */
+  own_product_count: number;
+}
+
 export interface ProductListItem {
   id: number;
   name: string;
   brand: BrandBrief;
+  kind: CategoryKind;
+  /** The node of the catalog tree the product is in. */
+  category: CategoryBrief | null;
+  /** Perfumes: concentration (EDP, EDT…) and olfactory group. */
   type: string | null;
-  category: string | null;
+  olfactory_group: string | null;
   gender: Gender | null;
   longevity: string | null;
   image_url: string | null;
@@ -121,6 +149,8 @@ export interface PromotionPublic {
 }
 
 export interface ProductDetail extends ProductListItem {
+  /** From the section down to the product's node, for the breadcrumbs. */
+  category_path: CategoryBrief[];
   top_notes: string | null;
   mid_notes: string | null;
   base_notes: string | null;
@@ -131,7 +161,7 @@ export interface ProductDetail extends ProductListItem {
 export interface Filters {
   brands: (BrandBrief & { product_count: number })[];
   genders: Gender[];
-  categories: string[];
+  olfactory_groups: string[];
   types: string[];
   price_min: number | null;
   price_max: number | null;
@@ -291,8 +321,9 @@ export interface AdminProduct {
   brand_id: number;
   brand: BrandBrief;
   name: string;
+  category_id: number | null;
   type: string | null;
-  category: string | null;
+  olfactory_group: string | null;
   gender: Gender | null;
   longevity: string | null;
   top_notes: string | null;

@@ -258,7 +258,11 @@ def test_import_excel(client, auth, db):
     assert "Оптовая цена" in errors[9]
 
     chance = db.query(Product).filter_by(name="Chance").one()
-    assert (chance.type, chance.gender.value, chance.category) == ("EDT", "female", "Цветочные")
+    assert (chance.type, chance.gender.value, chance.olfactory_group) == (
+        "EDT",
+        "female",
+        "Цветочные",
+    )
     v = chance.variants[0]
     assert (v.volume_ml, v.retail_price, v.wholesale_price, v.bulk_price, v.stock) == (
         50,
@@ -305,7 +309,7 @@ def test_import_csv_and_bad_file(client, auth):
     assert r.status_code == 422
 
 
-def test_import_template_roundtrip(client, auth, db):
+def test_import_template_roundtrip(client, auth, db, tree):
     h = auth(UserRole.admin)
     r = client.get("/api/admin/import/template", headers=h)
     assert r.status_code == 200
@@ -315,12 +319,23 @@ def test_import_template_roundtrip(client, auth, db):
         headers=h,
     ).json()
     assert report["errors"] == []
-    assert (report["products_created"], report["variants_created"]) == (1, 3)
+    assert (report["products_created"], report["variants_created"]) == (2, 4)
     # The template shows how to mark a tester: the 100 ml bottle and the 100 ml tester.
     assert report["tester_rows"] == 1
     variants = db.scalars(select(ProductVariant).order_by(ProductVariant.id)).all()
-    kinds = [(v.volume_ml, v.is_tester) for v in variants]
-    assert kinds == [(50, False), (100, False), (100, True)]
+    kinds = [(v.product.name, v.volume_ml, v.is_tester) for v in variants]
+    assert kinds == [
+        ("Coco Mademoiselle", 50, False),
+        ("Coco Mademoiselle", 100, False),
+        ("Coco Mademoiselle", 100, True),
+        ("Moisture Surge 100H", 50, False),
+    ]
+    # …and how to place a product in the catalog tree: a perfume and a face cream.
+    placed = {p.name: tree.full_name(p.category_id) for p in db.scalars(select(Product))}
+    assert placed == {
+        "Coco Mademoiselle": "Парфюмерия",
+        "Moisture Surge 100H": "Уход за лицом / Кремы",
+    }
 
 
 def test_stats(client, auth, catalog, db):
@@ -332,7 +347,7 @@ def test_stats(client, auth, catalog, db):
     assert db.query(User).count() == 1
 
 
-def test_bootstrap_from_env(db, monkeypatch):
+def test_bootstrap_from_env(db, tree, monkeypatch):
     from app.cli import bootstrap
 
     monkeypatch.setenv("ADMIN_EMAIL", "Owner@Example.com")
@@ -342,7 +357,9 @@ def test_bootstrap_from_env(db, monkeypatch):
     bootstrap()  # second start: nothing is duplicated or overwritten
     admin = db.query(User).filter_by(email="owner@example.com").one()
     assert admin.role == UserRole.admin
-    assert db.query(Product).count() == 20
+    # 20 perfumes in «Парфюмерия» and 4 cosmetics in their groups.
+    placed = [tree.path(p.category_id)[0].name for p in db.query(Product)]
+    assert (placed.count("Парфюмерия"), len(placed)) == (20, 24)
     assert db.query(ProductVariant).filter_by(is_tester=True).count() == 3
     assert db.query(User).count() == 4  # admin + 3 demo accounts
 

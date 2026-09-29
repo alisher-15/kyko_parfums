@@ -44,6 +44,7 @@ test.describe("Админка", () => {
     await page.goto("/admin/products/new");
     await page.getByLabel("Название").fill(name);
     await page.getByLabel("Бренд").selectOption({ label: brand });
+    await page.getByLabel("Категория").selectOption({ label: "Парфюмерия" });
     await page.getByRole("button", { name: "Создать товар" }).click();
     await page.waitForURL(/\/admin\/products\/\d+$/);
     const productId = Number(page.url().split("/").pop());

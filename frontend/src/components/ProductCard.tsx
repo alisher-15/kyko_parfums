@@ -42,7 +42,10 @@ export function ProductCard({ product }: { product: ProductListItem }) {
           {product.name}
         </div>
         <div className="text-xs text-muted">
-          {[product.gender && GENDER_LABELS[product.gender], product.category]
+          {(product.kind === "perfume"
+            ? [product.gender && GENDER_LABELS[product.gender], product.olfactory_group]
+            : [product.category?.name]
+          )
             .filter(Boolean)
             .join(" · ")}
         </div>

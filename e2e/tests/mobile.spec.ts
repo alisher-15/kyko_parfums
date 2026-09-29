@@ -44,6 +44,7 @@ test.describe("Телефон", () => {
       "/admin/orders",
       "/admin/products",
       "/admin/products/1",
+      "/admin/categories",
       "/admin/promotions",
       "/admin/promotions/new",
       "/admin/users",

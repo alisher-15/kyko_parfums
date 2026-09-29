@@ -5,8 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { FilterIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
-import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
+import { Breadcrumbs, Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { childrenOf, pathOf, useCategories } from "@/lib/categories";
 import { CURRENCY, GENDER_LABELS, dayMonth, money, percentOff, plural } from "@/lib/format";
 import type { Filters, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
@@ -31,6 +32,7 @@ export function CatalogView() {
   const query = useMemo(
     () => ({
       q: params.get("q") ?? undefined,
+      category_id: params.get("category_id") ?? undefined,
       brand_id: params.getAll("brand_id"),
       gender: params.getAll("gender"),
       type: params.getAll("type"),
@@ -47,7 +49,16 @@ export function CatalogView() {
   );
 
   const products = useApi<Page<ProductListItem>>("/products", { query });
-  const filters = useApi<Filters>("/filters");
+  // Within a section the filters offer only what it has.
+  const filters = useApi<Filters>("/filters", { query: { category_id: query.category_id } });
+  const categories = useCategories();
+  const categoryId = query.category_id ? Number(query.category_id) : null;
+  const path = categories && categoryId !== null ? pathOf(categories, categoryId) : [];
+  const current = path.at(-1);
+  // The groups of this node (or the sections, on the whole catalog) that have products.
+  const subcategories = categories
+    ? childrenOf(categories, categoryId).filter((c) => c.product_count > 0)
+    : [];
   const promotion = useApi<PromotionPublic>(
     query.promotion_id ? `/promotions/${encodeURIComponent(query.promotion_id)}` : null,
   );
@@ -83,6 +94,18 @@ export function CatalogView() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      {path.length > 0 && (
+        <Breadcrumbs
+          items={[
+            { href: "/catalog", label: "Каталог" },
+            ...path.map((c, i) =>
+              i < path.length - 1
+                ? { href: `/catalog?category_id=${c.id}`, label: c.name }
+                : { label: c.name },
+            ),
+          ]}
+        />
+      )}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-serif text-4xl font-bold">
@@ -94,7 +117,7 @@ export function CatalogView() {
                   ? "Акции"
                   : query.is_new
                     ? "Новинки"
-                    : "Каталог ароматов"}
+                    : (current?.name ?? "Каталог")}
           </h1>
           {promotion.data && (
             <p className="mt-1 max-w-2xl text-sm">
@@ -135,6 +158,20 @@ export function CatalogView() {
           </select>
         </div>
       </div>
+
+      {subcategories.length > 0 && !query.q && (
+        <nav aria-label="Подкатегории" className="mb-6 flex flex-wrap gap-2">
+          {subcategories.map((c) => (
+            <Link
+              key={c.id}
+              href={`/catalog?category_id=${c.id}`}
+              className="rounded-full border border-line bg-white px-4 py-1.5 text-sm hover:border-ink"
+            >
+              {c.name} <span className="text-xs text-muted">{c.product_count}</span>
+            </Link>
+          ))}
+        </nav>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
         <aside className={`${showFilters ? "block" : "hidden"} lg:block`}>

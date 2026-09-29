@@ -51,7 +51,9 @@ def test_filters_and_search(client, catalog):
     assert _names(client.get("/api/products", params={"gender": "male"})) == ["Sauvage"]
     r = client.get("/api/products", params={"brand_id": [catalog["chanel"].id]})
     assert _names(r) == ["Coco Mademoiselle"]
-    r = client.get("/api/products", params={"category": ["Шипровые", "Фужерные"], "sort": "name"})
+    r = client.get(
+        "/api/products", params={"olfactory_group": ["Шипровые", "Фужерные"], "sort": "name"}
+    )
     assert _names(r) == ["Coco Mademoiselle", "Sauvage"]
     assert _names(client.get("/api/products", params={"q": "chanel coco"})) == ["Coco Mademoiselle"]
     assert _names(client.get("/api/products", params={"q": "sauv"})) == ["Sauvage"]
@@ -84,7 +86,7 @@ def test_filters_endpoint(client, catalog, auth):
     body = client.get("/api/filters").json()
     assert [b["name"] for b in body["brands"]] == ["Chanel", "Dior"]
     assert body["genders"] == ["female", "male"]
-    assert body["categories"] == ["Фужерные", "Цветочные", "Шипровые"]
+    assert body["olfactory_groups"] == ["Фужерные", "Цветочные", "Шипровые"]
     assert body["types"] == ["EDP", "EDT"]
     assert (body["price_min"], body["price_max"]) == (90, 150)
 

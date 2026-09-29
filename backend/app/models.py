@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -91,6 +92,12 @@ class OrderEventKind(enum.StrEnum):
     status = "status"
     edited = "edited"
     returned = "returned"
+
+
+class CategoryKind(enum.StrEnum):
+    # Perfumes have a concentration (EDP, EDT…), notes, an olfactory group and longevity.
+    perfume = "perfume"
+    cosmetics = "cosmetics"
 
 
 class PricingMode(enum.StrEnum):
@@ -176,16 +183,56 @@ class Brand(TimestampMixin, Base):
     products: Mapped[list[Product]] = relationship(back_populates="brand")
 
 
+class Category(TimestampMixin, Base):
+    """A node of the catalog tree, edited in the admin panel: a section at the top («Парфюмерия»,
+    «Макияж», «Уход за лицом»), groups and kinds below («Губы» → «Помада»).
+
+    `kind` is the section's: a new node takes its parent's, and moving a node gives its subtree
+    the kind of its new section (services/categories.py). It decides which fields a product has.
+    """
+
+    __tablename__ = "categories"
+    __table_args__ = (CheckConstraint("parent_id <> id", name="ck_category_not_own_parent"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="RESTRICT"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(128))
+    kind: Mapped[CategoryKind] = mapped_column(
+        _enum(CategoryKind, "category_kind"), default=CategoryKind.cosmetics
+    )
+    # Order among siblings (menus and lists), smaller first. The shop's menu shows only the
+    # sections that have products.
+    position: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+
+    parent: Mapped[Category | None] = relationship(remote_side="Category.id")
+
+
+# Names are unique among siblings, whatever the letter case (roots: parent_id NULL).
+Index(
+    "uq_categories_parent_name",
+    func.coalesce(Category.parent_id, 0),
+    func.lower(Category.name),
+    unique=True,
+)
+
+
 class Product(TimestampMixin, Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     brand_id: Mapped[int] = mapped_column(ForeignKey("brands.id", ondelete="RESTRICT"), index=True)
     name: Mapped[str] = mapped_column(String(255), index=True)
-    # EDP / EDT / Parfum / Extrait / EDC / ... — free text, normalized on import.
+    # Where the product is in the catalog tree; NULL = not placed yet (treated as a perfume).
+    category_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="RESTRICT"), index=True
+    )
+    # Perfumes: EDP / EDT / Parfum / Extrait / EDC / ... — free text, normalized on import.
     type: Mapped[str | None] = mapped_column(String(32))
-    # Olfactory group ("Цветочные", "Древесные", ...).
-    category: Mapped[str | None] = mapped_column(String(128), index=True)
+    # Perfumes: olfactory group ("Цветочные", "Древесные", ...). The column is still "category",
+    # from before the catalog tree.
+    olfactory_group: Mapped[str | None] = mapped_column("category", String(128), index=True)
     gender: Mapped[Gender | None] = mapped_column(_enum(Gender, "gender"))
     longevity: Mapped[str | None] = mapped_column(String(64))
     top_notes: Mapped[str | None] = mapped_column(Text)
@@ -199,6 +246,7 @@ class Product(TimestampMixin, Base):
     new_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
     brand: Mapped[Brand] = relationship(back_populates="products")
+    category: Mapped[Category | None] = relationship()
     variants: Mapped[list[ProductVariant]] = relationship(
         back_populates="product",
         cascade="all, delete-orphan",

@@ -2,7 +2,8 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from app.models import Gender, PriceTier, PricingMode, UserRole
+from app.models import CategoryKind, Gender, PriceTier, PricingMode, UserRole
+from app.schemas.categories import CategoryBrief
 from app.schemas.common import Money, ORMModel
 
 
@@ -56,8 +57,13 @@ class ProductListItem(BaseModel):
     id: int
     name: str
     brand: BrandBrief
+    # Perfume or cosmetics: which fields and filters make sense (the section's kind).
+    kind: CategoryKind
+    # The node of the catalog tree the product is in («Губы»).
+    category: CategoryBrief | None
+    # Perfumes: concentration (EDP, EDT…) and olfactory group.
     type: str | None
-    category: str | None
+    olfactory_group: str | None
     gender: Gender | None
     longevity: str | None
     image_url: str | None
@@ -72,6 +78,8 @@ class ProductListItem(BaseModel):
 
 
 class ProductDetail(ProductListItem):
+    # From the section down to the product's node, for the breadcrumbs.
+    category_path: list[CategoryBrief] = []
     top_notes: str | None
     mid_notes: str | None
     base_notes: str | None
@@ -99,7 +107,7 @@ class FilterBrand(BaseModel):
 class FiltersOut(BaseModel):
     brands: list[FilterBrand]
     genders: list[Gender]
-    categories: list[str]
+    olfactory_groups: list[str]
     types: list[str]
     price_min: Money | None
     price_max: Money | None

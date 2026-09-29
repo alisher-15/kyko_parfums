@@ -20,6 +20,7 @@ from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Brand, Product, ProductVariant, User, UserRole  # noqa: E402
 from app.security import hash_password  # noqa: E402
+from app.services import categories  # noqa: E402
 from app.services.throttle import login_failures, reset_emails  # noqa: E402
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -88,12 +89,23 @@ def auth(client, db):
 
 
 @pytest.fixture
+def tree(db):
+    """The catalog tree the migrations create (tables are emptied before each test)."""
+    categories.create_default(db)
+    return categories.load_tree(db)
+
+
+@pytest.fixture
 def catalog(db):
     """Two brands, three products, variants with all three price tiers."""
     chanel = Brand(name="Chanel")
     dior = Brand(name="Dior")
     coco = Product(
-        brand=chanel, name="Coco Mademoiselle", type="EDP", category="Шипровые", gender="female"
+        brand=chanel,
+        name="Coco Mademoiselle",
+        type="EDP",
+        olfactory_group="Шипровые",
+        gender="female",
     )
     coco.variants = [
         ProductVariant(
@@ -111,7 +123,9 @@ def catalog(db):
             bulk_price=None,  # falls back to wholesale
         ),
     ]
-    sauvage = Product(brand=dior, name="Sauvage", type="EDT", category="Фужерные", gender="male")
+    sauvage = Product(
+        brand=dior, name="Sauvage", type="EDT", olfactory_group="Фужерные", gender="male"
+    )
     sauvage.variants = [
         ProductVariant(
             volume_ml=100,
@@ -122,7 +136,7 @@ def catalog(db):
         )
     ]
     no_price = Product(
-        brand=dior, name="J'adore", type="EDP", category="Цветочные", gender="female"
+        brand=dior, name="J'adore", type="EDP", olfactory_group="Цветочные", gender="female"
     )
     hidden = Product(brand=dior, name="Hidden", type="EDP", is_active=False)
     db.add_all([coco, sauvage, no_price, hidden])

@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin/receipts", label: "Приёмка" },
   { href: "/admin/inventory", label: "Инвентаризация" },
   { href: "/admin/products", label: "Товары" },
+  { href: "/admin/categories", label: "Категории" },
   { href: "/admin/promotions", label: "Акции" },
   { href: "/admin/brands", label: "Бренды" },
   { href: "/admin/users", label: "Пользователи" },

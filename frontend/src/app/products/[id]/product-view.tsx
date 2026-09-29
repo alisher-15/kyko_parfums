@@ -45,8 +45,11 @@ export function ProductView({ id }: { id: number }) {
       <Breadcrumbs
         items={[
           { href: "/catalog", label: "Каталог" },
-          { href: `/catalog?brand_id=${product.brand.id}`, label: product.brand.name },
-          { label: product.name },
+          ...product.category_path.map((c) => ({
+            href: `/catalog?category_id=${c.id}`,
+            label: c.name,
+          })),
+          { label: `${product.brand.name} ${product.name}` },
         ]}
       />
       <div className="grid gap-10 md:grid-cols-2">
@@ -70,7 +73,7 @@ export function ProductView({ id }: { id: number }) {
           <div className="mt-3 flex flex-wrap gap-2">
             {product.type && <span className="chip">{product.type}</span>}
             {product.gender && <span className="chip">{GENDER_LABELS[product.gender]}</span>}
-            {product.category && <span className="chip">{product.category}</span>}
+            {product.olfactory_group && <span className="chip">{product.olfactory_group}</span>}
             {product.longevity && <span className="chip">Стойкость: {product.longevity}</span>}
           </div>
 

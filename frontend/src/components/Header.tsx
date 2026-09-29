@@ -5,17 +5,43 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
+import { childrenOf, useCategories } from "@/lib/categories";
 import { CurrencySwitch } from "@/lib/currency";
 import { ROLE_LABELS } from "@/lib/format";
 import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 
-const NAV = [
-  { href: "/catalog", label: "Каталог" },
-  { href: "/catalog?gender=female", label: "Женские" },
-  { href: "/catalog?gender=male", label: "Мужские" },
-  { href: "/catalog?gender=unisex", label: "Унисекс" },
-  { href: "/brands", label: "Бренды" },
+type NavLink = { href: string; label: string };
+type NavItem = NavLink & { items: NavLink[] };
+
+const PERFUME_GENDERS: [string, string][] = [
+  ["female", "Женские"],
+  ["male", "Мужские"],
+  ["unisex", "Унисекс"],
 ];
+
+/** The shop's menu: the sections of the catalog tree that have products, each with its groups
+ *  (and «Женские / Мужские / Унисекс» for perfumes). */
+function useNav(): NavItem[] {
+  const all = useCategories() ?? [];
+  const sections = childrenOf(all, null)
+    .filter((s) => s.product_count > 0)
+    .map((s) => {
+      const href = `/catalog?category_id=${s.id}`;
+      const groups = childrenOf(all, s.id)
+        .filter((g) => g.product_count > 0)
+        .map((g) => ({ href: `/catalog?category_id=${g.id}`, label: g.name }));
+      const genders =
+        s.kind === "perfume"
+          ? PERFUME_GENDERS.map(([g, label]) => ({ href: `${href}&gender=${g}`, label }))
+          : [];
+      return { href, label: s.name, items: [...genders, ...groups] };
+    });
+  return [
+    { href: "/catalog", label: "Каталог", items: [] },
+    ...sections,
+    { href: "/brands", label: "Бренды", items: [] },
+  ];
+}
 
 export function Header() {
   const { user } = useAuth();
@@ -24,6 +50,7 @@ export function Header() {
   const pathname = usePathname();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const nav = useNav();
 
   if (pathname.startsWith("/admin")) return null;
 
@@ -55,14 +82,6 @@ export function Header() {
         <Link href="/" className="font-serif text-2xl font-bold tracking-wide whitespace-nowrap">
           Kyko <span className="text-gold">Parfum</span>
         </Link>
-
-        <nav className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="text-stone-600 hover:text-ink">
-              {n.label}
-            </Link>
-          ))}
-        </nav>
 
         <form onSubmit={onSearch} className="ml-auto hidden max-w-xs flex-1 md:block">
           <label className="relative block">
@@ -104,6 +123,34 @@ export function Header() {
         </div>
       </div>
 
+      <nav
+        aria-label="Разделы каталога"
+        className="mx-auto hidden max-w-7xl flex-wrap items-center gap-x-6 gap-y-1 px-4 pb-2.5 text-sm font-medium sm:px-6 lg:flex"
+      >
+        {nav.map((n) => (
+          <div key={n.href} className="group relative">
+            <Link href={n.href} className="block py-1 text-stone-600 hover:text-ink">
+              {n.label}
+            </Link>
+            {n.items.length > 0 && (
+              <div className="invisible absolute top-full left-0 z-40 pt-1 opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                <div className="card min-w-48 py-2 shadow-lg shadow-stone-200/70">
+                  {n.items.map((i) => (
+                    <Link
+                      key={i.href}
+                      href={i.href}
+                      className="block px-4 py-1.5 whitespace-nowrap text-stone-600 hover:bg-cream hover:text-ink"
+                    >
+                      {i.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </nav>
+
       {open && (
         <div className="border-t border-line px-4 pb-4 lg:hidden">
           <form onSubmit={onSearch} className="mt-3 md:hidden">
@@ -115,10 +162,21 @@ export function Header() {
             />
           </form>
           <nav className="mt-2 flex flex-col text-sm font-medium">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className="py-2">
-                {n.label}
-              </Link>
+            {nav.map((n) => (
+              <div key={n.href}>
+                <Link href={n.href} onClick={() => setOpen(false)} className="block py-2">
+                  {n.label}
+                </Link>
+                {n.items.length > 0 && (
+                  <div className="mb-1 flex flex-wrap gap-x-4 gap-y-1 pl-3 text-stone-500">
+                    {n.items.map((i) => (
+                      <Link key={i.href} href={i.href} onClick={() => setOpen(false)} className="py-1">
+                        {i.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
             {user?.role === "admin" && (
               <Link href="/admin" onClick={() => setOpen(false)} className="py-2 text-gold">

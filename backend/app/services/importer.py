@@ -9,6 +9,8 @@ The importer is tolerant to the layout of the source file:
 * a tester is a row marked in a "Тестер" column, or with "tester" / "тестер" written in the
   name, volume or type ("Coco Mademoiselle Tester", "100 мл тестер"). The word is removed from
   the name, so the tester becomes a variant of the same product, next to the bottle;
+* a "Раздел" column places the product in the catalog tree ("Макияж / Губы", or a name only
+  one node has); rows without it are perfumes and new ones go to the first perfume section;
 * re-importing the same file is idempotent: products are matched by (brand, name, type) and
   only non-empty cells overwrite existing values.
 """
@@ -37,6 +39,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
+from app.services import categories
 from app.services.stock import set_stock
 
 # fmt: off
@@ -44,8 +47,13 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "brand": ["brand", "бренд", "марка", "производитель", "торговая марка"],
     "name": ["name", "название", "наименование", "аромат", "товар", "product", "название аромата"],
     "type": ["type", "тип", "концентрация", "вид", "тип аромата"],
-    "category": [
-        "category", "категория", "олфактивная группа", "группа", "семейство",
+    # The catalog tree: «Макияж / Губы» or a name only one node has («Губы»).
+    "section": [
+        "section", "раздел", "раздел каталога", "категория каталога", "catalog category",
+    ],
+    # «Категория» stays the olfactory group: the perfume files it was made for say so.
+    "olfactory_group": [
+        "olfactory_group", "category", "категория", "олфактивная группа", "группа", "семейство",
         "группа ароматов", "olfactory group", "family",
     ],
     "gender": ["gender", "пол", "для кого", "sex"],
@@ -91,8 +99,9 @@ COLUMN_ALIASES: dict[str, list[str]] = {
 TEMPLATE_COLUMNS = [
     ("brand", "Бренд"),
     ("name", "Название"),
+    ("section", "Раздел"),
     ("type", "Тип"),
-    ("category", "Олфактивная группа"),
+    ("olfactory_group", "Олфактивная группа"),
     ("gender", "Пол"),
     ("longevity", "Стойкость"),
     ("top_notes", "Верхние ноты"),
@@ -112,7 +121,7 @@ TEMPLATE_COLUMNS = [
 ]
 
 PRODUCT_TEXT_FIELDS = (
-    "category",
+    "olfactory_group",
     "longevity",
     "top_notes",
     "mid_notes",
@@ -322,6 +331,9 @@ def import_catalog(
             unmapped.append(str(cell).strip())
 
     brands = {b.name.lower(): b for b in db.scalars(select(Brand))}
+    tree = categories.load_tree(db)
+    # Rows without a section: the file is a perfume list, as the importer was made for.
+    default_section = categories.default_perfume_section(db)
     products: dict[tuple[str, str, str], Product] = {}
     for p in db.scalars(
         select(Product).options(joinedload(Product.brand), selectinload(Product.variants))
@@ -361,8 +373,15 @@ def import_catalog(
 
             ptype = normalize_type(raw_type)
             values = {f: _text(cell(cells, f)) for f in PRODUCT_TEXT_FIELDS}
-            if values["category"]:
-                values["category"] = values["category"][:128]
+            if values["olfactory_group"]:
+                values["olfactory_group"] = values["olfactory_group"][:128]
+            section_name = _text(cell(cells, "section"))
+            category = categories.find(tree, section_name) if section_name else None
+            if section_name and category is None:
+                raise ValueError(
+                    f"раздел «{section_name}» не найден: создайте его в админке («Категории») "
+                    f"или укажите путь, например «Макияж / Губы»"
+                )
             if values["longevity"]:
                 values["longevity"] = values["longevity"][:64]
             gender = normalize_gender(cell(cells, "gender"))
@@ -397,7 +416,14 @@ def import_catalog(
         key = (brand_name.lower(), name.lower(), (ptype or "").lower())
         product = products.get(key)
         if product is None:
-            product = Product(brand=brand, name=name, type=ptype, gender=gender, **values)
+            product = Product(
+                brand=brand,
+                name=name,
+                type=ptype,
+                gender=gender,
+                category=category or default_section,
+                **values,
+            )
             if is_active is not None:
                 product.is_active = is_active
             db.add(product)
@@ -406,7 +432,8 @@ def import_catalog(
             st.products_created += 1
         else:
             changed = False
-            for f, v in {**values, "gender": gender, "is_active": is_active}.items():
+            fields = {**values, "gender": gender, "is_active": is_active, "category": category}
+            for f, v in fields.items():
                 if v is not None and getattr(product, f) != v:
                     setattr(product, f, v)
                     changed = True
@@ -515,7 +542,8 @@ def import_catalog(
 # fmt: off
 TEMPLATE_ROWS: list[dict[str, Any]] = [
     {
-        "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "category": "Шипровые",
+        "brand": "Chanel", "name": "Coco Mademoiselle", "section": "Парфюмерия", "type": "EDP",
+        "olfactory_group": "Шипровые",
         "gender": "Женский", "longevity": "Стойкий", "top_notes": "Апельсин, бергамот",
         "mid_notes": "Роза, жасмин", "base_notes": "Пачули, ветивер",
         "description": "Описание аромата", "volume_ml": 50, "is_tester": "нет",
@@ -531,6 +559,12 @@ TEMPLATE_ROWS: list[dict[str, Any]] = [
         "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "volume_ml": 100,
         "is_tester": "да", "retail_price": 80000, "wholesale_price": 70000,
         "bulk_price": 65000, "stock": 3, "sku": "CH-CM-100-T",
+    },
+    {
+        "brand": "Clinique", "name": "Moisture Surge 100H", "section": "Уход за лицом / Кремы",
+        "description": "Увлажняющий гель-крем", "volume_ml": 50, "is_tester": "нет",
+        "retail_price": 24000, "wholesale_price": 20000, "bulk_price": 18000, "stock": 6,
+        "sku": "CL-MS-50",
     },
 ]
 # fmt: on

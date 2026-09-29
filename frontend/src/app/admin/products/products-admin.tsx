@@ -5,9 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useOptimistic, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
+import { categoryOptions, fullName } from "@/lib/categories";
 import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
 import { PRODUCTS_LIST, rememberProductsList } from "@/lib/products-list";
-import type { AdminProduct, Brand, Page } from "@/lib/types";
+import type { AdminCategory, AdminProduct, Brand, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
@@ -15,6 +16,7 @@ const PAGE_SIZE = 50;
 type Filter =
   | "q"
   | "brand_id"
+  | "category_id"
   | "is_active"
   | "no_variants"
   | "backordered"
@@ -35,6 +37,7 @@ export function ProductsAdmin() {
   const router = useRouter();
   const search = params.get("q") ?? "";
   const brandId = params.get("brand_id") ?? "";
+  const categoryId = params.get("category_id") ?? "";
   const active = params.get("is_active") ?? "";
   const noVariants = params.get("no_variants") === "true";
   const backordered = params.get("backordered") === "true";
@@ -62,10 +65,22 @@ export function ProductsAdmin() {
   };
 
   const brands = useApi<Brand[]>("/admin/brands");
+  const categories = useApi<AdminCategory[]>("/admin/categories");
+  // «Макияж / Губы · EDP · Женский»: where the product is, and a perfume's type and gender.
+  const describe = (p: AdminProduct) =>
+    [
+      p.category_id && categories.data ? fullName(categories.data, p.category_id) : null,
+      p.type,
+      p.gender && GENDER_LABELS[p.gender],
+      p.olfactory_group,
+    ]
+      .filter(Boolean)
+      .join(" · ");
   const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
     query: {
       q: search,
       brand_id: brandId,
+      category_id: categoryId,
       is_active: active,
       no_variants: noVariants || undefined,
       backordered: backordered || undefined,
@@ -95,6 +110,20 @@ export function ProductsAdmin() {
               {b.name}
             </option>
           ))}
+        </select>
+        <select
+          className="input w-auto"
+          value={categoryId}
+          onChange={(e) => setFilters({ category_id: e.target.value })}
+          aria-label="Категория"
+        >
+          <option value="">Все категории</option>
+          {categories.data &&
+            categoryOptions(categories.data).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
         </select>
         <select className="input w-auto" value={active} onChange={(e) => setFilters({ is_active: e.target.value })}>
           <option value="">Все</option>
@@ -159,6 +188,7 @@ export function ProductsAdmin() {
                     <div className="min-w-0">
                       <div className="text-xs text-muted">{p.brand.name}</div>
                       <div className="font-semibold">{p.name}</div>
+                      <div className="text-xs text-muted">{describe(p)}</div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
@@ -196,7 +226,7 @@ export function ProductsAdmin() {
                 <tr>
                   <th className="w-14"></th>
                   <th>Товар</th>
-                  <th>Тип / пол</th>
+                  <th>Категория</th>
                   <th>Объёмы и цены (розн. / опт / кр. опт)</th>
                   <th>Остаток</th>
                   <th>Статус</th>
@@ -220,9 +250,7 @@ export function ProductsAdmin() {
                         {p.name}
                       </Link>
                     </td>
-                    <td className="text-xs">
-                      {[p.type, p.gender && GENDER_LABELS[p.gender], p.category].filter(Boolean).join(" · ")}
-                    </td>
+                    <td className="text-xs">{describe(p)}</td>
                     <td className="text-xs">
                       {p.variants.length === 0 ? (
                         <span className="text-amber-700">нет вариантов</span>

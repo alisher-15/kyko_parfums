@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import Brand, Gender, PricingMode, Product, ProductVariant, User, UserRole
 from app.security import hash_password
+from app.services import categories
 from app.services.settings import get_pricing_settings
 
 # (brand, name, type, olfactory group, gender, longevity, top, heart, base, description,
@@ -79,6 +80,21 @@ DEMO_PRODUCTS = [
 ]
 # fmt: on
 
+# Cosmetics in the sections the migrations create:
+# (brand, name, category path, description, {volume_ml: retail_price}).
+# fmt: off
+DEMO_COSMETICS = [
+    ("Clinique", "Moisture Surge 100H", "Уход за лицом / Кремы",
+     "Увлажняющий гель-крем с алоэ и гиалуроновой кислотой.", {30: 16000, 50: 24000}),
+    ("Estée Lauder", "Advanced Night Repair", "Уход за лицом / Сыворотки",
+     "Восстанавливающая ночная сыворотка для всех типов кожи.", {30: 52000, 50: 71000}),
+    ("Maybelline", "Lash Sensational", "Макияж / Глаза",
+     "Тушь для объёма и разделения ресниц.", {10: 6500}),
+    ("Kérastase", "Nutritive Bain Satin", "Уход за волосами / Шампуни",
+     "Питательный шампунь-ванна для сухих волос.", {250: 21000}),
+]
+# fmt: on
+
 # Some perfumes are also sold as testers: {(brand, name): {volume_ml: retail_price}}.
 DEMO_TESTERS = {
     ("Dior", "J'adore"): {100: 71000},
@@ -98,8 +114,24 @@ def _round(v: Decimal) -> Decimal:
     return (v / 100).quantize(Decimal("1")) * 100
 
 
+def _variants(product: Product, rows, i: int) -> None:
+    """(volume, retail, tester) rows: wholesale 15% and bulk 25% cheaper, some out of stock."""
+    existing = {(v.volume_ml, v.is_tester): v for v in product.variants}
+    for volume, retail, tester in rows:
+        retail = Decimal(retail)
+        v = existing.get((volume, tester)) or ProductVariant(volume_ml=volume, is_tester=tester)
+        v.retail_price = retail
+        v.wholesale_price = _round(retail * Decimal("0.85"))
+        v.bulk_price = _round(retail * Decimal("0.75"))
+        v.stock = (i * 7 + volume) % 40  # some variants end up out of stock
+        if v not in product.variants:
+            product.variants.append(v)
+
+
 def seed_demo() -> None:
     with SessionLocal() as db:
+        tree = categories.load_tree(db)
+        perfumes = categories.default_perfume_section(db)
         brands = {b.name: b for b in db.scalars(select(Brand))}
         for i, (
             brand_name,
@@ -124,25 +156,30 @@ def seed_demo() -> None:
             if product is None:
                 product = Product(brand=brand, name=name)
                 db.add(product)
-            product.type, product.category, product.gender = ptype, cat, gender
+            product.category = perfumes
+            product.type, product.olfactory_group, product.gender = ptype, cat, gender
             product.longevity, product.description = longevity, desc
             product.top_notes, product.mid_notes, product.base_notes = top, mid, base
 
-            existing = {(v.volume_ml, v.is_tester): v for v in product.variants}
             rows = [(volume, retail, False) for volume, retail in volumes.items()]
             testers = DEMO_TESTERS.get((brand_name, name), {})
             rows += [(volume, retail, True) for volume, retail in testers.items()]
-            for volume, retail, tester in rows:
-                retail = Decimal(retail)
-                v = existing.get((volume, tester)) or ProductVariant(
-                    volume_ml=volume, is_tester=tester
-                )
-                v.retail_price = retail
-                v.wholesale_price = _round(retail * Decimal("0.85"))
-                v.bulk_price = _round(retail * Decimal("0.75"))
-                v.stock = (i * 7 + volume) % 40  # some variants end up out of stock
-                if v not in product.variants:
-                    product.variants.append(v)
+            _variants(product, rows, i)
+
+        for i, (brand_name, name, path, desc, volumes) in enumerate(DEMO_COSMETICS):
+            brand = brands.get(brand_name)
+            if brand is None:
+                brand = brands[brand_name] = Brand(name=brand_name)
+                db.add(brand)
+            product = db.scalar(
+                select(Product).join(Brand).where(Brand.name == brand_name, Product.name == name)
+            )
+            if product is None:
+                product = Product(brand=brand, name=name)
+                db.add(product)
+            product.category = categories.find(tree, path)
+            product.description = desc
+            _variants(product, [(v, retail, False) for v, retail in volumes.items()], i)
 
         for email, role, full_name, company in DEMO_USERS:
             user = db.scalar(select(User).where(User.email == email))
@@ -166,6 +203,6 @@ def seed_demo() -> None:
         settings.bulk_min_item_qty = 1
         db.commit()
 
-    print(f"Seeded {len(DEMO_PRODUCTS)} demo products and demo users:")
+    print(f"Seeded {len(DEMO_PRODUCTS) + len(DEMO_COSMETICS)} demo products and demo users:")
     for email, role, *_ in DEMO_USERS:
         print(f"  {email:24} {role.value:15} password: {DEMO_PASSWORD}")

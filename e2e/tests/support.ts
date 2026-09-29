@@ -190,10 +190,10 @@ export const test = base.extend<Fixtures>({
     watchErrors(page, pageErrors);
     await use(page);
   },
-  openPage: async ({ browser, baseURL, pageErrors }, use) => {
+  openPage: async ({ browser, baseURL, contextOptions, pageErrors }, use) => {
     const contexts: Awaited<ReturnType<typeof browser.newContext>>[] = [];
     await use(async (options = {}) => {
-      const context = await browser.newContext({ baseURL, locale: "ru-RU", ...options });
+      const context = await browser.newContext({ ...contextOptions, baseURL, locale: "ru-RU", ...options });
       contexts.push(context);
       const page = await context.newPage();
       watchErrors(page, pageErrors);

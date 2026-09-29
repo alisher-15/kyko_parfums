@@ -68,7 +68,7 @@ export function HomePromotions() {
   return (
     <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
       <Slider
-        label="Акции"
+        label="Баннеры акций"
         slides={data.map((p) => (
           <Link
             key={p.id}

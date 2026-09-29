@@ -11,6 +11,8 @@ type Uploaded = { url: string; normalized: boolean; note: string | null };
  * kind="product" (default): the server makes a product photo a white 600×600 square with the
  * bottle at the shop's scale. kind="original": banners and logos, only made smaller.
  * minWidth: a picture narrower than this (px) gets a warning that it will look blurry.
+ * aspect: the shape the picture is shown in (width / height, with its label, e.g. "8:3"); a
+ * picture more than 10% off gets a warning that it won't fill it.
  */
 export function ImageUpload({
   value,
@@ -19,6 +21,7 @@ export function ImageUpload({
   compact = false,
   kind = "product",
   minWidth,
+  aspect,
 }: {
   value: string | null;
   onChange: (url: string | null) => void;
@@ -26,12 +29,15 @@ export function ImageUpload({
   compact?: boolean;
   kind?: "product" | "original";
   minWidth?: number;
+  aspect?: { ratio: number; label: string };
 }) {
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const width = useNaturalWidth(minWidth ? value : null);
+  const size = useNaturalSize(minWidth || aspect ? value : null);
+  const width = size?.width ?? null;
+  const offShape = aspect && size && Math.abs(size.width / size.height - aspect.ratio) / aspect.ratio > 0.1;
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -98,21 +104,29 @@ export function ImageUpload({
           от {minWidth} px, лучше около 2400.
         </div>
       )}
+      {offShape && size && aspect && (
+        <div className="text-xs text-amber-700">
+          Картинка {size.width}×{size.height}: пропорции не {aspect.label}, поэтому она не заполнит
+          баннер ровно. Лучше {aspect.label}, например 2400×900.
+        </div>
+      )}
     </div>
   );
 }
 
-/** The picture's real width in px, once it has loaded; null before that or without a picture. */
-function useNaturalWidth(src: string | null): number | null {
-  const [loaded, setLoaded] = useState<{ src: string; width: number } | null>(null);
+type Size = { width: number; height: number };
+
+/** The picture's real size in px, once it has loaded; null before that or without a picture. */
+function useNaturalSize(src: string | null): Size | null {
+  const [loaded, setLoaded] = useState<{ src: string; size: Size } | null>(null);
   useEffect(() => {
     if (!src) return;
     const img = new window.Image();
-    img.onload = () => setLoaded({ src, width: img.naturalWidth });
+    img.onload = () => setLoaded({ src, size: { width: img.naturalWidth, height: img.naturalHeight } });
     img.src = src;
     return () => {
       img.onload = null;
     };
   }, [src]);
-  return loaded && loaded.src === src ? loaded.width : null;
+  return loaded && loaded.src === src ? loaded.size : null;
 }

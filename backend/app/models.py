@@ -707,8 +707,9 @@ class Promotion(TimestampMixin, Base):
 class ExchangeRate(Base):
     """Single-row table (id=1): the dollar rate shown on the site (see services/rates.py).
 
-    The rate is taken from mig.kz and remembered. The admin can shift it by a few tenge
-    (adjustment) or type a rate by hand (manual_rate), which is used until it is cleared.
+    The rate is taken from mig.kz and remembered, and the admin's adjustment (a few tenge either
+    way) is added to it. A rate typed by hand (manual_rate) is only a stand-in while mig.kz has
+    never answered: the first rate read from mig.kz replaces and clears it.
     """
 
     __tablename__ = "exchange_rates"
@@ -727,7 +728,7 @@ class ExchangeRate(Base):
     source_error: Mapped[str | None] = mapped_column(String(255))
     # Tenge added to the source rate.
     adjustment: Mapped[Decimal] = mapped_column(Numeric(6, 2), default=0, server_default="0")
-    # A rate typed by the admin; replaces the source rate (and the adjustment) while set.
+    # A rate typed by the admin, used only while source_rate is NULL.
     manual_rate: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
@@ -735,12 +736,10 @@ class ExchangeRate(Base):
 
     @property
     def effective_rate(self) -> Decimal | None:
-        """The rate the site uses: the manual one, else the source rate plus the adjustment."""
-        if self.manual_rate is not None:
-            return self.manual_rate
+        """The rate the site uses: the source rate plus the adjustment, else the manual one."""
         if self.source_rate is not None:
             return self.source_rate + self.adjustment
-        return None
+        return self.manual_rate
 
 
 class TelegramRecipient(Base):

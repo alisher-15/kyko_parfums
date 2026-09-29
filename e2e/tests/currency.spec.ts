@@ -43,6 +43,32 @@ test("доллар: курс в админке, переключатель ₸ /
       await card.getByRole("button", { name: "0", exact: true }).click();
     });
 
+    await test.step("с курсом mig.kz админ задаёт только поправку", async () => {
+      // No real mig.kz here: the admin API answers as if mig.kz had given 441.90.
+      const now = new Date().toISOString();
+      const fromMig = {
+        effective_rate: 446.9,
+        source_rate: 441.9,
+        source_updated_at: now,
+        checked_at: now,
+        source_error: null,
+        adjustment: 5,
+        manual_rate: null,
+      };
+      await page.route("**/api/admin/currency", (route) =>
+        route.request().method() === "GET" ? route.fulfill({ json: fromMig }) : route.fallback(),
+      );
+      await page.goto("/admin/settings");
+      const card = page.getByRole("form", { name: "Курс доллара" });
+      await expect(card.getByText("1 $ = 446,90 ₸").first()).toBeVisible();
+      await expect(card.getByText("mig.kz 441,90 ₸ + 5,00 ₸ поправка.")).toBeVisible();
+      // A rate typed by hand would not be used, so there is no field for it.
+      await expect(card.getByLabel("Курс вручную, ₸")).toHaveCount(0);
+      await card.getByRole("button", { name: "+10" }).click();
+      await expect(card.getByText(/После сохранения на сайте будет/)).toContainText("1 $ = 456,90 ₸");
+      await page.unroute("**/api/admin/currency");
+    });
+
     const shopper = await openPage();
     await test.step("покупатель включает доллары: карточка, корзина с оплатой в тенге", async () => {
       await shopper.goto(`/products/${product.id}`);

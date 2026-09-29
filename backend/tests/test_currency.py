@@ -140,7 +140,7 @@ def test_no_rate_at_all_until_the_source_answers(client, source):
     assert client.get("/api/currency").json() == {"usd_rate": None, "updated_at": None}
 
 
-def test_admin_shifts_the_rate_or_types_one(client, auth, source):
+def test_admin_shift_is_added_to_the_mig_rate(client, auth, db, source):
     admin = auth(UserRole.admin)
     client.get("/api/currency")
 
@@ -151,26 +151,49 @@ def test_admin_shifts_the_rate_or_types_one(client, auth, source):
     r = client.put("/api/admin/currency", json={"adjustment": -10}, headers=admin).json()
     assert r["effective_rate"] == 431.9
 
-    # A rate typed by hand replaces both; the source is not asked while it is set.
-    calls = source.calls
+    # The shift stays when mig.kz moves: the site follows mig.kz with it.
+    row = db.get(ExchangeRate, 1)
+    row.checked_at = datetime.now(UTC) - timedelta(hours=4)
+    db.commit()
+    source.page = mig_page("444", "446")
+    assert client.get("/api/currency").json()["usd_rate"] == 436
+    r = client.post("/api/admin/currency/refresh", headers=admin).json()
+    assert (r["source_rate"], r["adjustment"], r["effective_rate"]) == (446, -10, 436)
+
+
+def test_a_typed_rate_does_not_replace_mig(client, auth, source):
+    admin = auth(UserRole.admin)
+    client.get("/api/currency")
+    # Once mig.kz has answered, a rate typed by hand is not kept: mig.kz plus the shift wins.
     r = client.put(
         "/api/admin/currency", json={"adjustment": 5, "manual_rate": 512}, headers=admin
     ).json()
-    assert (r["manual_rate"], r["effective_rate"]) == (512, 512)
-    assert client.get("/api/currency").json()["usd_rate"] == 512
-    assert source.calls == calls
-
-    # Clearing it goes back to mig.kz plus the shift.
-    r = client.put("/api/admin/currency", json={"adjustment": 5}, headers=admin).json()
     assert (r["manual_rate"], r["effective_rate"]) == (None, 446.9)
+    assert client.get("/api/currency").json()["usd_rate"] == 446.9
 
 
-def test_a_manual_rate_works_when_the_source_never_did(client, auth, source):
+def test_a_manual_rate_stands_in_until_mig_answers(client, auth, db, source):
     admin = auth(UserRole.admin)
     source.error = OSError("down")
-    r = client.put("/api/admin/currency", json={"manual_rate": 495}, headers=admin).json()
-    assert r["effective_rate"] == 495
+    r = client.put(
+        "/api/admin/currency", json={"adjustment": 5, "manual_rate": 495}, headers=admin
+    ).json()
+    assert (r["manual_rate"], r["effective_rate"]) == (495, 495)
     assert client.get("/api/currency").json()["usd_rate"] == 495
+
+    # The site keeps asking mig.kz (a manual rate doesn't stop it); the first answer replaces
+    # the manual rate, and the shift applies.
+    row = db.get(ExchangeRate, 1)
+    row.checked_at = datetime.now(UTC) - timedelta(minutes=16)
+    db.commit()
+    source.error = None
+    assert client.get("/api/currency").json()["usd_rate"] == 446.9
+    state = client.get("/api/admin/currency", headers=admin).json()
+    assert (state["manual_rate"], state["source_rate"], state["effective_rate"]) == (
+        None,
+        441.9,
+        446.9,
+    )
 
 
 def test_admin_limits_and_access(client, auth, source):

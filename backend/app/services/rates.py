@@ -1,8 +1,10 @@
 """The dollar rate for prices in USD.
 
-The rate comes from mig.kz and is remembered: when the site is down or its page changes, the
-last good rate stays and the admin can type one by hand (ExchangeRate.manual_rate). Nothing
-here runs on a timer: the public endpoint refreshes a stale rate when someone asks for it.
+The rate comes from mig.kz and is remembered, and the admin's adjustment is added to it. When
+the site is down or its page changes, the last good rate stays. Only while mig.kz has never
+answered can the admin type a rate by hand (ExchangeRate.manual_rate); the first rate read from
+mig.kz clears it. Nothing here runs on a timer: the public endpoint refreshes a stale rate when
+someone asks for it.
 """
 
 import html
@@ -120,6 +122,7 @@ def refresh(db: Session, row: ExchangeRate) -> None:
     row.source_rate = rate
     row.source_updated_at = now
     row.source_error = None
+    row.manual_rate = None  # a stand-in until mig.kz answered; it has now
     db.commit()
 
 
@@ -130,7 +133,7 @@ def refresh_if_stale(db: Session) -> ExchangeRate:
     the others go on with the rate they have.
     """
     row = get_rate_row(db)
-    if row.manual_rate is not None or not is_stale(row, datetime.now(UTC)):
+    if not is_stale(row, datetime.now(UTC)):
         return row
     locked = db.scalar(
         select(ExchangeRate)

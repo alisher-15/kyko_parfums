@@ -32,7 +32,8 @@ def get_rate(db: Session = Depends(get_db)):
 def set_rate(data: RateIn, db: Session = Depends(get_db)):
     row = rates.get_rate_row(db)
     row.adjustment = data.adjustment
-    row.manual_rate = data.manual_rate
+    # A rate typed by hand only stands in while mig.kz has given none.
+    row.manual_rate = data.manual_rate if row.source_rate is None else None
     db.commit()
     return _out(rates.get_rate_row(db))
 

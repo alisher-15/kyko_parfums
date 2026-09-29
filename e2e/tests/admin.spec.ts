@@ -130,6 +130,8 @@ test.describe("Админка", () => {
     await page.getByPlaceholder("№, email, имя, телефон").fill(String(order.id));
     await page.getByPlaceholder("№, email, имя, телефон").press("Enter");
     await page.locator(`a[href='/admin/orders/${order.id}']`).filter({ visible: true }).first().click();
+    // The list has a «В обработке» filter too: click the status only once the order page is open.
+    await expect(page).toHaveURL(new RegExp(`/admin/orders/${order.id}$`));
     await page.getByRole("button", { name: "В обработке" }).click();
     await expect(page.getByText("Статус изменён")).toBeVisible();
 

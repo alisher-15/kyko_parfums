@@ -78,18 +78,17 @@ export function HomePromotions() {
 }
 
 /**
- * One banner. A finished banner (its text is on the picture) is shown whole, with a blurred
- * copy of it filling the rest of the slot; otherwise the site writes the title, dates and
- * discount over the picture, or over a dark background without one.
+ * One banner, 8:3 on every screen: one picture of 2400×900 fills it on a phone and on a
+ * computer alike, only the size changes. A finished banner (its text is on the picture) is
+ * shown whole; a picture of other proportions gets a blurred copy of itself around it. Otherwise
+ * the site writes the title, dates and discount over the picture (or a dark background), in
+ * short on phones, where the banner is low.
  */
 function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
   const href = `/catalog?promotion_id=${p.id}`;
   if (p.image_only && p.image_url) {
     return (
-      <Link
-        href={href}
-        className="relative block h-full min-h-56 overflow-hidden rounded-2xl bg-ink md:min-h-72"
-      >
+      <Link href={href} className="relative block aspect-[8/3] overflow-hidden rounded-2xl bg-ink">
         <img
           src={p.image_url}
           alt=""
@@ -103,7 +102,7 @@ function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
   return (
     <Link
       href={href}
-      className="group relative flex h-full min-h-56 flex-col justify-end overflow-hidden rounded-2xl bg-ink p-6 text-white md:min-h-72 md:px-20 md:py-10"
+      className="group relative flex aspect-[8/3] flex-col justify-end overflow-hidden rounded-2xl bg-ink p-4 text-white md:px-20 md:py-10"
     >
       {p.image_url && (
         <img
@@ -113,18 +112,23 @@ function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
+      {/* On phones only the discount, the dates and the title: the banner is low there. */}
       <div className="relative">
         <div className="flex flex-wrap items-center gap-2">
           {p.discount_percent !== null && (
-            <span className="rounded-full bg-gold px-3 py-1 text-sm font-bold">
+            <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold md:px-3 md:py-1 md:text-sm">
               {percentOff(p.discount_percent)}
             </span>
           )}
           {p.ends_on && <span className="text-xs text-stone-200">до {dayMonth(p.ends_on)}</span>}
         </div>
-        <div className="mt-2 font-serif text-3xl leading-tight font-bold">{p.title}</div>
-        {p.description && <p className="mt-1 max-w-xl text-sm text-stone-200">{p.description}</p>}
-        <span className="mt-3 inline-block text-sm font-semibold text-gold">Смотреть →</span>
+        <div className="mt-1 line-clamp-2 font-serif text-xl leading-tight font-bold md:mt-2 md:text-4xl">
+          {p.title}
+        </div>
+        {p.description && (
+          <p className="mt-1 hidden max-w-xl text-sm text-stone-200 md:block">{p.description}</p>
+        )}
+        <span className="mt-3 hidden text-sm font-semibold text-gold md:inline-block">Смотреть →</span>
       </div>
     </Link>
   );

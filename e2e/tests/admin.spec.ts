@@ -97,7 +97,7 @@ test.describe("Админка", () => {
     await expect(page.getByRole("heading", { name: "Товары · 0" })).toBeVisible();
   });
 
-  test("импорт каталога: шаблон и проверка без сохранения", async ({ page }, testInfo) => {
+  test("импорт каталога: шаблон, выгрузка каталога и проверка без сохранения", async ({ page }, testInfo) => {
     await page.goto("/admin/import");
     const [download] = await Promise.all([
       page.waitForEvent("download"),
@@ -117,6 +117,26 @@ test.describe("Админка", () => {
     await expect(page.getByText("Проверка завершена")).toBeVisible();
     // The template has a row of a tester (next to the bottle of the same volume).
     await expect(page.locator(".card", { hasText: "Тестеров в файле" })).toContainText("1");
+
+    // The catalog downloads in the same format and imports back without new products.
+    const [catalog] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Скачать каталог" }).click(),
+    ]);
+    expect(catalog.suggestedFilename()).toMatch(/^catalog_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    await page.setInputFiles("input[type=file]", {
+      name: "catalog.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: fs.readFileSync(await catalog.path()),
+    });
+    await page.getByRole("button", { name: "Проверить (без сохранения)" }).click();
+    await expect(page.getByText("Проверка завершена")).toBeVisible();
+    const stat = (label: string) => page.locator(".card", { hasText: label }).locator(".text-2xl");
+    await expect(stat("Строк в файле")).not.toHaveText("0");
+    await expect(stat("Новых товаров")).toHaveText("0");
+    await expect(stat("Новых объёмов")).toHaveText("0");
+    await expect(stat("Новых штрихкодов")).toHaveText("0");
+    await expect(stat("Пропущено строк")).toHaveText("0");
   });
 
   test("заказ: поиск по номеру и смена статуса", async ({ page }) => {

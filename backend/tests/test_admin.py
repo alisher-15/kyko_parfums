@@ -1,7 +1,7 @@
 import io
 from decimal import Decimal
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 
 from app.models import Product, ProductVariant, User, UserRole
@@ -321,6 +321,57 @@ def test_import_template_roundtrip(client, auth, db):
     variants = db.scalars(select(ProductVariant).order_by(ProductVariant.id)).all()
     kinds = [(v.volume_ml, v.is_tester) for v in variants]
     assert kinds == [(50, False), (100, False), (100, True)]
+
+
+def test_export_imports_back_unchanged(client, auth, db):
+    h = auth(UserRole.admin)
+    # fmt: off
+    rows = [
+        ["Бренд", "Название", "Тип", "Пол", "Верхние ноты", "Объём", "Тестер", "Цена", "Опт",
+         "Артикул", "Штрихкод", "Активен"],
+        ["Chanel", "Chance", "EDT", "Женский", "Розовый перец", 50, "нет", 45000, 40000,
+         "CH-50", "0012345678905, 3145891253317", None],
+        ["Chanel", "Chance", "EDT", None, None, 100, "да", 60000.5, None, None, None, None],
+        ["Dior", "Bad", "EDP", "Мужской", None, None, None, None, None, None, None, "нет"],
+    ]
+    # fmt: on
+    files = {"file": ("c.xlsx", xlsx(rows), "application/octet-stream")}
+    first = client.post("/api/admin/import/catalog", files=files, headers=h).json()
+    assert first["errors"] == [] and first["barcodes_added"] == 2
+
+    r = client.get("/api/admin/import/export", headers=h)
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/vnd.openxmlformats")
+    sheet = load_workbook(io.BytesIO(r.content)).active
+    header, *cells = [list(row) for row in sheet.iter_rows(values_only=True)]
+    assert header[:3] == ["Бренд", "Название", "Тип"]
+    assert "Остаток" not in header and "Себестоимость" not in header
+    got = [dict(zip(header, row, strict=True)) for row in cells]
+    assert [(g["Название"], g["Объём, мл"], g["Тестер"]) for g in got] == [
+        ("Chance", 50, "нет"),
+        ("Chance", 100, "да"),
+        ("Bad", None, None),  # no volumes yet: one row for the product
+    ]
+    assert got[0]["Штрихкод"] == "0012345678905, 3145891253317"
+    assert (got[0]["Пол"], got[0]["Активен"], got[2]["Активен"]) == ("Женский", "да", "нет")
+    assert got[1]["Розничная цена"] == 60000.5
+
+    # Imported back as is, it changes nothing.
+    files = {"file": ("catalog.xlsx", r.content, "application/octet-stream")}
+    report = client.post("/api/admin/import/catalog", files=files, headers=h).json()
+    assert report["errors"] == [] and report["unmapped_columns"] == []
+    assert report["barcodes_added"] == 0
+    counts = ("products_created", "products_updated", "variants_created", "variants_updated")
+    assert [report[k] for k in counts] == [0, 0, 0, 0]
+    assert db.query(Product).count() == 2
+
+    # A product typed in by hand is found by its exported row too.
+    bad = db.query(Product).filter_by(name="Bad").one()
+    bad.name, bad.type = "Bad  Boy", "Парфюмерная вода"
+    db.commit()
+    files = {"file": ("catalog.xlsx", client.get("/api/admin/import/export", headers=h).content)}
+    report = client.post("/api/admin/import/catalog", files=files, headers=h).json()
+    assert [report[k] for k in counts] == [0, 0, 0, 0]
 
 
 def test_stats(client, auth, catalog, db):

@@ -24,7 +24,7 @@ from typing import Any
 
 from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, contains_eager, joinedload, selectinload
 
 from app.models import (
     Brand,
@@ -299,6 +299,7 @@ class _Stats:
     variants_created: int = 0
     variants_updated: int = 0
     tester_rows: int = 0
+    barcodes_added: int = 0
     errors: list[ImportRowError] = field(default_factory=list)
 
 
@@ -321,12 +322,15 @@ def import_catalog(
         elif _text(cell):
             unmapped.append(str(cell).strip())
 
-    brands = {b.name.lower(): b for b in db.scalars(select(Brand))}
+    # Keys as a file row gives them, so a product typed in by hand ("Парфюмерная вода", a double
+    # space) is found by its exported row too.
+    brands = {(_text(b.name) or "").lower(): b for b in db.scalars(select(Brand))}
     products: dict[tuple[str, str, str], Product] = {}
     for p in db.scalars(
         select(Product).options(joinedload(Product.brand), selectinload(Product.variants))
     ).unique():
-        products[(p.brand.name.lower(), p.name.lower(), (p.type or "").lower())] = p
+        key = (_text(p.brand.name) or "", _text(p.name) or "", normalize_type(p.type) or "")
+        products[tuple(k.lower() for k in key)] = p
     sku_owner: dict[str, ProductVariant] = {
         v.sku: v for v in db.scalars(select(ProductVariant).where(ProductVariant.sku.is_not(None)))
     }
@@ -485,6 +489,7 @@ def import_catalog(
             if owner is None:
                 variant.barcodes.append(VariantBarcode(code=code))
                 barcode_owner[code] = variant
+                st.barcodes_added += 1
             elif owner is not variant:
                 st.errors.append(
                     ImportRowError(
@@ -507,6 +512,7 @@ def import_catalog(
         variants_created=st.variants_created,
         variants_updated=st.variants_updated,
         tester_rows=st.tester_rows,
+        barcodes_added=st.barcodes_added,
         errors=st.errors,
         unmapped_columns=unmapped,
     )
@@ -545,6 +551,82 @@ def build_template() -> bytes:
         ws.append([row.get(key, "") for key, _ in TEMPLATE_COLUMNS])
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 18
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ---------- Export ----------
+
+# The catalog as the importer reads it: edit the file and import it back. Stock and cost are
+# left out: receipts and stock counts change them, and an old file must not overwrite them.
+EXPORT_COLUMNS = [
+    *(c for c in TEMPLATE_COLUMNS if c[0] not in {"stock", "cost_price"}),
+    ("is_active", "Активен"),
+]
+GENDER_TITLES = {Gender.female: "Женский", Gender.male: "Мужской", Gender.unisex: "Унисекс"}
+
+
+def _number(value: Decimal | None) -> int | float | None:
+    if value is None:
+        return None
+    return int(value) if value == value.to_integral_value() else float(value)
+
+
+def export_rows(db: Session) -> list[dict[str, Any]]:
+    """One row per variant (a product without variants gets one row), in import format."""
+    products = db.scalars(
+        select(Product)
+        .join(Product.brand)
+        .options(
+            contains_eager(Product.brand),
+            selectinload(Product.variants).selectinload(ProductVariant.barcodes),
+        )
+        .order_by(Brand.name, Product.name, Product.id)
+    )
+    rows: list[dict[str, Any]] = []
+    for p in products:
+        base = {
+            "brand": p.brand.name,
+            "name": p.name,
+            "type": p.type,
+            "gender": GENDER_TITLES.get(p.gender) if p.gender else None,
+            "is_active": "да" if p.is_active else "нет",
+            **{f: getattr(p, f) for f in PRODUCT_TEXT_FIELDS},
+        }
+        variants = sorted(p.variants, key=lambda v: (v.volume_ml, v.is_tester))
+        if not variants:
+            rows.append(base)
+        for v in variants:
+            rows.append(
+                {
+                    **base,
+                    "volume_ml": v.volume_ml,
+                    "is_tester": "да" if v.is_tester else "нет",
+                    "retail_price": _number(v.retail_price),
+                    "wholesale_price": _number(v.wholesale_price),
+                    "bulk_price": _number(v.bulk_price),
+                    "sku": v.sku,
+                    "barcode": ", ".join(b.code for b in v.barcodes) or None,
+                }
+            )
+    return rows
+
+
+def build_export(db: Session) -> bytes:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Каталог"
+    ws.append([title for _, title in EXPORT_COLUMNS])
+    for row in export_rows(db):
+        ws.append([row.get(key) for key, _ in EXPORT_COLUMNS])
+    ws.freeze_panes = "C2"
+    for col in ws.columns:
+        ws.column_dimensions[col[0].column_letter].width = 18
+    # Long barcodes as text: Excel shows a number column as 4,6E+12 and drops leading zeros.
+    barcode_col = [key for key, _ in EXPORT_COLUMNS].index("barcode") + 1
+    for (cell,) in ws.iter_rows(min_row=2, min_col=barcode_col, max_col=barcode_col):
+        cell.number_format = "@"
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()

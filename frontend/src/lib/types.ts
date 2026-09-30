@@ -362,6 +362,7 @@ export interface ImportReport {
   variants_updated: number;
   /** Rows read as testers: a "Тестер" column, or "tester" in the name, volume or type. */
   tester_rows: number;
+  barcodes_added: number;
   errors: { row: number; error: string }[];
   unmapped_columns: string[];
 }

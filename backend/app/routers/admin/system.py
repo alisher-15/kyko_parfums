@@ -35,7 +35,7 @@ from app.schemas.admin import (
 )
 from app.services import storage
 from app.services.images import NotAnImage, prepare_upload
-from app.services.importer import build_template, import_catalog
+from app.services.importer import build_export, build_template, import_catalog
 from app.services.settings import get_pricing_settings
 
 router = APIRouter()
@@ -128,6 +128,16 @@ def import_template():
         content=build_template(),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="catalog_template.xlsx"'},
+    )
+
+
+@router.get("/import/export")
+def export_catalog(db: Session = Depends(get_db)):
+    """The whole catalog in the import format, to edit in Excel and import back."""
+    return Response(
+        content=build_export(db),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="catalog.xlsx"'},
     )
 
 

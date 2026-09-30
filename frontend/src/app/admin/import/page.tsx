@@ -40,12 +40,25 @@ export default function ImportPage() {
       <AdminHeader
         title="Импорт каталога из Excel"
         actions={
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => downloadFile("/admin/import/template", "catalog_template.xlsx")}
-          >
-            Скачать шаблон
-          </button>
+          <>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => downloadFile("/admin/import/template", "catalog_template.xlsx")}
+            >
+              Скачать шаблон
+            </button>
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() =>
+                downloadFile(
+                  "/admin/import/export",
+                  `catalog_${new Date().toISOString().slice(0, 10)}.xlsx`,
+                )
+              }
+            >
+              Скачать каталог
+            </button>
+          </>
         }
       />
       <div className="card space-y-3 p-5 text-sm text-muted">
@@ -66,6 +79,11 @@ export default function ImportPage() {
           Одна строка = один товар (+ один объём, если заполнены объём и розничная цена). Несколько
           строк с одинаковым брендом, названием и типом добавляют объёмы к одному товару. Повторный
           импорт обновляет существующие товары: пустые ячейки не затирают данные.
+        </p>
+        <p>
+          <b>Скачать каталог</b> — все товары сайта в этом же формате, по строке на объём. Файл
+          можно поправить в Excel и загрузить обратно: товары найдутся по бренду, названию и типу.
+          Остатков и себестоимости в файле нет — они меняются через «Склад».
         </p>
       </div>
 
@@ -122,6 +140,7 @@ function Report({ report }: { report: ImportReport }) {
     ["Новых объёмов", report.variants_created],
     ["Обновлено объёмов", report.variants_updated],
     ["Тестеров в файле", report.tester_rows],
+    ["Новых штрихкодов", report.barcodes_added],
   ];
   return (
     <div className="space-y-4">
@@ -130,7 +149,7 @@ function Report({ report }: { report: ImportReport }) {
       ) : (
         <SuccessBox>Импорт выполнен.</SuccessBox>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {stats.map(([label, value]) => (
           <div key={label} className="card p-4">
             <div className="text-xs text-muted">{label}</div>

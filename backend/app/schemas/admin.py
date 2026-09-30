@@ -445,6 +445,8 @@ class ImportReport(BaseModel):
     variants_updated: int
     # Rows read as testers (a "Тестер" column, or "tester" in the name / volume / type).
     tester_rows: int = 0
+    # Barcodes added to variants (a barcode alone doesn't count as an updated variant).
+    barcodes_added: int = 0
     errors: list[ImportRowError]
     unmapped_columns: list[str]
 

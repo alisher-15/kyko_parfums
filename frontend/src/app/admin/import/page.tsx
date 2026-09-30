@@ -140,6 +140,7 @@ function Report({ report }: { report: ImportReport }) {
     ["Новых объёмов", report.variants_created],
     ["Обновлено объёмов", report.variants_updated],
     ["Тестеров в файле", report.tester_rows],
+    ["Новых штрихкодов", report.barcodes_added],
   ];
   return (
     <div className="space-y-4">
@@ -148,7 +149,7 @@ function Report({ report }: { report: ImportReport }) {
       ) : (
         <SuccessBox>Импорт выполнен.</SuccessBox>
       )}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {stats.map(([label, value]) => (
           <div key={label} className="card p-4">
             <div className="text-xs text-muted">{label}</div>

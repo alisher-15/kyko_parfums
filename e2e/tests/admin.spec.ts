@@ -135,6 +135,7 @@ test.describe("Админка", () => {
     await expect(stat("Строк в файле")).not.toHaveText("0");
     await expect(stat("Новых товаров")).toHaveText("0");
     await expect(stat("Новых объёмов")).toHaveText("0");
+    await expect(stat("Новых штрихкодов")).toHaveText("0");
     await expect(stat("Пропущено строк")).toHaveText("0");
   });
 

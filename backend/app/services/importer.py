@@ -299,6 +299,7 @@ class _Stats:
     variants_created: int = 0
     variants_updated: int = 0
     tester_rows: int = 0
+    barcodes_added: int = 0
     errors: list[ImportRowError] = field(default_factory=list)
 
 
@@ -488,6 +489,7 @@ def import_catalog(
             if owner is None:
                 variant.barcodes.append(VariantBarcode(code=code))
                 barcode_owner[code] = variant
+                st.barcodes_added += 1
             elif owner is not variant:
                 st.errors.append(
                     ImportRowError(
@@ -510,6 +512,7 @@ def import_catalog(
         variants_created=st.variants_created,
         variants_updated=st.variants_updated,
         tester_rows=st.tester_rows,
+        barcodes_added=st.barcodes_added,
         errors=st.errors,
         unmapped_columns=unmapped,
     )

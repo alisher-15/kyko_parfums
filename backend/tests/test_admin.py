@@ -336,7 +336,8 @@ def test_export_imports_back_unchanged(client, auth, db):
     ]
     # fmt: on
     files = {"file": ("c.xlsx", xlsx(rows), "application/octet-stream")}
-    assert client.post("/api/admin/import/catalog", files=files, headers=h).json()["errors"] == []
+    first = client.post("/api/admin/import/catalog", files=files, headers=h).json()
+    assert first["errors"] == [] and first["barcodes_added"] == 2
 
     r = client.get("/api/admin/import/export", headers=h)
     assert r.status_code == 200
@@ -359,6 +360,7 @@ def test_export_imports_back_unchanged(client, auth, db):
     files = {"file": ("catalog.xlsx", r.content, "application/octet-stream")}
     report = client.post("/api/admin/import/catalog", files=files, headers=h).json()
     assert report["errors"] == [] and report["unmapped_columns"] == []
+    assert report["barcodes_added"] == 0
     counts = ("products_created", "products_updated", "variants_created", "variants_updated")
     assert [report[k] for k in counts] == [0, 0, 0, 0]
     assert db.query(Product).count() == 2

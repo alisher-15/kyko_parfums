@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
@@ -30,6 +32,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
+from app.services.importer import build_export
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
 
@@ -122,8 +125,13 @@ def _load_product(db: Session, product_id: int) -> Product:
     return product
 
 
-@router.get("/products", response_model=Page[AdminProductOut])
-def list_products(
+@dataclass
+class ProductFilters:
+    conds: list[Any]
+    no_barcode: bool
+
+
+def product_filters(
     q: str | None = Query(default=None, max_length=200),
     brand_id: int | None = None,
     is_active: bool | None = None,
@@ -131,11 +139,10 @@ def list_products(
     backordered: bool = False,
     is_new: bool = False,
     no_photo: bool = False,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
-    db: Session = Depends(get_db),
-):
-    conds = []
+    no_barcode: bool = False,
+) -> ProductFilters:
+    """The filters of the products list, shared by the list and its Excel export."""
+    conds: list[Any] = []
     if q and q.strip():
         conds.append(product_name_match(q))
     if brand_id is not None:
@@ -153,8 +160,20 @@ def list_products(
         # The shop shows the product's photo, else a bottle's (see the catalog): neither is set.
         conds.append(func.coalesce(Product.image_url, "") == "")
         conds.append(~Product.variants.any(func.coalesce(ProductVariant.photo_url, "") != ""))
+    if no_barcode:
+        # A volume nothing scans to yet: the barcode goes in at the next receipt.
+        conds.append(Product.variants.any(~ProductVariant.barcodes.any()))
+    return ProductFilters(conds=conds, no_barcode=no_barcode)
 
-    base = select(Product).join(Brand, Brand.id == Product.brand_id).where(*conds)
+
+@router.get("/products", response_model=Page[AdminProductOut])
+def list_products(
+    filters: ProductFilters = Depends(product_filters),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    base = select(Product).join(Brand, Brand.id == Product.brand_id).where(*filters.conds)
     total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
     items = db.scalars(
         base.options(
@@ -166,6 +185,18 @@ def list_products(
         .limit(page_size)
     ).all()
     return Page(items=items, total=total, page=page, page_size=page_size)
+
+
+@router.get("/products/export")
+def export_products(
+    filters: ProductFilters = Depends(product_filters), db: Session = Depends(get_db)
+):
+    """The listed products in the import format; «Без штрихкода» keeps the volumes without one."""
+    return Response(
+        content=build_export(db, filters.conds, only_without_barcode=filters.no_barcode),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="catalog.xlsx"'},
+    )
 
 
 @router.get("/products/{product_id}", response_model=AdminProductOut)

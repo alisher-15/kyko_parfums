@@ -13,6 +13,7 @@ import {
   test,
   tokenFor,
 } from "./support";
+import { randomEan } from "./barcodes";
 
 test.describe("Админка", () => {
   test.beforeEach(async ({ page }) => {
@@ -95,6 +96,48 @@ test.describe("Админка", () => {
     await page.getByLabel("Без фото").uncheck();
     await page.getByLabel("Без фото").check();
     await expect(page.getByRole("heading", { name: "Товары · 0" })).toBeVisible();
+  });
+
+  test("товары: «Без штрихкода», экспорт по фильтру и переход к импорту", async ({ page }) => {
+    const admin = await adminToken();
+    const tag = Date.now();
+    const brand = await api("POST", "/admin/brands", admin, { name: `E2E Export ${tag}` });
+    const name = `E2E Codes ${tag}`;
+    const created = await api("POST", "/admin/products", admin, {
+      brand_id: brand.id,
+      name,
+      variants: [
+        { volume_ml: 50, retail_price: 10000, stock: 0 },
+        { volume_ml: 100, retail_price: 15000, stock: 0 },
+      ],
+    });
+    const v50 = created.variants.find((v: { volume_ml: number }) => v.volume_ml === 50);
+    await api("POST", `/admin/variants/${v50.id}/barcodes`, admin, { code: randomEan() });
+
+    await page.goto("/admin/products");
+    await page.getByPlaceholder("Название или бренд").fill(name);
+    await page.getByRole("button", { name: "Найти" }).click();
+    await page.getByLabel("Без штрихкода").check();
+    await expect(page).toHaveURL(/no_barcode=true/);
+    await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
+
+    // The export is the list's: this product, and only its volume without a barcode.
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: "Экспорт в Excel" }).click(),
+    ]);
+    expect(download.suggestedFilename()).toMatch(/^catalog_\d{4}-\d{2}-\d{2}_filtered\.xlsx$/);
+    await page.getByRole("link", { name: "Импорт", exact: true }).click();
+    await page.waitForURL("/admin/import");
+    await page.setInputFiles("input[type=file]", {
+      name: "catalog.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      buffer: fs.readFileSync(await download.path()),
+    });
+    await page.getByRole("button", { name: "Проверить (без сохранения)" }).click();
+    const stat = (label: string) => page.locator(".card", { hasText: label }).locator(".text-2xl");
+    await expect(stat("Строк в файле")).toHaveText("1");
+    await expect(stat("Новых товаров")).toHaveText("0");
   });
 
   test("импорт каталога: шаблон, выгрузка каталога и проверка без сохранения", async ({ page }, testInfo) => {

@@ -18,6 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -573,11 +574,18 @@ def _number(value: Decimal | None) -> int | float | None:
     return int(value) if value == value.to_integral_value() else float(value)
 
 
-def export_rows(db: Session) -> list[dict[str, Any]]:
-    """One row per variant (a product without variants gets one row), in import format."""
+def export_rows(
+    db: Session, where: Sequence[Any] = (), only_without_barcode: bool = False
+) -> list[dict[str, Any]]:
+    """One row per variant (a product without variants gets one row), in import format.
+
+    `where` narrows the products (the filters of the products list); with `only_without_barcode`
+    only the volumes that have no barcode yet are written.
+    """
     products = db.scalars(
         select(Product)
         .join(Product.brand)
+        .where(*where)
         .options(
             contains_eager(Product.brand),
             selectinload(Product.variants).selectinload(ProductVariant.barcodes),
@@ -595,6 +603,10 @@ def export_rows(db: Session) -> list[dict[str, Any]]:
             **{f: getattr(p, f) for f in PRODUCT_TEXT_FIELDS},
         }
         variants = sorted(p.variants, key=lambda v: (v.volume_ml, v.is_tester))
+        if only_without_barcode:
+            variants = [v for v in variants if not v.barcodes]
+            if not variants:
+                continue
         if not variants:
             rows.append(base)
         for v in variants:
@@ -613,12 +625,14 @@ def export_rows(db: Session) -> list[dict[str, Any]]:
     return rows
 
 
-def build_export(db: Session) -> bytes:
+def build_export(
+    db: Session, where: Sequence[Any] = (), only_without_barcode: bool = False
+) -> bytes:
     wb = Workbook()
     ws = wb.active
     ws.title = "Каталог"
     ws.append([title for _, title in EXPORT_COLUMNS])
-    for row in export_rows(db):
+    for row in export_rows(db, where, only_without_barcode):
         ws.append([row.get(key) for key, _ in EXPORT_COLUMNS])
     ws.freeze_panes = "C2"
     for col in ws.columns:

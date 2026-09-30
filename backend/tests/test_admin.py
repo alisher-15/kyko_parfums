@@ -374,6 +374,36 @@ def test_export_imports_back_unchanged(client, auth, db):
     assert [report[k] for k in counts] == [0, 0, 0, 0]
 
 
+def test_products_export_follows_the_list_filters(client, auth, db):
+    h = auth(UserRole.admin)
+    # fmt: off
+    rows = [
+        ["Бренд", "Название", "Тип", "Объём", "Цена", "Штрихкод"],
+        ["Chanel", "Chance", "EDT", 50, 45000, "3145891253317"],
+        ["Chanel", "Chance", "EDT", 100, 60000, None],
+        ["Dior", "Sauvage", "EDT", 100, 60000, None],
+        ["Tom Ford", "Oud Wood", "EDP", 50, 90000, "0888066024099"],
+    ]
+    # fmt: on
+    files = {"file": ("c.xlsx", xlsx(rows), "application/octet-stream")}
+    assert client.post("/api/admin/import/catalog", files=files, headers=h).json()["errors"] == []
+
+    def export(**query):
+        r = client.get("/api/admin/products/export", params=query, headers=h)
+        assert r.status_code == 200, r.text
+        header, *cells = load_workbook(io.BytesIO(r.content)).active.iter_rows(values_only=True)
+        return [(c[header.index("Название")], c[header.index("Объём, мл")]) for c in cells]
+
+    listed = client.get("/api/admin/products?no_barcode=true", headers=h).json()["items"]
+    assert sorted(p["name"] for p in listed) == ["Chance", "Sauvage"]
+    # Without a barcode: only the volumes that have none, to fill in at the next receipt.
+    assert export(no_barcode="true") == [("Chance", 100), ("Sauvage", 100)]
+    chanel = db.query(Product).filter_by(name="Chance").one().brand_id
+    assert export(brand_id=chanel) == [("Chance", 50), ("Chance", 100)]
+    assert len(export()) == 4
+    assert client.get("/api/admin/products/export").status_code == 401
+
+
 def test_stats(client, auth, catalog, db):
     h = auth(UserRole.admin)
     s = client.get("/api/admin/stats", headers=h).json()

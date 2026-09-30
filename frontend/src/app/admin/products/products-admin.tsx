@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { startTransition, useEffect, useOptimistic, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
+import { downloadFile } from "@/lib/api";
 import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
 import { PRODUCTS_LIST, rememberProductsList } from "@/lib/products-list";
 import type { AdminProduct, Brand, Page } from "@/lib/types";
@@ -20,6 +21,7 @@ type Filter =
   | "backordered"
   | "is_new"
   | "no_photo"
+  | "no_barcode"
   | "page";
 
 /**
@@ -40,6 +42,7 @@ export function ProductsAdmin() {
   const backordered = params.get("backordered") === "true";
   const onlyNew = params.get("is_new") === "true";
   const noPhoto = params.get("no_photo") === "true";
+  const noBarcode = params.get("no_barcode") === "true";
   const page = Math.max(1, Math.floor(Number(params.get("page"))) || 1);
 
   useEffect(() => {
@@ -61,6 +64,28 @@ export function ProductsAdmin() {
     });
   };
 
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  /** The products of the current search and filters, in the import format. */
+  const exportList = async () => {
+    const filters = new URLSearchParams(query);
+    filters.delete("page");
+    const qs = filters.toString();
+    const day = new Date().toISOString().slice(0, 10);
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadFile(
+        `/admin/products/export${qs ? `?${qs}` : ""}`,
+        `catalog_${day}${qs ? "_filtered" : ""}.xlsx`,
+      );
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const brands = useApi<Brand[]>("/admin/brands");
   const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
     query: {
@@ -71,6 +96,7 @@ export function ProductsAdmin() {
       backordered: backordered || undefined,
       is_new: onlyNew || undefined,
       no_photo: noPhoto || undefined,
+      no_barcode: noBarcode || undefined,
       page,
       page_size: PAGE_SIZE,
     },
@@ -81,9 +107,23 @@ export function ProductsAdmin() {
       <AdminHeader
         title={`Товары${data ? ` · ${data.total}` : ""}`}
         actions={
-          <Link href="/admin/products/new" className="btn btn-primary btn-sm">
-            + Добавить товар
-          </Link>
+          <>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={exporting}
+              onClick={exportList}
+              title="Товары по текущему поиску и фильтрам, в формате импорта"
+            >
+              {exporting ? "Готовим файл…" : "Экспорт в Excel"}
+            </button>
+            <Link href="/admin/import" className="btn btn-outline btn-sm">
+              Импорт
+            </Link>
+            <Link href="/admin/products/new" className="btn btn-primary btn-sm">
+              + Добавить товар
+            </Link>
+          </>
         }
       />
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-3">
@@ -137,8 +177,18 @@ export function ProductsAdmin() {
           />
           Без фото
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={noBarcode}
+            onChange={(e) => setFilters({ no_barcode: e.target.checked })}
+          />
+          Без штрихкода
+        </label>
       </div>
 
+      {exportError && <ErrorBox>{exportError}</ErrorBox>}
       {error && <ErrorBox>{error.message}</ErrorBox>}
       {loading && !data && <Spinner />}
       {data && (

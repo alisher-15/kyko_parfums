@@ -281,6 +281,8 @@ export interface AdminVariant {
   wholesale_price: number | null;
   bulk_price: number | null;
   cost_price: number | null;
+  /** «Цена вручную»: recalculation by markups leaves the prices alone. */
+  price_locked: boolean;
   barcodes: string[];
   photo_url: string | null;
   is_active: boolean;
@@ -349,6 +351,50 @@ export interface PricingSettings {
   show_next_tier: boolean;
   next_tier_terms: string | null;
   updated_at?: string;
+}
+
+/** Percent on the cost for each price level. */
+export interface MarkupLevels {
+  retail: number;
+  wholesale: number;
+  bulk: number;
+}
+
+/** The percent a brand adds to the base markup of each level. */
+export interface BrandMarkup extends MarkupLevels {
+  id: number;
+  name: string;
+  product_count: number;
+}
+
+export interface Markups {
+  base: MarkupLevels;
+  brands: BrandMarkup[];
+}
+
+export interface RepriceLine {
+  variant_id: number;
+  product_id: number;
+  label: string;
+  cost_price: number;
+  old_retail: number;
+  old_wholesale: number | null;
+  old_bulk: number | null;
+  retail: number;
+  wholesale: number;
+  bulk: number;
+}
+
+export interface RepriceReport {
+  dry_run: boolean;
+  changed: number;
+  raised: number;
+  lowered: number;
+  unchanged: number;
+  locked: number;
+  no_cost: number;
+  /** The largest changes of the retail price first (at most 300). */
+  lines: RepriceLine[];
 }
 
 export interface ImportReport {

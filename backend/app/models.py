@@ -172,6 +172,11 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
+    # Percent added to the base markup of each price level for this brand's products
+    # (see services/markups.py).
+    retail_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    wholesale_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    bulk_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     products: Mapped[list[Product]] = relationship(back_populates="brand")
 
@@ -243,6 +248,8 @@ class ProductVariant(TimestampMixin, Base):
     # Average purchase cost of one unit in stock: moving average over posted receipts,
     # or set by hand. NULL = unknown, the margin of such sales is not counted.
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
+    # «Цена вручную»: the prices were set by hand, recalculation by markups leaves them alone.
+    price_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     product: Mapped[Product] = relationship(back_populates="variants")
     barcodes: Mapped[list[VariantBarcode]] = relationship(
@@ -430,6 +437,10 @@ class PricingSettings(Base):
     max_store_discount_percent: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), default=10, server_default="10"
     )
+    # Base markup on the cost of each price level, percent (see services/markups.py).
+    retail_markup: Mapped[int] = mapped_column(Integer, default=60, server_default="60")
+    wholesale_markup: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
+    bulk_markup: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

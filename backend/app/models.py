@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -20,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -172,13 +174,38 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
-    # Percent added to the base markup of each price level for this brand's products
-    # (see services/markups.py).
-    retail_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    wholesale_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    bulk_markup: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # Markup group the brand's products are priced by; NULL = the default group.
+    price_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("price_groups.id", ondelete="SET NULL"), index=True
+    )
 
     products: Mapped[list[Product]] = relationship(back_populates="brand")
+
+
+class PriceGroup(TimestampMixin, Base):
+    """Markups of a group of brands, percent on the cost of each price level
+    (see services/markups.py). One group is the default: brands without a group are in it."""
+
+    __tablename__ = "price_groups"
+    __table_args__ = (
+        CheckConstraint(
+            "retail_markup >= 0 AND wholesale_markup >= 0 AND bulk_markup >= 0",
+            name="ck_price_groups_markups",
+        ),
+        Index(
+            "uq_price_groups_default",
+            "is_default",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    retail_markup: Mapped[int] = mapped_column(Integer)
+    wholesale_markup: Mapped[int] = mapped_column(Integer)
+    bulk_markup: Mapped[int] = mapped_column(Integer)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class Product(TimestampMixin, Base):
@@ -437,10 +464,6 @@ class PricingSettings(Base):
     max_store_discount_percent: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), default=10, server_default="10"
     )
-    # Base markup on the cost of each price level, percent (see services/markups.py).
-    retail_markup: Mapped[int] = mapped_column(Integer, default=60, server_default="60")
-    wholesale_markup: Mapped[int] = mapped_column(Integer, default=30, server_default="30")
-    bulk_markup: Mapped[int] = mapped_column(Integer, default=20, server_default="20")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

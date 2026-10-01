@@ -353,23 +353,28 @@ export interface PricingSettings {
   updated_at?: string;
 }
 
-/** Percent on the cost for each price level. */
-export interface MarkupLevels {
+/** A markup group: percent on the cost of each price level for its brands. */
+export interface PriceGroup {
+  id: number;
+  name: string;
   retail: number;
   wholesale: number;
   bulk: number;
+  /** Brands without a group are in it. */
+  is_default: boolean;
+  brand_count: number;
 }
 
-/** The percent a brand adds to the base markup of each level. */
-export interface BrandMarkup extends MarkupLevels {
+export interface BrandGroup {
   id: number;
   name: string;
   product_count: number;
+  group_id: number;
 }
 
 export interface Markups {
-  base: MarkupLevels;
-  brands: BrandMarkup[];
+  groups: PriceGroup[];
+  brands: BrandGroup[];
 }
 
 export interface RepriceLine {
@@ -390,6 +395,8 @@ export interface RepriceReport {
   changed: number;
   raised: number;
   lowered: number;
+  /** Average change of the retail price, percent. */
+  avg_change: number | null;
   unchanged: number;
   locked: number;
   no_cost: number;

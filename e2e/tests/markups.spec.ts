@@ -1,9 +1,6 @@
 import { adminToken, api, createProduct, expect, loginAsAdmin, test, volume } from "./support";
 
-/** Cost plus markup, rounded up to hundreds (as the backend does). */
-const priced = (cost: number, markup: number) => Math.ceil((cost * (100 + markup)) / 10000) * 100;
-
-test("наценки: надбавка бренда, проверка и пересчёт цен одного бренда", async ({ page }) => {
+test("наценки: новая группа, перенос бренда и правка группы сразу меняют цены", async ({ page }) => {
   const admin = await adminToken();
   const { product, volume: vol } = await createProduct(admin, [
     { volume_ml: 50, stock: 0, retail_price: 1000 },
@@ -11,44 +8,54 @@ test("наценки: надбавка бренда, проверка и пер�
   ]);
   const brand = product.brand.name;
   await api("PATCH", `/admin/variants/${vol(50).id}`, admin, { cost_price: 10000 });
-  // Priced by hand: recalculation leaves it alone.
+  // Priced by hand: no markup touches it.
   await api("PATCH", `/admin/variants/${vol(100).id}`, admin, { cost_price: 20000, price_locked: true });
-  const { base } = await api("GET", "/admin/markups", admin);
+  const group = `E2E Люкс ${Date.now()}`;
+  const current = async () => api("GET", `/admin/products/${product.id}`, admin);
 
-  await loginAsAdmin(page);
-  await page.goto("/admin/markups");
-  await page.getByPlaceholder("Найти бренд").fill(brand);
-  const row = page.locator("tr", { hasText: brand });
-  await page.getByLabel(`${brand}: Розница`).selectOption("10");
-  await expect(row.getByText(`= ${base.retail + 10}%`)).toBeVisible();
-  await row.getByRole("button", { name: "Сохранить" }).click();
-  await expect
-    .poll(async () => (await api("GET", "/admin/markups", admin)).brands.find((b: { name: string }) => b.name === brand)?.retail)
-    .toBe(10);
-  // The page has reloaded the markups (the row is saved): only now pick the brand to check.
-  await expect(row.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+  try {
+    await loginAsAdmin(page);
+    await page.goto("/admin/markups");
+    // A new group changes no price until brands are moved into it.
+    await page.getByLabel("Название новой группы").fill(group);
+    await page.getByLabel("Новая группа: Розница, %").fill("40");
+    await page.getByLabel("Новая группа: Опт, %").fill("20");
+    await page.getByLabel("Новая группа: Крупный опт, %").fill("12");
+    await page.getByRole("button", { name: "Добавить", exact: true }).click();
+    await expect(page.getByText(`Группа «${group}» добавлена`)).toBeVisible();
 
-  await page.getByLabel("Какие товары").selectOption({ label: brand });
-  await page.getByRole("button", { name: "Проверить" }).click();
-  await expect(page.getByText(/Изменятся цены у 1 объёмов/)).toBeVisible();
-  await expect(page.getByText(/«Цена вручную» 1/)).toBeVisible();
-  await expect(page.getByRole("link", { name: `${brand} ${product.name}, 50 мл` })).toBeVisible();
-  // Checking changes nothing.
-  expect(volume(await api("GET", `/admin/products/${product.id}`, admin), 50).retail_price).toBe(1000);
+    // Moving the brand: the bar tells what changes, «Сохранить» changes it.
+    await page.getByPlaceholder("Найти бренд").fill(brand);
+    await page.getByLabel(`Группа бренда ${brand}`).selectOption({ label: `${group} · 40 / 20 / 12%` });
+    const bar = page.locator(".sticky", { hasText: "Перенос 1 бренда" });
+    await expect(bar.getByText(/изменятся цены у 1 объёма/)).toBeVisible();
+    await expect(bar.getByText(/«Цена вручную» не меняется у 1 объёма/)).toBeVisible();
+    expect(volume(await current(), 50).retail_price).toBe(1000);
+    await bar.getByRole("button", { name: "Сохранить" }).click();
+    await expect(page.getByText("Перенесено 1 бренд: обновлены цены у 1 объёма.")).toBeVisible();
+    expect(volume(await current(), 50)).toMatchObject({ retail_price: 14000, wholesale_price: 12000, bulk_price: 11200 });
+    expect(volume(await current(), 100).retail_price).toBe(2000);
 
-  page.once("dialog", (d) => d.accept());
-  await page.getByRole("button", { name: "Применить" }).click();
-  await expect(page.getByText("Цены обновлены у 1 объёмов.")).toBeVisible();
-  const after = await api("GET", `/admin/products/${product.id}`, admin);
-  expect(volume(after, 50)).toMatchObject({
-    retail_price: priced(10000, base.retail + 10),
-    wholesale_price: priced(10000, base.wholesale),
-    bulk_price: priced(10000, base.bulk),
-  });
-  expect(volume(after, 100).retail_price).toBe(2000);
-  // The storefront sells at the new price.
-  const pub = await api("GET", `/products/${product.id}`);
-  expect(pub.variants[0].price).toBe(priced(10000, base.retail + 10));
+    // Editing the group: the row tells what changes before saving.
+    await page.getByLabel(`${group}: Розница, %`).fill("50");
+    await expect(page.getByText(/Изменятся цены у 1 объёма \(дороже 1\)/)).toBeVisible();
+    expect(volume(await current(), 50).retail_price).toBe(14000);
+    await page.getByRole("button", { name: "Сохранить", exact: true }).click();
+    await expect(page.getByText(`Группа «${group}» сохранена: обновлены цены у 1 объёма.`)).toBeVisible();
+    expect(volume(await current(), 50).retail_price).toBe(15000);
+    // The storefront sells at the new price.
+    const pub = await api("GET", `/products/${product.id}`);
+    expect(pub.variants[0].price).toBe(15000);
+  } finally {
+    const markups = await api("GET", "/admin/markups", admin);
+    const byDefault = markups.groups.find((g: { is_default: boolean }) => g.is_default);
+    const mine = markups.groups.find((g: { name: string }) => g.name === group);
+    const own = markups.brands.find((b: { name: string }) => b.name === brand);
+    await api("POST", "/admin/markups/assign?dry_run=false", admin, {
+      brands: [{ brand_id: own.id, group_id: byDefault.id }],
+    });
+    if (mine) await api("DELETE", `/admin/markups/groups/${mine.id}`, admin);
+  }
 });
 
 test("наценки: цена, изменённая руками, получает «Цена вручную»", async ({ page }) => {

@@ -311,7 +311,7 @@ def update_variant(
     if variant is None:
         raise HTTPException(404, "Вариант не найден")
     changes = data.model_dump(exclude_unset=True)
-    for required in ("volume_ml", "is_tester"):
+    for required in ("volume_ml", "is_tester", "price_locked"):
         if required in changes and changes[required] is None:
             del changes[required]
     if changes.get("retail_price", variant.retail_price) is None:

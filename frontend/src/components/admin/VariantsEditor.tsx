@@ -17,9 +17,12 @@ type Row = {
   wholesale_price: string;
   bulk_price: string;
   cost_price: string;
+  price_locked: boolean;
   photo_url: string | null;
   is_active: boolean;
 };
+
+const PRICES: (keyof Row)[] = ["retail_price", "wholesale_price", "bulk_price"];
 
 const EMPTY: Row = {
   volume_ml: "",
@@ -30,6 +33,7 @@ const EMPTY: Row = {
   wholesale_price: "",
   bulk_price: "",
   cost_price: "",
+  price_locked: false,
   photo_url: null,
   is_active: true,
 };
@@ -45,6 +49,7 @@ function toRow(v: AdminVariant): Row {
     wholesale_price: s(v.wholesale_price),
     bulk_price: s(v.bulk_price),
     cost_price: s(v.cost_price),
+    price_locked: v.price_locked,
     photo_url: v.photo_url,
     is_active: v.is_active,
   };
@@ -61,6 +66,7 @@ function toBody(r: Row) {
     wholesale_price: num(r.wholesale_price),
     bulk_price: num(r.bulk_price),
     cost_price: num(r.cost_price),
+    price_locked: r.price_locked,
     photo_url: r.photo_url,
     is_active: r.is_active,
   };
@@ -172,8 +178,13 @@ function VariantRow({
   const stockChanged = !isNew && row.stock !== initial.stock;
   const dirty = JSON.stringify(row) !== JSON.stringify(initial);
 
+  // A price changed by hand is kept by recalculation (the admin can untick «Цена вручную»).
   const set = (key: keyof Row) => (e: { target: { value: string } }) =>
-    setRow({ ...row, [key]: e.target.value });
+    setRow({
+      ...row,
+      [key]: e.target.value,
+      ...(!isNew && PRICES.includes(key) ? { price_locked: true } : {}),
+    });
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -200,6 +211,22 @@ function VariantRow({
         value={row[key] as string}
         onChange={set(key)}
       />
+    </label>
+  );
+
+  // Phones and tablets: under the prices. Desktop: next to the cost, in the row below.
+  const priceLock = (
+    <label
+      className="flex items-center gap-2 text-sm"
+      title="Пересчёт цен по наценкам не меняет цены этого объёма"
+    >
+      <input
+        type="checkbox"
+        className="accent-gold"
+        checked={row.price_locked}
+        onChange={(e) => setRow({ ...row, price_locked: e.target.checked })}
+      />
+      Цена вручную
     </label>
   );
 
@@ -239,6 +266,7 @@ function VariantRow({
         {field(`Кр. опт, ${CURRENCY}`, "bulk_price")}
         {/* Phones and tablets: next to the prices, above "Save". Desktop: in the row below. */}
         <div className="xl:hidden">{field(`Себестоимость, ${CURRENCY}`, "cost_price")}</div>
+        <div className="col-span-full xl:hidden">{priceLock}</div>
       </div>
       {stockChanged && (
         <label className="mt-2 block xl:col-span-full xl:mt-1">
@@ -314,6 +342,7 @@ function VariantRow({
             onChange={set("cost_price")}
           />
         </label>
+        <div className="hidden self-end pb-2.5 xl:block">{priceLock}</div>
         {extra}
       </div>
     </div>

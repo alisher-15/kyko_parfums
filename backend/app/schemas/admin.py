@@ -66,6 +66,8 @@ class VariantIn(BaseModel):
     bulk_price: MoneyIn | None = None
     # Average purchase cost; normally kept up to date by stock receipts.
     cost_price: MoneyIn | None = None
+    # «Цена вручную»: recalculation by markups leaves the prices alone.
+    price_locked: bool = False
     photo_url: str | None = Field(default=None, max_length=1024)
     is_active: bool = True
 
@@ -88,6 +90,7 @@ class VariantUpdate(BaseModel):
     wholesale_price: MoneyIn | None = None
     bulk_price: MoneyIn | None = None
     cost_price: MoneyIn | None = None
+    price_locked: bool | None = None
     photo_url: str | None = Field(default=None, max_length=1024)
     is_active: bool | None = None
 
@@ -105,6 +108,7 @@ class AdminVariantOut(ORMModel):
     wholesale_price: Money | None
     bulk_price: Money | None
     cost_price: Money | None = None
+    price_locked: bool = False
     barcodes: list[str] = []
     photo_url: str | None
     is_active: bool

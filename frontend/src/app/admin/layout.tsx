@@ -15,6 +15,7 @@ const NAV = [
   { href: "/admin/products", label: "Товары" },
   { href: "/admin/promotions", label: "Акции" },
   { href: "/admin/brands", label: "Бренды" },
+  { href: "/admin/markups", label: "Наценки" },
   { href: "/admin/users", label: "Пользователи" },
   { href: "/admin/import", label: "Импорт Excel" },
   { href: "/admin/settings", label: "Настройки" },

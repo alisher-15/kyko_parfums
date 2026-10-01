@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -20,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -172,8 +174,38 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
+    # Markup group the brand's products are priced by; NULL = the default group.
+    price_group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("price_groups.id", ondelete="SET NULL"), index=True
+    )
 
     products: Mapped[list[Product]] = relationship(back_populates="brand")
+
+
+class PriceGroup(TimestampMixin, Base):
+    """Markups of a group of brands, percent on the cost of each price level
+    (see services/markups.py). One group is the default: brands without a group are in it."""
+
+    __tablename__ = "price_groups"
+    __table_args__ = (
+        CheckConstraint(
+            "retail_markup >= 0 AND wholesale_markup >= 0 AND bulk_markup >= 0",
+            name="ck_price_groups_markups",
+        ),
+        Index(
+            "uq_price_groups_default",
+            "is_default",
+            unique=True,
+            postgresql_where=text("is_default"),
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    retail_markup: Mapped[int] = mapped_column(Integer)
+    wholesale_markup: Mapped[int] = mapped_column(Integer)
+    bulk_markup: Mapped[int] = mapped_column(Integer)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
 
 class Product(TimestampMixin, Base):
@@ -243,6 +275,8 @@ class ProductVariant(TimestampMixin, Base):
     # Average purchase cost of one unit in stock: moving average over posted receipts,
     # or set by hand. NULL = unknown, the margin of such sales is not counted.
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
+    # «Цена вручную»: the prices were set by hand, recalculation by markups leaves them alone.
+    price_locked: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
 
     product: Mapped[Product] = relationship(back_populates="variants")
     barcodes: Mapped[list[VariantBarcode]] = relationship(

@@ -290,9 +290,9 @@ export function CameraScanner({
             <button
               type="button"
               className="btn mt-3 w-full bg-white py-4 text-base text-ink"
-              onClick={next}
+              onClick={res.ok && res.finished ? onClose : next}
             >
-              {res.ok ? "Следующий товар" : "Сканировать снова"}
+              {res.ok && res.finished ? "Готово" : res.ok ? "Следующий товар" : "Сканировать снова"}
             </button>
           </>
         )}

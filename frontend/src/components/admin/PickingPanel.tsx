@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { volumeLabel } from "@/lib/format";
 import type { AdminOrder, OrderItem, VariantSearchItem } from "@/lib/types";
@@ -56,6 +56,12 @@ export function PickingPanel({
   const totalNeeded = lines.reduce((s, i) => s + i.quantity, 0);
   const totalPicked = lines.reduce((s, i) => s + Math.min(picked[i.id] ?? 0, i.quantity), 0);
 
+  // The order is complete: bring «Отметить «Отправлен»» into view (the camera closes onto it).
+  const doneRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (done) doneRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [done]);
+
   const update = (next: Picked) => {
     pickedRef.current = next;
     savePicked(order.id, next);
@@ -103,8 +109,9 @@ export function PickingPanel({
     return {
       ok: true,
       title: name,
-      detail: `Собрано ${have + 1} из ${line.quantity}${left > 0 ? ` · по заказу осталось ${left} шт.` : " · заказ собран"}`,
+      detail: `Собрано ${have + 1} из ${line.quantity}${left > 0 ? ` · по заказу осталось ${left} шт.` : " · заказ собран, больше сканировать не нужно"}`,
       undo: async () => change(line.id, -1),
+      finished: left === 0,
     };
   };
 
@@ -172,7 +179,10 @@ export function PickingPanel({
         })}
       </ul>
       {done && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+        <div
+          ref={doneRef}
+          className="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
           <span className="flex-1 font-semibold">Заказ собран полностью.</span>
           {canShip && (
             <button className="btn btn-primary btn-sm" onClick={onShip}>

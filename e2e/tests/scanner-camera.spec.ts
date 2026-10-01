@@ -123,10 +123,10 @@ test("камера на телефоне: инвентаризация и сбо
       .toBe(2);
   });
 
-  await test.step("сборка заказа камерой", async () => {
+  await test.step("сборка заказа камерой: после последнего товара — «Готово»", async () => {
     const retail = await tokenFor("retail@example.com", DEMO_PASSWORD);
     const order = await placeOrder(retail, [
-      { variant_id: coco50.id, quantity: 2 },
+      { variant_id: coco50.id, quantity: 1 },
       { variant_id: sauvage100.id, quantity: 1 },
     ]);
     // Chromium drops touch emulation after a fake-camera session: a fresh phone.
@@ -136,8 +136,14 @@ test("камера на телефоне: инвентаризация и сбо
     await m.getByRole("button", { name: "Собрать заказ" }).click();
     await m.getByRole("button", { name: "Сканировать камерой" }).click();
     const dialog = m.getByRole("dialog");
-    await expect(dialog.getByText(/Собрано 1 из/)).toBeVisible({ timeout: 20_000 });
-    await dialog.getByRole("button", { name: "Закрыть" }).click();
+    // The camera shows both codes in turn: one item, then the other finishes the order.
+    await expect(dialog.getByText(/осталось 1 шт/)).toBeVisible({ timeout: 20_000 });
+    await dialog.getByRole("button", { name: "Следующий товар" }).click();
+    await expect(dialog.getByText(/больше сканировать не нужно/)).toBeVisible({ timeout: 20_000 });
+    await dialog.getByRole("button", { name: "Готово" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(m.getByText("Заказ собран полностью.")).toBeVisible();
+    await expect(m.getByRole("button", { name: "Отметить «Отправлен»" })).toBeInViewport();
     expect(await horizontalOverflow(m)).toBeLessThanOrEqual(0);
   });
 });

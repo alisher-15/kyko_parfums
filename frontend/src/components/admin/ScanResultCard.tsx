@@ -23,6 +23,8 @@ export interface ScanResult {
   undo?: () => Promise<void>;
   /** A way out of a failed scan, e.g. attach an unknown barcode (closes the camera). */
   action?: { label: string; run: () => void };
+  /** This scan finished the job (the last item of an order): the camera offers «Готово». */
+  finished?: boolean;
 }
 
 export function ScanResultCard({

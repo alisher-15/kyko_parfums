@@ -328,11 +328,11 @@ def test_export_imports_back_unchanged(client, auth, db):
     # fmt: off
     rows = [
         ["Бренд", "Название", "Тип", "Пол", "Верхние ноты", "Объём", "Тестер", "Цена", "Опт",
-         "Артикул", "Штрихкод", "Активен"],
+         "Артикул", "Штрихкод", "Активен", "Себестоимость"],
         ["Chanel", "Chance", "EDT", "Женский", "Розовый перец", 50, "нет", 45000, 40000,
-         "CH-50", "0012345678905, 3145891253317", None],
-        ["Chanel", "Chance", "EDT", None, None, 100, "да", 60000.5, None, None, None, None],
-        ["Dior", "Bad", "EDP", "Мужской", None, None, None, None, None, None, None, "нет"],
+         "CH-50", "0012345678905, 3145891253317", None, 28125.5],
+        ["Chanel", "Chance", "EDT", None, None, 100, "да", 60000.5, None, None, None, None, None],
+        ["Dior", "Bad", "EDP", "Мужской", None, None, None, None, None, None, None, "нет", None],
     ]
     # fmt: on
     files = {"file": ("c.xlsx", xlsx(rows), "application/octet-stream")}
@@ -345,7 +345,7 @@ def test_export_imports_back_unchanged(client, auth, db):
     sheet = load_workbook(io.BytesIO(r.content)).active
     header, *cells = [list(row) for row in sheet.iter_rows(values_only=True)]
     assert header[:3] == ["Бренд", "Название", "Тип"]
-    assert "Остаток" not in header and "Себестоимость" not in header
+    assert "Остаток" not in header
     got = [dict(zip(header, row, strict=True)) for row in cells]
     assert [(g["Название"], g["Объём, мл"], g["Тестер"]) for g in got] == [
         ("Chance", 50, "нет"),
@@ -355,6 +355,7 @@ def test_export_imports_back_unchanged(client, auth, db):
     assert got[0]["Штрихкод"] == "0012345678905, 3145891253317"
     assert (got[0]["Пол"], got[0]["Активен"], got[2]["Активен"]) == ("Женский", "да", "нет")
     assert got[1]["Розничная цена"] == 60000.5
+    assert (got[0]["Себестоимость"], got[1]["Себестоимость"]) == (28125.5, None)
 
     # Imported back as is, it changes nothing.
     files = {"file": ("catalog.xlsx", r.content, "application/octet-stream")}

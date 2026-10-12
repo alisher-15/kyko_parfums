@@ -3,18 +3,21 @@ from decimal import Decimal
 
 import pytest
 from openpyxl import Workbook, load_workbook
+from sqlalchemy import event, select
 
+from app.db import engine
 from app.models import (
     PriceFormat,
     ProductVariant,
     Supplier,
+    SupplierLink,
     SupplierPrice,
     UserRole,
     VariantBarcode,
 )
 from app.services import markups
 from app.services.price_lists import PriceListError, read_price_list
-from app.services.suppliers import price_from_cost
+from app.services.suppliers import import_links, price_from_cost
 
 
 def _xlsx(rows: list[list]) -> bytes:
@@ -337,6 +340,35 @@ def test_links_from_a_file_and_back(client, auth, db, catalog, suppliers):
     assert r.status_code == 204
     report = _upload(client, h, kanat, kanat_file([("Флаконы КАПЛЯ 10 ml", 158)]))
     assert [u["line"] for u in report["unmatched"]] == ["Флаконы КАПЛЯ 10 ml"]
+
+
+def test_a_big_links_file_takes_a_few_queries(db, catalog, suppliers):
+    """On the live site every query is a round trip to the database, and a supplier's links file
+    has thousands of rows: the links are loaded once, not looked up row by row."""
+    kanat = suppliers["kanat"]
+    rows = [["Строка прайса", "Бренд", "Название", "Тип", "Объём, мл", "Тестер", "Не наш товар"]]
+    rows += [[f"Флакон {i}", None, None, None, None, None, "да"] for i in range(500)]
+    # The same line twice is one link.
+    rows += [["Coco 50", "Chanel", "Coco Mademoiselle", "EDP", 50, None, None]] * 2
+    content = _xlsx(rows)
+    statements = []
+
+    def count(conn, cursor, statement, *args):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", count)
+    try:
+        for _ in range(2):  # new links, then the same file again
+            statements.clear()
+            result = import_links(db, kanat, content, "links.xlsx")
+            db.commit()
+            assert (result.rows, result.linked, result.ignored) == (502, 2, 500)
+            assert len(statements) < 15
+    finally:
+        event.remove(engine, "before_cursor_execute", count)
+    links = db.scalars(select(SupplierLink).where(SupplierLink.supplier_id == kanat.id)).all()
+    assert len(links) == 501
+    assert [link.variant_id for link in links if link.line == "Coco 50"] == [catalog["coco50"].id]
 
 
 def test_a_receipt_leaves_the_suppliers_cost_alone(client, auth, db, catalog, suppliers):

@@ -51,6 +51,7 @@ test.describe("Телефон", () => {
       "/admin/receipts",
       "/admin/inventory",
       "/admin/import",
+      "/admin/suppliers",
       "/admin/settings",
     ];
     expect(await overflowing(m, paths)).toEqual([]);

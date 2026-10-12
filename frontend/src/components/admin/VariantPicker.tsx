@@ -11,12 +11,15 @@ export function VariantPicker({
   onPick,
   placeholder = "Название или бренд",
   autoFocus = false,
+  initialQuery = "",
 }: {
   onPick: (item: VariantSearchItem) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  /** A search to start with (the user can change it). */
+  initialQuery?: string;
 }) {
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [results, setResults] = useState<VariantSearchItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 

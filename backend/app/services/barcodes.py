@@ -11,7 +11,7 @@ def normalize(code: str) -> str:
     return re.sub(r"\s+", "", code or "")
 
 
-def _candidates(code: str) -> list[str]:
+def candidates(code: str) -> list[str]:
     """The same product can be read as UPC-A (12 digits) or EAN-13 with a leading zero,
     depending on the scanner; try both."""
     out = [code]
@@ -28,18 +28,18 @@ def find_variant(db: Session, code: str) -> ProductVariant | None:
     if not code:
         return None
     options = joinedload(ProductVariant.product).joinedload(Product.brand)
-    candidates = _candidates(code)
+    codes = candidates(code)
     variant = db.scalar(
         select(ProductVariant)
         .join(VariantBarcode, VariantBarcode.variant_id == ProductVariant.id)
-        .where(VariantBarcode.code.in_(candidates))
+        .where(VariantBarcode.code.in_(codes))
         .options(options)
         .limit(1)
     )
     if variant is None:
         variant = db.scalar(
             select(ProductVariant)
-            .where(func.lower(ProductVariant.sku).in_([c.lower() for c in candidates]))
+            .where(func.lower(ProductVariant.sku).in_([c.lower() for c in codes]))
             .options(options)
             .limit(1)
         )

@@ -7,6 +7,7 @@ from app.routers.admin import (
     orders,
     promotions,
     store,
+    suppliers,
     system,
     telegram,
     users,
@@ -23,3 +24,4 @@ router.include_router(warehouse.router)
 router.include_router(promotions.router)
 router.include_router(currency.router)
 router.include_router(telegram.router)
+router.include_router(suppliers.router)

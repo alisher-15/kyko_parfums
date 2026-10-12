@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ErrorBox } from "@/components/ui";
 import { api } from "@/lib/api";
-import { CURRENCY, volumeLabel } from "@/lib/format";
-import type { AdminVariant } from "@/lib/types";
+import { CURRENCY, dayMonth, money, volumeLabel } from "@/lib/format";
+import type { AdminVariant, VariantSupplierPrice } from "@/lib/types";
+import { useApi } from "@/lib/use-api";
 import { BarcodeList } from "./BarcodeList";
 import { ImageUpload } from "./ImageUpload";
 
@@ -86,6 +87,24 @@ function markupText(r: Row): string | null {
   return parts.length ? `Наценка: ${parts.join(" · ")}` : null;
 }
 
+/** The volume's price at each supplier; the cheapest is green when there are several. */
+function SupplierCosts({ prices }: { prices: VariantSupplierPrice[] }) {
+  if (!prices.length) return null;
+  const lowest = Math.min(...prices.map((p) => p.price));
+  return (
+    <div className="w-full text-xs xl:w-auto xl:self-end xl:pb-3">
+      {prices.map((p, i) => (
+        <span key={p.supplier_id} title={`${p.line} · прайс от ${dayMonth(p.updated_at.slice(0, 10))}`}>
+          {i > 0 && <span className="text-muted"> · </span>}
+          <span className="text-muted">{p.supplier}: </span>
+          <b className={prices.length > 1 && p.price === lowest ? "text-emerald-700" : ""}>{money(p.price)}</b>
+          {!p.latest && <span className="text-muted"> (нет в последнем прайсе)</span>}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // Desktop (xl+) lays each volume out as one table-like row; smaller screens get a card per volume.
 const GRID =
   "xl:grid xl:grid-cols-[112px_80px_64px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
@@ -104,6 +123,9 @@ export function VariantsEditor({
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const { data: supplierPrices } = useApi<VariantSupplierPrice[]>(
+    `/admin/products/${productId}/supplier-prices`,
+  );
   return (
     <div className="card p-4">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -137,7 +159,12 @@ export function VariantsEditor({
             key={v.id}
             initial={toRow(v)}
             seed={v.id}
-            extra={<BarcodeList variantId={v.id} barcodes={v.barcodes} onChanged={onChanged} />}
+            extra={
+              <>
+                <SupplierCosts prices={(supplierPrices ?? []).filter((p) => p.variant_id === v.id)} />
+                <BarcodeList variantId={v.id} barcodes={v.barcodes} onChanged={onChanged} />
+              </>
+            }
             onSave={async (row, stockNote) => {
               await api(`/admin/variants/${v.id}`, {
                 method: "PATCH",

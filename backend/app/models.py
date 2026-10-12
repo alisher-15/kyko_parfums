@@ -13,6 +13,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
@@ -20,6 +21,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -99,6 +101,13 @@ class PricingMode(enum.StrEnum):
     order_total = "order_total"
     # Tier is chosen per order line by the quantity of that variant.
     item_quantity = "item_quantity"
+
+
+class PriceFormat(enum.StrEnum):
+    # 1С «Прайс-лист»: «Номенклатура», a price in dollars and «ОПТ,ЦЕНА» in tenge (Канат).
+    usd_1c = "usd_1c"
+    # «ШТРИХ - КОД», the name, «ПРИМ» (TEST = a tester) and «ОПТ» in tenge (Эрик).
+    barcode_kzt = "barcode_kzt"
 
 
 def volume_label(volume_ml: int, is_tester: bool = False) -> str:
@@ -277,6 +286,92 @@ class VariantBarcode(Base):
     )
 
     variant: Mapped[ProductVariant] = relationship(back_populates="barcodes")
+
+
+class Supplier(TimestampMixin, Base):
+    """A supplier whose price lists set the cost (services/suppliers.py). The main one's price is
+    the cost of a volume; the others' count where the main one has no price."""
+
+    __tablename__ = "suppliers"
+    __table_args__ = (
+        Index("uq_suppliers_main", "is_main", unique=True, postgresql_where=text("is_main")),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True)
+    is_main: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
+    price_format: Mapped[PriceFormat] = mapped_column(_enum(PriceFormat, "price_format"))
+
+
+class SupplierPriceList(Base):
+    """One uploaded price list file, applied."""
+
+    __tablename__ = "supplier_price_lists"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_id: Mapped[int] = mapped_column(
+        ForeignKey("suppliers.id", ondelete="CASCADE"), index=True
+    )
+    file_name: Mapped[str] = mapped_column(String(255))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    # Lines with a price; of them matched to a volume and not (lines marked «не наш товар» are in
+    # neither).
+    lines: Mapped[int] = mapped_column(Integer)
+    matched: Mapped[int] = mapped_column(Integer)
+    unmatched: Mapped[int] = mapped_column(Integer)
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class SupplierPrice(Base):
+    """A volume's price at a supplier, from that supplier's latest price list that had it."""
+
+    __tablename__ = "supplier_prices"
+    __table_args__ = (
+        UniqueConstraint("supplier_id", "variant_id", name="uq_supplier_prices_variant"),
+        CheckConstraint("price >= 0", name="ck_supplier_prices_price"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id", ondelete="CASCADE"))
+    variant_id: Mapped[int] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), index=True
+    )
+    price: Mapped[Decimal] = mapped_column(MONEY)
+    price_usd: Mapped[Decimal | None] = mapped_column(MONEY)
+    # The price list line it came from, as the supplier names it.
+    line: Mapped[str] = mapped_column(String(512))
+    price_list_id: Mapped[int | None] = mapped_column(
+        ForeignKey("supplier_price_lists.id", ondelete="SET NULL")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    supplier: Mapped[Supplier] = relationship()
+
+
+class SupplierLink(Base):
+    """A price list line (as the supplier names it) and the volume it is; no volume = not ours.
+    Lines with a known barcode need none."""
+
+    __tablename__ = "supplier_links"
+    __table_args__ = (UniqueConstraint("supplier_id", "key", name="uq_supplier_links_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id", ondelete="CASCADE"))
+    # The line with spaces and case evened out (services/price_lists.line_key).
+    key: Mapped[str] = mapped_column(String(512))
+    line: Mapped[str] = mapped_column(String(512))
+    variant_id: Mapped[int | None] = mapped_column(
+        ForeignKey("product_variants.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    variant: Mapped[ProductVariant | None] = relationship()
 
 
 class Order(TimestampMixin, Base):

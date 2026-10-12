@@ -93,9 +93,10 @@ test("поставщики: прайс Каната — привязка стр�
   await expect(card.getByText(/Прайс «kanat2\.csv» загружен/)).toBeVisible();
   expect(await current()).toMatchObject({ cost_price: 9000, retail_price: 17600, wholesale_price: 14300, bulk_price: 13200 });
 
-  // The product card shows the supplier's price.
+  // The product card shows both suppliers' prices: Эрик has none.
   await page.goto(`/admin/products/${product.id}`);
   await expect(page.getByText(/Канат:\s*9\s000/)).toBeVisible();
+  await expect(page.getByText(/Эрик:\s*—/)).toBeVisible();
 });
 
 test("поставщики: прайс Эрика находит товар по штрихкоду", async ({ page }) => {
@@ -124,4 +125,5 @@ test("поставщики: прайс Эрика находит товар по
   expect(v).toMatchObject({ cost_price: 12000, retail_price: 19200, wholesale_price: 15600, bulk_price: 14400 });
   await page.goto(`/admin/products/${product.id}`);
   await expect(page.getByText(/Эрик:\s*12\s000/)).toBeVisible();
+  await expect(page.getByText(/Канат:\s*—/)).toBeVisible();
 });

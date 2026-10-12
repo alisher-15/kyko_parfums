@@ -26,6 +26,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
 MONEY = Numeric(12, 2)
+MARKUP = Numeric(12, 4)
 
 
 class UserRole(enum.StrEnum):
@@ -243,6 +244,11 @@ class ProductVariant(TimestampMixin, Base):
     # Average purchase cost of one unit in stock: moving average over posted receipts,
     # or set by hand. NULL = unknown, the margin of such sales is not counted.
     cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
+    # Markup on the cost for each price level, percent, remembered when the prices or the cost are
+    # set by hand (services/markups.py). NULL = not known (no cost, or no such price).
+    retail_markup: Mapped[Decimal | None] = mapped_column(MARKUP)
+    wholesale_markup: Mapped[Decimal | None] = mapped_column(MARKUP)
+    bulk_markup: Mapped[Decimal | None] = mapped_column(MARKUP)
 
     product: Mapped[Product] = relationship(back_populates="variants")
     barcodes: Mapped[list[VariantBarcode]] = relationship(

@@ -38,6 +38,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
+from app.services import markups
 from app.services.stock import set_stock
 
 # fmt: off
@@ -111,6 +112,9 @@ TEMPLATE_COLUMNS = [
     ("barcode", "Штрихкод"),
     ("cost_price", "Себестоимость"),
 ]
+
+# Set by hand, these make the volume remember its markups (services/markups.py).
+PRICE_KEYS = {"retail_price", "wholesale_price", "bulk_price", "cost_price"}
 
 PRODUCT_TEXT_FIELDS = (
     "category",
@@ -453,6 +457,7 @@ def import_catalog(
                 stock=0,
                 sku=sku,
             )
+            markups.remember(variant)
             product.variants.append(variant)
             set_stock(db, variant, stock or 0, StockReason.import_, user=user, note=filename[:255])
             st.variants_created += 1
@@ -474,7 +479,8 @@ def import_catalog(
             except ValueError as e:
                 st.errors.append(ImportRowError(row=row_no, error=f"{what}: {e}"))
                 continue
-            if any(getattr(variant, k) != v for k, v in new.items()):
+            changed = {k for k, v in new.items() if getattr(variant, k) != v}
+            if changed:
                 new_stock = new.pop("stock", None)
                 if new_stock is not None:
                     set_stock(
@@ -482,6 +488,8 @@ def import_catalog(
                     )
                 for k, v in new.items():
                     setattr(variant, k, v)
+                if changed & PRICE_KEYS:
+                    markups.remember(variant)
                 st.variants_updated += 1
         if sku:
             sku_owner[sku] = variant
@@ -559,10 +567,14 @@ def build_template() -> bytes:
 
 # ---------- Export ----------
 
-# The catalog as the importer reads it: edit the file and import it back. Stock and cost are
-# left out: receipts and stock counts change them, and an old file must not overwrite them.
+# The catalog as the importer reads it: edit the file and import it back. Stock is left out:
+# receipts and stock counts change it, and an old file must not overwrite it. The cost stands
+# next to the three prices: the four numbers are edited together, and each volume remembers
+# its markups from them (services/markups.py).
 EXPORT_COLUMNS = [
-    *(c for c in TEMPLATE_COLUMNS if c[0] not in {"stock", "cost_price"}),
+    *(c for c in TEMPLATE_COLUMNS if c[0] not in {"stock", "cost_price", *PRICE_KEYS}),
+    ("cost_price", "Себестоимость"),
+    *(c for c in TEMPLATE_COLUMNS if c[0] in {"retail_price", "wholesale_price", "bulk_price"}),
     ("is_active", "Активен"),
 ]
 GENDER_TITLES = {Gender.female: "Женский", Gender.male: "Мужской", Gender.unisex: "Унисекс"}
@@ -618,6 +630,7 @@ def export_rows(
                     "retail_price": _number(v.retail_price),
                     "wholesale_price": _number(v.wholesale_price),
                     "bulk_price": _number(v.bulk_price),
+                    "cost_price": _number(v.cost_price),
                     "sku": v.sku,
                     "barcode": ", ".join(b.code for b in v.barcodes) or None,
                 }

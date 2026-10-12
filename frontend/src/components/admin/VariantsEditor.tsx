@@ -66,6 +66,26 @@ function toBody(r: Row) {
   };
 }
 
+const percent = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
+
+/** "Наценка: розница 60% · опт 30% · кр. опт 20%" — what the volume remembers on saving. */
+function markupText(r: Row): string | null {
+  const num = (s: string) => (s.trim() === "" ? null : Number(s.replace(",", ".")));
+  const cost = num(r.cost_price);
+  if (!cost || cost <= 0) return null;
+  const parts = (
+    [
+      ["розница", r.retail_price],
+      ["опт", r.wholesale_price],
+      ["кр. опт", r.bulk_price],
+    ] as const
+  ).flatMap(([label, value]) => {
+    const price = num(value);
+    return price && price > 0 ? [`${label} ${percent.format((price / cost - 1) * 100)}%`] : [];
+  });
+  return parts.length ? `Наценка: ${parts.join(" · ")}` : null;
+}
+
 // Desktop (xl+) lays each volume out as one table-like row; smaller screens get a card per volume.
 const GRID =
   "xl:grid xl:grid-cols-[112px_80px_64px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
@@ -170,6 +190,7 @@ function VariantRow({
   const [stockNote, setStockNote] = useState("");
   const [busy, setBusy] = useState(false);
   const stockChanged = !isNew && row.stock !== initial.stock;
+  const markup = markupText(row);
   const dirty = JSON.stringify(row) !== JSON.stringify(initial);
 
   const set = (key: keyof Row) => (e: { target: { value: string } }) =>
@@ -314,6 +335,11 @@ function VariantRow({
             onChange={set("cost_price")}
           />
         </label>
+        {markup && (
+          <div className="w-full text-xs text-muted xl:w-auto xl:self-end xl:pb-3" title="Наценка на себестоимость">
+            {markup}
+          </div>
+        )}
         {extra}
       </div>
     </div>

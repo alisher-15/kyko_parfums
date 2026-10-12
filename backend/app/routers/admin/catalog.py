@@ -32,6 +32,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
+from app.services import markups
 from app.services.importer import build_export
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
@@ -217,6 +218,7 @@ def create_product(
     _mark_new(product, data.is_new)
     for v in data.variants:
         variant = ProductVariant(**v.model_dump(exclude={"stock"}), stock=0)
+        markups.remember(variant)
         product.variants.append(variant)
         set_stock(db, variant, v.stock, StockReason.manual, user=admin, note="Начальный остаток")
     db.add(product)
@@ -260,6 +262,8 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
 # ---------- Variants ----------
 
 VARIANT_CONFLICT = "Такой вариант у товара уже есть, или артикул (SKU) занят"
+# Set by hand, these make the volume remember its markups (services/markups.py).
+PRICE_FIELDS = ("retail_price", "wholesale_price", "bulk_price", "cost_price")
 
 
 def _check_unique_volume(
@@ -294,6 +298,7 @@ def create_variant(
         raise HTTPException(404, "Товар не найден")
     _check_unique_volume(db, product_id, data.volume_ml, data.is_tester)
     variant = ProductVariant(product_id=product_id, **data.model_dump(exclude={"stock"}), stock=0)
+    markups.remember(variant)
     db.add(variant)
     set_stock(db, variant, data.stock, StockReason.manual, user=admin, note="Начальный остаток")
     _commit(db, VARIANT_CONFLICT)
@@ -336,8 +341,11 @@ def update_variant(
     new_stock = changes.pop("stock", None)
     if new_stock is not None:
         set_stock(db, variant, new_stock, StockReason.manual, user=admin, note=stock_note)
+    repriced = any(changes.get(k, getattr(variant, k)) != getattr(variant, k) for k in PRICE_FIELDS)
     for k, v in changes.items():
         setattr(variant, k, v)
+    if repriced:
+        markups.remember(variant)
     _commit(db, VARIANT_CONFLICT)
     db.refresh(variant)
     return variant

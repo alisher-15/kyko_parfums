@@ -62,6 +62,9 @@ test.describe("Админка", () => {
     await expect.poll(async () => (await api("GET", `/admin/products/${productId}`, admin)).variants.length).toBe(1);
     const [v] = (await api("GET", `/admin/products/${productId}`, admin)).variants;
     expect(v).toMatchObject({ volume_ml: 50, stock: 7, retail_price: 25000, wholesale_price: 19000, cost_price: 12000 });
+    // The volume remembers its markups on the cost, and the card shows them.
+    expect(v).toMatchObject({ retail_markup: 108.3333, wholesale_markup: 58.3333, bulk_markup: null });
+    await expect(page.getByText("Наценка: розница 108,3% · опт 58,3%")).toBeVisible();
     const moves = await api("GET", `/admin/products/${productId}/stock-movements`, admin);
     expect(moves).toHaveLength(1);
     expect(moves[0].delta).toBe(7);

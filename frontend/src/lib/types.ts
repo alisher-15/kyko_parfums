@@ -281,6 +281,10 @@ export interface AdminVariant {
   wholesale_price: number | null;
   bulk_price: number | null;
   cost_price: number | null;
+  /** Markups on the cost remembered from the prices set by hand, percent. */
+  retail_markup: number | null;
+  wholesale_markup: number | null;
+  bulk_markup: number | null;
   barcodes: string[];
   photo_url: string | null;
   is_active: boolean;

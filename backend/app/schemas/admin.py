@@ -105,6 +105,10 @@ class AdminVariantOut(ORMModel):
     wholesale_price: Money | None
     bulk_price: Money | None
     cost_price: Money | None = None
+    # Markups on the cost remembered from the prices set by hand, percent (services/markups.py).
+    retail_markup: float | None = None
+    wholesale_markup: float | None = None
+    bulk_markup: float | None = None
     barcodes: list[str] = []
     photo_url: str | None
     is_active: bool

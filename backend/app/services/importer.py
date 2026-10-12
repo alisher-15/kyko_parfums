@@ -260,10 +260,10 @@ def parse_bool(value: Any) -> bool | None:
 # ---------- Reading ----------
 
 
-def read_rows(
+def read_cells(
     content: bytes, filename: str, sheet: str | None = None
-) -> tuple[list[tuple[int, list[Any]]], int]:
-    """Return ([(excel_row_number, cells)], header_row_index_in_list)."""
+) -> list[tuple[int, list[Any]]]:
+    """Every row of the sheet (the first one by default) as (excel_row_number, cells)."""
     if filename.lower().endswith(".csv"):
         text = _decode(content)
         dialect = csv.Sniffer().sniff(text[:4096], delimiters=",;\t")
@@ -273,7 +273,14 @@ def read_rows(
         ws = wb[sheet] if sheet else wb.active
         rows = [list(r) for r in ws.iter_rows(values_only=True)]
         wb.close()
-    numbered = [(i + 1, r) for i, r in enumerate(rows)]
+    return [(i + 1, r) for i, r in enumerate(rows)]
+
+
+def read_rows(
+    content: bytes, filename: str, sheet: str | None = None
+) -> tuple[list[tuple[int, list[Any]]], int]:
+    """Return ([(excel_row_number, cells)], header_row_index_in_list)."""
+    numbered = read_cells(content, filename, sheet)
 
     for idx, (_, cells) in enumerate(numbered[:HEADER_SCAN_ROWS]):
         keys = {_ALIAS_LOOKUP.get(_norm_header(c)) for c in cells}
@@ -308,6 +315,22 @@ class _Stats:
     errors: list[ImportRowError] = field(default_factory=list)
 
 
+def product_key(brand: Any, name: Any, ptype: Any) -> tuple[str, str, str]:
+    """How a product is found: brand, name and type read the way a file cell is read, so a product
+    typed in by hand ("Парфюмерная вода", a double space) is found by its exported row too."""
+    return (
+        (_text(brand) or "").lower(),
+        (_text(name) or "").lower(),
+        (normalize_type(ptype) or "").lower(),
+    )
+
+
+def products_by_key(db: Session) -> dict[tuple[str, str, str], Product]:
+    """Every product by its key, with its brand and variants loaded."""
+    stmt = select(Product).options(joinedload(Product.brand), selectinload(Product.variants))
+    return {product_key(p.brand.name, p.name, p.type): p for p in db.scalars(stmt).unique()}
+
+
 def import_catalog(
     db: Session,
     content: bytes,
@@ -327,15 +350,8 @@ def import_catalog(
         elif _text(cell):
             unmapped.append(str(cell).strip())
 
-    # Keys as a file row gives them, so a product typed in by hand ("Парфюмерная вода", a double
-    # space) is found by its exported row too.
     brands = {(_text(b.name) or "").lower(): b for b in db.scalars(select(Brand))}
-    products: dict[tuple[str, str, str], Product] = {}
-    for p in db.scalars(
-        select(Product).options(joinedload(Product.brand), selectinload(Product.variants))
-    ).unique():
-        key = (_text(p.brand.name) or "", _text(p.name) or "", normalize_type(p.type) or "")
-        products[tuple(k.lower() for k in key)] = p
+    products = products_by_key(db)
     sku_owner: dict[str, ProductVariant] = {
         v.sku: v for v in db.scalars(select(ProductVariant).where(ProductVariant.sku.is_not(None)))
     }

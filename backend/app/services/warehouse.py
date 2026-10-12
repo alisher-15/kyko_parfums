@@ -15,8 +15,10 @@ from app.models import (
     StockCount,
     StockReason,
     StockReceipt,
+    SupplierPrice,
     User,
 )
+from app.services import markups
 from app.services.stock import lock_variants, move_stock, set_stock
 
 CENT = Decimal("0.01")
@@ -49,14 +51,26 @@ def receipt_note(receipt: StockReceipt) -> str:
 
 
 def post_receipt(db: Session, receipt: StockReceipt, user: User) -> None:
-    """Add the goods to stock and update average costs. The caller checks it is a draft."""
+    """Add the goods to stock and update average costs. The caller checks it is a draft.
+
+    A volume with a supplier's price keeps its cost: the price lists set it
+    (services/suppliers.py). A volume that gets its first cost remembers its markups."""
     variants = lock_variants(db, (i.variant_id for i in receipt.items))
+    priced = set(
+        db.scalars(
+            select(SupplierPrice.variant_id).where(SupplierPrice.variant_id.in_(list(variants)))
+        )
+    )
     note = receipt_note(receipt)
     for item in receipt.items:
         variant = variants[item.variant_id]
-        variant.cost_price = average_cost(
-            variant.stock, variant.cost_price, item.quantity, item.cost_price
-        )
+        if variant.id not in priced:
+            first = variant.cost_price is None
+            variant.cost_price = average_cost(
+                variant.stock, variant.cost_price, item.quantity, item.cost_price
+            )
+            if first and variant.cost_price is not None:
+                markups.remember(variant)
         move_stock(
             db, variant, item.quantity, StockReason.receipt, user=user, receipt=receipt, note=note
         )

@@ -355,6 +355,97 @@ export interface PricingSettings {
   updated_at?: string;
 }
 
+export type PriceFormat = "usd_1c" | "barcode_kzt";
+
+export interface PriceListInfo {
+  id: number;
+  file_name: string;
+  uploaded_at: string;
+  user_email: string | null;
+  lines: number;
+  matched: number;
+  unmatched: number;
+}
+
+export interface Supplier {
+  id: number;
+  name: string;
+  is_main: boolean;
+  price_format: PriceFormat;
+  /** Volumes with a price from this supplier. */
+  prices: number;
+  /** Price list lines linked to a volume; lines marked «не наш товар». */
+  links: number;
+  ignored: number;
+  last_list: PriceListInfo | null;
+}
+
+export interface UnmatchedLine {
+  row: number;
+  line: string;
+  price: number;
+  barcode: string | null;
+}
+
+export interface PriceChangeLine {
+  variant_id: number;
+  product_id: number;
+  label: string;
+  line: string;
+  supplier_old: number | null;
+  supplier_new: number;
+  cost_old: number | null;
+  cost_new: number | null;
+  retail_old: number;
+  retail_new: number;
+  wholesale_old: number | null;
+  wholesale_new: number | null;
+  bulk_old: number | null;
+  bulk_new: number | null;
+}
+
+export interface PriceListReport {
+  dry_run: boolean;
+  lines: number;
+  matched: number;
+  by_barcode: number;
+  ignored: number;
+  duplicates: number;
+  unmatched: UnmatchedLine[];
+  supplier_new: number;
+  supplier_up: number;
+  supplier_down: number;
+  cost_up: number;
+  cost_down: number;
+  prices_raised: number;
+  prices_kept: number;
+  remembered: number;
+  /** Another supplier's list before the main supplier's first one: costs stay as they are. */
+  waiting_for_main: boolean;
+  changes: PriceChangeLine[];
+}
+
+export interface LinksReport {
+  dry_run: boolean;
+  rows: number;
+  linked: number;
+  ignored: number;
+  problems: { row: number; line: string; error: string }[];
+}
+
+export interface VariantSupplierPrice {
+  variant_id: number;
+  supplier_id: number;
+  supplier: string;
+  is_main: boolean;
+  price: number;
+  price_usd: number | null;
+  line: string;
+  updated_at: string;
+  /** From the supplier's latest price list. */
+  latest: boolean;
+}
+
 export interface ImportReport {
   dry_run: boolean;
   rows_total: number;

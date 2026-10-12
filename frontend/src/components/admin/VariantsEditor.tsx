@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ErrorBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CURRENCY, dayMonth, money, volumeLabel } from "@/lib/format";
-import type { AdminVariant, VariantSupplierPrice } from "@/lib/types";
+import type { AdminVariant, Supplier, VariantSupplierPrice } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 import { BarcodeList } from "./BarcodeList";
 import { ImageUpload } from "./ImageUpload";
@@ -88,19 +88,29 @@ function markupText(r: Row): string | null {
 }
 
 /** The volume's price at each supplier; the cheapest is green when there are several. */
-function SupplierCosts({ prices }: { prices: VariantSupplierPrice[] }) {
-  if (!prices.length) return null;
+/** Every supplier's price of the volume, «—» where a supplier has none; the lowest is green. */
+function SupplierCosts({ suppliers, prices }: { suppliers: Supplier[]; prices: VariantSupplierPrice[] }) {
+  if (!suppliers.length) return null;
   const lowest = Math.min(...prices.map((p) => p.price));
   return (
     <div className="w-full text-xs xl:w-auto xl:self-end xl:pb-3">
-      {prices.map((p, i) => (
-        <span key={p.supplier_id} title={`${p.line} · прайс от ${dayMonth(p.updated_at.slice(0, 10))}`}>
-          {i > 0 && <span className="text-muted"> · </span>}
-          <span className="text-muted">{p.supplier}: </span>
-          <b className={prices.length > 1 && p.price === lowest ? "text-emerald-700" : ""}>{money(p.price)}</b>
-          {!p.latest && <span className="text-muted"> (нет в последнем прайсе)</span>}
-        </span>
-      ))}
+      {suppliers.map((s, i) => {
+        const p = prices.find((x) => x.supplier_id === s.id);
+        return (
+          <span key={s.id} title={p && `${p.line} · прайс от ${dayMonth(p.updated_at.slice(0, 10))}`}>
+            {i > 0 && <span className="text-muted"> · </span>}
+            <span className="text-muted">{s.name}: </span>
+            {p ? (
+              <>
+                <b className={prices.length > 1 && p.price === lowest ? "text-emerald-700" : ""}>{money(p.price)}</b>
+                {!p.latest && <span className="text-muted"> (нет в последнем прайсе)</span>}
+              </>
+            ) : (
+              <span className="text-muted">—</span>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -123,6 +133,7 @@ export function VariantsEditor({
   onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const { data: suppliers } = useApi<Supplier[]>("/admin/suppliers");
   const { data: supplierPrices } = useApi<VariantSupplierPrice[]>(
     `/admin/products/${productId}/supplier-prices`,
   );
@@ -161,7 +172,10 @@ export function VariantsEditor({
             seed={v.id}
             extra={
               <>
-                <SupplierCosts prices={(supplierPrices ?? []).filter((p) => p.variant_id === v.id)} />
+                <SupplierCosts
+                  suppliers={suppliers ?? []}
+                  prices={(supplierPrices ?? []).filter((p) => p.variant_id === v.id)}
+                />
                 <BarcodeList variantId={v.id} barcodes={v.barcodes} onChanged={onChanged} />
               </>
             }

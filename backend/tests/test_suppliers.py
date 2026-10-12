@@ -371,6 +371,36 @@ def test_a_big_links_file_takes_a_few_queries(db, catalog, suppliers):
     assert [link.variant_id for link in links if link.line == "Coco 50"] == [catalog["coco50"].id]
 
 
+def test_the_export_has_each_suppliers_price(client, auth, db, catalog, suppliers):
+    h = auth(UserRole.admin)
+    kanat, erik = suppliers["kanat"], suppliers["erik"]
+    coco50, coco100 = catalog["coco50"], catalog["coco100"]
+    db.add_all(
+        [
+            SupplierPrice(supplier_id=kanat.id, variant_id=coco50.id, price=9000, line="a"),
+            SupplierPrice(supplier_id=erik.id, variant_id=coco50.id, price=8500.5, line="b"),
+            SupplierPrice(supplier_id=erik.id, variant_id=coco100.id, price=12000, line="c"),
+        ]
+    )
+    db.commit()
+
+    r = client.get("/api/admin/import/export", headers=h)
+    header, *cells = [list(row) for row in load_workbook(io.BytesIO(r.content)).active.values]
+    start = header.index("Цена Канат")
+    assert header[start : start + 3] == ["Цена Канат", "Цена Эрик", "Себестоимость"]
+    got = {(row[1], row[header.index("Объём, мл")]): row[start : start + 2] for row in cells}
+    assert got[("Coco Mademoiselle", 50)] == [9000, 8500.5]
+    assert got[("Coco Mademoiselle", 100)] == [None, 12000]
+    assert got[("Sauvage", 100)] == [None, None]
+
+    # Imported back, the file changes nothing: the suppliers' prices come from their lists only.
+    files = {"file": ("catalog.xlsx", r.content, "application/octet-stream")}
+    report = client.post("/api/admin/import/catalog", files=files, headers=h).json()
+    assert report["errors"] == [] and report["unmapped_columns"] == []
+    counts = ("products_created", "products_updated", "variants_created", "variants_updated")
+    assert [report[k] for k in counts] == [0, 0, 0, 0]
+
+
 def test_a_receipt_leaves_the_suppliers_cost_alone(client, auth, db, catalog, suppliers):
     h = auth(UserRole.admin)
     coco50, coco100 = catalog["coco50"], catalog["coco100"]

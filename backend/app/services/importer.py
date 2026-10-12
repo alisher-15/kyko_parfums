@@ -33,6 +33,8 @@ from app.models import (
     Product,
     ProductVariant,
     StockReason,
+    Supplier,
+    SupplierPrice,
     User,
     VariantBarcode,
     volume_label,
@@ -343,7 +345,11 @@ def import_catalog(
     header = rows[header_idx][1]
     columns: dict[str, int] = {}
     unmapped: list[str] = []
+    # The suppliers' prices of an export are for reading: only their price lists set them.
+    supplier_titles = {_norm_header(title) for _, title in supplier_columns(db)}
     for i, cell in enumerate(header):
+        if _norm_header(cell) in supplier_titles:
+            continue
         key = _ALIAS_LOOKUP.get(_norm_header(cell))
         if key and key not in columns:
             columns[key] = i
@@ -586,7 +592,8 @@ def build_template() -> bytes:
 # The catalog as the importer reads it: edit the file and import it back. Stock is left out:
 # receipts and stock counts change it, and an old file must not overwrite it. The cost stands
 # next to the three prices: the four numbers are edited together, and each volume remembers
-# its markups from them (services/markups.py).
+# its markups from them (services/markups.py). Before them, each supplier's price
+# (``supplier_columns``), which the importer skips.
 EXPORT_COLUMNS = [
     *(c for c in TEMPLATE_COLUMNS if c[0] not in {"stock", "cost_price", *PRICE_KEYS}),
     ("cost_price", "Себестоимость"),
@@ -594,6 +601,17 @@ EXPORT_COLUMNS = [
     ("is_active", "Активен"),
 ]
 GENDER_TITLES = {Gender.female: "Женский", Gender.male: "Мужской", Gender.unisex: "Унисекс"}
+
+
+def supplier_columns(db: Session) -> list[tuple[str, str]]:
+    """A column per supplier, the main one first: «Цена Канат», «Цена Эрик»."""
+    suppliers = db.scalars(select(Supplier).order_by(Supplier.is_main.desc(), Supplier.name))
+    return [(f"supplier_{s.id}", f"Цена {s.name}") for s in suppliers]
+
+
+def export_columns(db: Session) -> list[tuple[str, str]]:
+    cost = EXPORT_COLUMNS.index(("cost_price", "Себестоимость"))
+    return [*EXPORT_COLUMNS[:cost], *supplier_columns(db), *EXPORT_COLUMNS[cost:]]
 
 
 def _number(value: Decimal | None) -> int | float | None:
@@ -620,6 +638,11 @@ def export_rows(
         )
         .order_by(Brand.name, Product.name, Product.id)
     )
+    supplier_prices: dict[int, dict[str, Decimal]] = {}
+    for variant_id, supplier_id, price in db.execute(
+        select(SupplierPrice.variant_id, SupplierPrice.supplier_id, SupplierPrice.price)
+    ):
+        supplier_prices.setdefault(variant_id, {})[f"supplier_{supplier_id}"] = price
     rows: list[dict[str, Any]] = []
     for p in products:
         base = {
@@ -647,6 +670,7 @@ def export_rows(
                     "wholesale_price": _number(v.wholesale_price),
                     "bulk_price": _number(v.bulk_price),
                     "cost_price": _number(v.cost_price),
+                    **{k: _number(price) for k, price in supplier_prices.get(v.id, {}).items()},
                     "sku": v.sku,
                     "barcode": ", ".join(b.code for b in v.barcodes) or None,
                 }
@@ -657,17 +681,18 @@ def export_rows(
 def build_export(
     db: Session, where: Sequence[Any] = (), only_without_barcode: bool = False
 ) -> bytes:
+    columns = export_columns(db)
     wb = Workbook()
     ws = wb.active
     ws.title = "Каталог"
-    ws.append([title for _, title in EXPORT_COLUMNS])
+    ws.append([title for _, title in columns])
     for row in export_rows(db, where, only_without_barcode):
-        ws.append([row.get(key) for key, _ in EXPORT_COLUMNS])
+        ws.append([row.get(key) for key, _ in columns])
     ws.freeze_panes = "C2"
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 18
     # Long barcodes as text: Excel shows a number column as 4,6E+12 and drops leading zeros.
-    barcode_col = [key for key, _ in EXPORT_COLUMNS].index("barcode") + 1
+    barcode_col = [key for key, _ in columns].index("barcode") + 1
     for (cell,) in ws.iter_rows(min_row=2, min_col=barcode_col, max_col=barcode_col):
         cell.number_format = "@"
     buf = io.BytesIO()

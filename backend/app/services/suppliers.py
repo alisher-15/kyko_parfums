@@ -293,15 +293,35 @@ def apply_price_list(
 # ---------- Links ----------
 
 
-def link_line(db: Session, supplier: Supplier, line: str, variant_id: int | None) -> SupplierLink:
-    """Remember which volume a price list line is (None: not ours); the caller commits."""
+def links_by_key(db: Session, supplier: Supplier) -> dict[str, SupplierLink]:
+    """All of a supplier's links in one query: a links file has thousands of rows."""
+    stmt = select(SupplierLink).where(SupplierLink.supplier_id == supplier.id)
+    return {link.key: link for link in db.scalars(stmt)}
+
+
+def link_line(
+    db: Session,
+    supplier: Supplier,
+    line: str,
+    variant_id: int | None,
+    known: dict[str, SupplierLink] | None = None,
+) -> SupplierLink:
+    """Remember which volume a price list line is (None: not ours); the caller commits.
+    `known` is the supplier's links from ``links_by_key``; new links are added to it."""
     key = line_key(line)
-    link = db.scalar(
-        select(SupplierLink).where(SupplierLink.supplier_id == supplier.id, SupplierLink.key == key)
-    )
+    if known is None:
+        link = db.scalar(
+            select(SupplierLink).where(
+                SupplierLink.supplier_id == supplier.id, SupplierLink.key == key
+            )
+        )
+    else:
+        link = known.get(key)
     if link is None:
         link = SupplierLink(supplier_id=supplier.id, key=key)
         db.add(link)
+        if known is not None:
+            known[key] = link
     link.line = " ".join(line.split())[:512]
     link.variant_id = variant_id
     return link
@@ -391,6 +411,7 @@ def import_links(db: Session, supplier: Supplier, content: bytes, filename: str)
         return cells[j] if j is not None and j < len(cells) else None
 
     products = products_by_key(db)
+    known = links_by_key(db, supplier)
     result = LinksResult()
     for row, cells in rows[start:]:
         line = _text(cell(cells, "line"), 512)
@@ -402,7 +423,7 @@ def import_links(db: Session, supplier: Supplier, content: bytes, filename: str)
         except ValueError:
             ignored = False
         if ignored:
-            link_line(db, supplier, line, None)
+            link_line(db, supplier, line, None, known)
             result.ignored += 1
             continue
         raw_name, tester_in_name = strip_tester(cell(cells, "name"))
@@ -427,6 +448,6 @@ def import_links(db: Session, supplier: Supplier, content: bytes, filename: str)
         if variant is None:
             result.problems.append((row, line, "у товара нет такого объёма"))
             continue
-        link_line(db, supplier, line, variant.id)
+        link_line(db, supplier, line, variant.id, known)
         result.linked += 1
     return result

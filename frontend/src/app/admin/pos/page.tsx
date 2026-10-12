@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { CameraScanner } from "@/components/admin/CameraScanner";
 import { ScanResultCard, type ScanResult } from "@/components/admin/ScanResultCard";
@@ -30,6 +30,44 @@ interface Line {
 }
 
 const TIERS: PriceTier[] = ["retail", "wholesale", "bulk"];
+
+// «Показать себестоимость» is remembered in this browser; off by default, as customers may see
+// the screen.
+const SHOW_COST_KEY = "kyko.pos.showCost";
+let showCostValue: boolean | null = null;
+const showCostListeners = new Set<() => void>();
+
+function readShowCost(): boolean {
+  if (showCostValue === null) {
+    try {
+      showCostValue = window.localStorage.getItem(SHOW_COST_KEY) === "1";
+    } catch {
+      showCostValue = false;
+    }
+  }
+  return showCostValue;
+}
+
+function subscribeShowCost(listener: () => void): () => void {
+  showCostListeners.add(listener);
+  return () => showCostListeners.delete(listener);
+}
+
+function setShowCost(value: boolean) {
+  showCostValue = value;
+  try {
+    window.localStorage.setItem(SHOW_COST_KEY, value ? "1" : "0");
+  } catch {
+    // storage unavailable: the switch still works until the page is reloaded
+  }
+  showCostListeners.forEach((l) => l());
+}
+
+/** «маржа 6 000 ₸ (38%)»: what the sale leaves over the cost, and its share of the price. */
+function marginText(total: number, cost: number): string {
+  const margin = total - cost;
+  return `маржа ${money(margin)}${total > 0 ? ` (${Math.round((margin / total) * 100)}%)` : ""}`;
+}
 const PAYMENTS: PaymentMethod[] = ["cash", "card", "transfer", "other"];
 
 export default function PosPage() {
@@ -44,6 +82,7 @@ export default function PosPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<AdminOrder | null>(null);
+  const showCost = useSyncExternalStore(subscribeShowCost, readShowCost, () => false);
   const searchRef = useRef<HTMLInputElement>(null);
   // The latest receipt right away: scans can come faster than re-renders.
   const linesRef = useRef<Line[]>([]);
@@ -167,6 +206,11 @@ export default function PosPage() {
 
   const quoteLine = new Map(quote?.lines.map((l) => [l.variant_id, l]));
   const maxDiscount = quote?.max_discount_percent ?? 0;
+  // «Показать себестоимость»: the margin of the lines whose cost is known.
+  const costed = quote?.lines.filter((l) => l.cost_price !== null) ?? [];
+  const costedCost = costed.reduce((s, l) => s + (l.cost_price ?? 0) * l.quantity, 0);
+  const costedTotal = costed.reduce((s, l) => s + l.line_total, 0);
+  const uncosted = (quote?.lines.length ?? 0) - costed.length;
 
   return (
     <>
@@ -195,11 +239,21 @@ export default function PosPage() {
           <div className="card p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-serif text-2xl font-semibold">Чек</h2>
-              {lines.length > 0 && (
-                <button className="text-xs text-muted hover:text-red-600" onClick={reset}>
-                  Очистить
-                </button>
-              )}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-1.5 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={showCost}
+                    onChange={(e) => setShowCost(e.target.checked)}
+                  />
+                  Показать себестоимость
+                </label>
+                {lines.length > 0 && (
+                  <button className="text-xs text-muted hover:text-red-600" onClick={reset}>
+                    Очистить
+                  </button>
+                )}
+              </div>
             </div>
             {lines.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted">
@@ -228,6 +282,22 @@ export default function PosPage() {
                           На складе: {q?.stock ?? l.item.stock} шт.
                           {l.item.sku ? ` · ${l.item.sku}` : ""}
                         </div>
+                        {showCost && q && (
+                          <div
+                            className={`text-xs ${
+                              q.cost_price !== null && q.line_total < q.cost_price * q.quantity
+                                ? "text-red-600"
+                                : "text-muted"
+                            }`}
+                          >
+                            {q.cost_price === null
+                              ? "Себестоимость не указана"
+                              : `Себестоимость ${money(q.cost_price)} · ${marginText(
+                                  q.line_total,
+                                  q.cost_price * q.quantity,
+                                )}`}
+                          </div>
+                        )}
                       </div>
                       <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
                         <QuantityInput
@@ -358,6 +428,12 @@ export default function PosPage() {
               <span>К оплате</span>
               <span>{money(quote?.total ?? 0)}</span>
             </div>
+            {showCost && costed.length > 0 && (
+              <div className="mt-2 text-right text-xs text-muted">
+                Себестоимость {money(costedCost)} · {marginText(costedTotal, costedCost)}
+                {uncosted > 0 && ` · у ${uncosted} поз. нет себестоимости`}
+              </div>
+            )}
             {quote && quote.errors.length > 0 && lines.length > 0 && (
               <ul className="mt-3 space-y-1 text-sm text-red-600">
                 {quote.errors.map((e) => (

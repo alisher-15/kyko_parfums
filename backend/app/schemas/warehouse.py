@@ -45,6 +45,11 @@ class ReceiptLineUpdate(BaseModel):
     cost_price: MoneyIn | None = None
 
 
+class LineSupplierPrice(BaseModel):
+    supplier: str
+    price: Money | None
+
+
 class ReceiptLineOut(ORMModel):
     id: int
     variant_id: int | None
@@ -55,6 +60,8 @@ class ReceiptLineOut(ORMModel):
     # Stock and average cost of the volume now (drafts) — to compare with the new price.
     stock: int | None = None
     current_cost: Money | None = None
+    # Every supplier's price of the volume (drafts), the main supplier first; None: none.
+    supplier_prices: list[LineSupplierPrice] = []
 
 
 class ReceiptBrief(ORMModel):

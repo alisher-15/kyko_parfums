@@ -526,6 +526,8 @@ export interface StoreQuoteLine {
   line_total: number;
   /** A promotion gave a better price than the cashier's discount (they don't add up). */
   promotion_title: string | null;
+  /** The volume's cost, for «Показать себестоимость». */
+  cost_price: number | null;
 }
 
 export interface StoreQuote {
@@ -567,6 +569,8 @@ export interface ReceiptLine {
   cost_price: number | null;
   stock: number | null;
   current_cost: number | null;
+  /** Every supplier's price of the volume (drafts), the main supplier first; null: none. */
+  supplier_prices: { supplier: string; price: number | null }[];
 }
 
 export interface ReceiptBrief {

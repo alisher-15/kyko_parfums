@@ -348,6 +348,8 @@ class StoreQuoteLine(BaseModel):
     line_total: Money
     # A promotion gave a better price than the cashier's discount (they don't add up).
     promotion_title: str | None = None
+    # The volume's cost, for the margin the till shows on request (admin data).
+    cost_price: Money | None = None
 
 
 class StoreQuoteOut(BaseModel):

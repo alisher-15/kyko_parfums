@@ -401,6 +401,56 @@ def test_the_export_has_each_suppliers_price(client, auth, db, catalog, supplier
     assert [report[k] for k in counts] == [0, 0, 0, 0]
 
 
+def test_a_receipt_line_takes_the_receipts_suppliers_price(client, auth, db, catalog, suppliers):
+    h = auth(UserRole.admin)
+    kanat, erik = suppliers["kanat"], suppliers["erik"]
+    coco50, coco100 = catalog["coco50"], catalog["coco100"]
+    _priced(db, coco100, "11000", "18000")
+    db.add_all(
+        [
+            SupplierPrice(supplier_id=kanat.id, variant_id=coco50.id, price=9000, line="a"),
+            SupplierPrice(supplier_id=erik.id, variant_id=coco50.id, price=8500, line="b"),
+            SupplierPrice(supplier_id=erik.id, variant_id=coco100.id, price=12000, line="c"),
+        ]
+    )
+    db.commit()
+
+    def lines(supplier: str | None) -> list[dict]:
+        rid = client.post("/api/admin/receipts", json={"supplier": supplier}, headers=h).json()[
+            "id"
+        ]
+        for v in (coco50, coco100):
+            body = {"variant_id": v.id, "quantity": 1}
+            r = client.post(f"/api/admin/receipts/{rid}/lines", json=body, headers=h)
+            assert r.status_code == 200, r.text
+        return r.json()["items"]
+
+    # The receipt's supplier, written any way: its price list's price.
+    erik_lines = lines(" эрик ")
+    assert [i["cost_price"] for i in erik_lines] == [8500, 12000]
+    assert erik_lines[0]["supplier_prices"] == [
+        {"supplier": "Канат", "price": 9000},
+        {"supplier": "Эрик", "price": 8500},
+    ]
+    assert erik_lines[1]["supplier_prices"][0] == {"supplier": "Канат", "price": None}
+    # No supplier: the main supplier's price; where it has none, the volume's cost as before.
+    assert [i["cost_price"] for i in lines(None)] == [9000, 11000]
+    # A supplier without price lists: the volume's cost as before (coco50 has none).
+    assert [i["cost_price"] for i in lines("Алматы опт")] == [None, 11000]
+
+    # Autocomplete: the suppliers with price lists first.
+    names = client.get("/api/admin/receipts/suppliers", headers=h).json()
+    assert names[:2] == ["Канат", "Эрик"] and "Алматы опт" in names and "эрик" not in names
+
+
+def test_the_till_quote_has_the_cost(client, auth, db, catalog):
+    h = auth(UserRole.admin)
+    _priced(db, catalog["coco50"], "60", "100")
+    body = {"items": [{"variant_id": catalog["coco50"].id, "quantity": 2, "discount_percent": 0}]}
+    line = client.post("/api/admin/store/quote", json=body, headers=h).json()["lines"][0]
+    assert (line["cost_price"], line["line_total"]) == (60, 200)
+
+
 def test_a_receipt_leaves_the_suppliers_cost_alone(client, auth, db, catalog, suppliers):
     h = auth(UserRole.admin)
     coco50, coco100 = catalog["coco50"], catalog["coco100"]

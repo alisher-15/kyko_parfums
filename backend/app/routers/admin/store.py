@@ -213,6 +213,7 @@ def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
                 unit_price=ln.unit_price,
                 line_total=ln.total,
                 promotion_title=ln.deal.title if ln.deal else None,
+                cost_price=ln.variant.cost_price,
             )
             for ln in p.lines
         ],

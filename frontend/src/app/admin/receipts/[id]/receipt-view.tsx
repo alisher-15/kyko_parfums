@@ -74,10 +74,14 @@ export function ReceiptView({ id }: { id: number }) {
     return {
       ok: true,
       title: line.label,
-      detail:
+      detail: [
         line.cost_price !== null
           ? `Закупочная цена ${money(line.cost_price)}`
           : "Закупочная цена не указана",
+        supplierPrices(line),
+      ]
+        .filter(Boolean)
+        .join(" · "),
       quantity: {
         label: "В приёмке, шт.",
         value: line.quantity,
@@ -318,6 +322,10 @@ function ReceiptHeader({ receipt, onSaved }: { receipt: Receipt; onSaved: (r: Re
           <datalist id="receipt-suppliers">
             {suppliers?.map((s) => <option key={s} value={s} />)}
           </datalist>
+          <span className="mt-1 block text-xs text-muted">
+            Закупочная цена новых строк — из прайса этого поставщика («Поставщики»); поле пустое —
+            из прайса основного.
+          </span>
         </label>
         <label className="block">
           <span className="label">№ накладной</span>
@@ -344,6 +352,13 @@ function ReceiptHeader({ receipt, onSaved }: { receipt: Receipt; onSaved: (r: Re
       )}
     </div>
   );
+}
+
+/** «Канат: 9 000 ₸ · Эрик: —»: what each supplier's price list asks for the volume. */
+function supplierPrices(line: ReceiptLine): string {
+  return line.supplier_prices
+    .map((p) => `${p.supplier}: ${p.price === null ? "—" : money(p.price)}`)
+    .join(" · ");
 }
 
 function LineRow({
@@ -397,6 +412,9 @@ function LineRow({
             </span>
           )}
         </div>
+        {line.supplier_prices.length > 0 && (
+          <div className="text-xs text-muted">{supplierPrices(line)}</div>
+        )}
       </div>
       {draft ? (
         <>

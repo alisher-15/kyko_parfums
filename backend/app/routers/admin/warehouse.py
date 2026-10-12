@@ -7,7 +7,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, joinedload, object_session, selectinload
 
 from app.db import get_db
 from app.deps import require_admin
@@ -19,6 +19,8 @@ from app.models import (
     StockCountItem,
     StockReceipt,
     StockReceiptItem,
+    Supplier,
+    SupplierPrice,
     User,
 )
 from app.routers.admin.store import variant_item
@@ -31,6 +33,7 @@ from app.schemas.warehouse import (
     CountLineOut,
     CountLineUpdate,
     CountOut,
+    LineSupplierPrice,
     ReceiptBrief,
     ReceiptIn,
     ReceiptLineIn,
@@ -146,8 +149,28 @@ def _receipt_brief(r: StockReceipt) -> dict:
     }
 
 
+def _supplier_prices(db: Session, variant_ids: list[int]) -> dict[int, list[LineSupplierPrice]]:
+    """Every supplier's price of each volume, the main supplier first; None where one has none."""
+    if not variant_ids:
+        return {}
+    suppliers = db.scalars(select(Supplier).order_by(Supplier.is_main.desc(), Supplier.name)).all()
+    known = {
+        (sp.variant_id, sp.supplier_id): sp.price
+        for sp in db.scalars(select(SupplierPrice).where(SupplierPrice.variant_id.in_(variant_ids)))
+    }
+    return {
+        v: [LineSupplierPrice(supplier=s.name, price=known.get((v, s.id))) for s in suppliers]
+        for v in variant_ids
+    }
+
+
 def _receipt_out(r: StockReceipt, touched: int | None = None) -> ReceiptOut:
     draft = r.status == DocumentStatus.draft
+    prices = (
+        _supplier_prices(object_session(r), [i.variant_id for i in r.items if i.variant_id])
+        if draft
+        else {}
+    )
     return ReceiptOut(
         **_receipt_brief(r),
         note=r.note,
@@ -163,6 +186,7 @@ def _receipt_out(r: StockReceipt, touched: int | None = None) -> ReceiptOut:
                 cost_price=i.cost_price,
                 stock=i.variant.stock if draft and i.variant else None,
                 current_cost=i.variant.cost_price if draft and i.variant else None,
+                supplier_prices=prices.get(i.variant_id, []),
             )
             for i in r.items
         ],
@@ -186,6 +210,29 @@ def _last_cost(db: Session, variant: ProductVariant) -> Decimal | None:
     return last if last is not None else variant.cost_price
 
 
+def _purchase_price(db: Session, receipt: StockReceipt, variant: ProductVariant) -> Decimal | None:
+    """A new line's purchase price: the price list of the receipt's supplier («Канат» in the
+    «Поставщик» field; the main supplier's when the field is empty), else ``_last_cost``."""
+    name = (receipt.supplier or "").strip().casefold()
+    supplier = next(
+        (
+            s
+            for s in db.scalars(select(Supplier))
+            if (s.name.casefold() == name if name else s.is_main)
+        ),
+        None,
+    )
+    if supplier is not None:
+        price = db.scalar(
+            select(SupplierPrice.price).where(
+                SupplierPrice.supplier_id == supplier.id, SupplierPrice.variant_id == variant.id
+            )
+        )
+        if price is not None:
+            return price
+    return _last_cost(db, variant)
+
+
 def _add_receipt_line(
     db: Session,
     receipt: StockReceipt,
@@ -203,7 +250,7 @@ def _add_receipt_line(
         variant=variant,
         label=variant.label,
         quantity=quantity,
-        cost_price=cost if cost is not None else _last_cost(db, variant),
+        cost_price=cost if cost is not None else _purchase_price(db, receipt, variant),
     )
     receipt.items.append(line)
     return line
@@ -231,14 +278,18 @@ def list_receipts(
 
 @router.get("/receipts/suppliers", response_model=list[str])
 def receipt_suppliers(db: Session = Depends(get_db)):
-    """Suppliers of earlier receipts, most recent first (for autocomplete)."""
-    return db.scalars(
+    """For autocomplete: the suppliers with price lists (their prices fill in the purchase price),
+    then the suppliers of earlier receipts, most recent first."""
+    names = list(db.scalars(select(Supplier.name).order_by(Supplier.is_main.desc(), Supplier.name)))
+    seen = {n.casefold() for n in names}
+    earlier = db.scalars(
         select(StockReceipt.supplier)
         .where(StockReceipt.supplier.is_not(None))
         .group_by(StockReceipt.supplier)
         .order_by(func.max(StockReceipt.id).desc())
         .limit(50)
     ).all()
+    return names + [n for n in earlier if n.casefold() not in seen]
 
 
 @router.post("/receipts", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)

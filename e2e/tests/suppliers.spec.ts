@@ -1,4 +1,4 @@
-import { API, adminToken, api, createProduct, expect, loginAsAdmin, test, volume } from "./support";
+import { API, adminToken, api, createProduct, ensureStock, expect, loginAsAdmin, test, volume } from "./support";
 import { randomEan } from "./barcodes";
 
 /** Rows of six cells: the same number of «;» on every line, so the delimiter is clear. */
@@ -126,4 +126,49 @@ test("поставщики: прайс Эрика находит товар по
   await page.goto(`/admin/products/${product.id}`);
   await expect(page.getByText(/Эрик:\s*12\s000/)).toBeVisible();
   await expect(page.getByText(/Канат:\s*—/)).toBeVisible();
+});
+
+test("поставщики: приёмка берёт цену из прайса, касса показывает себестоимость и маржу", async ({ page }) => {
+  const admin = await adminToken();
+  const { product, volume: vol } = await pricedProduct(admin);
+  const v = vol(50);
+  const ean = randomEan();
+  await api("POST", `/admin/variants/${v.id}/barcodes`, admin, { code: ean });
+  // Канат's line is linked to the volume, Эрик's is found by its barcode.
+  const line = `E2E COST ${product.name} 50`;
+  const kanat = (await api("GET", "/admin/suppliers", admin)).find((s: { name: string }) => s.name === "Канат").id;
+  await api("POST", `/admin/suppliers/${kanat}/links`, admin, { line, variant_id: v.id });
+  await applyPriceList(admin, "Канат", kanatCsv(line, 11000), "kanat.csv");
+  await applyPriceList(admin, "Эрик", erikCsv(ean, `E2E ${product.name} 50ML`, 12500), "erik.csv");
+  // Канат's 11 000 is the cost: the retail price rose from 16 000 to 17 600.
+
+  await test.step("приёмка без поставщика: закупочная цена из прайса Каната, рядом цена Эрика", async () => {
+    const receipt = await api("POST", "/admin/receipts", admin, {});
+    await loginAsAdmin(page);
+    await page.goto(`/admin/receipts/${receipt.id}`);
+    const scan = page.getByPlaceholder("Отсканируйте штрихкод");
+    await scan.fill(ean);
+    await scan.press("Enter");
+    await expect(page.getByRole("status")).toContainText(
+      /Закупочная цена 11\s000\s₸ · Канат: 11\s000\s₸ · Эрик: 12\s500\s₸/,
+    );
+    const row = page.locator("li", { hasText: product.name });
+    await expect(row).toContainText(/Канат: 11\s000\s₸ · Эрик: 12\s500\s₸/);
+    await expect(row.getByLabel(/Цена/)).toHaveValue("11000");
+  });
+
+  await test.step("касса: себестоимость и маржа видны только по переключателю", async () => {
+    await ensureStock(admin, v, 2);
+    await page.goto("/admin/pos");
+    const search = page.getByPlaceholder("Название, бренд или штрихкод");
+    await search.fill(ean);
+    await search.press("Enter");
+    const row = page.locator("li", { hasText: `${product.name}, 50 мл` }).first();
+    await expect(row).toBeVisible();
+    await expect(row.getByText(/Себестоимость/)).toHaveCount(0);
+    await page.getByLabel("Показать себестоимость").check();
+    // 17 600 − 11 000 = 6 600, 38% of the price.
+    await expect(row).toContainText(/Себестоимость 11\s000\s₸ · маржа 6\s600\s₸ \(38%\)/);
+    await expect(page.getByText(/^Себестоимость 11\s000\s₸ · маржа 6\s600\s₸ \(38%\)$/)).toHaveCount(2);
+  });
 });

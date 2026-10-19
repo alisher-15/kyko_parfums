@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response, status
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,7 @@ from app.schemas.admin import (
     ReturnIn,
 )
 from app.schemas.common import Page
+from app.services import email
 from app.services.invoice import build_invoice, invoice_filename, product_details
 from app.services.orders import (
     ReturnLine,
@@ -152,17 +153,25 @@ def order_invoice(order_id: int, db: Session = Depends(get_db)):
 def update_order(
     order_id: int,
     data: OrderStatusUpdate,
+    background: BackgroundTasks,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     order = _load_order(db, order_id, lock=True)
     changes = data.model_dump(exclude_unset=True)
+    was = order.status
     if changes.get("status") is not None:
         change_status(db, order, changes["status"], admin)
     if "admin_note" in changes:
         order.admin_note = changes["admin_note"]
     db.commit()
-    return _out(db, _load_order(db, order_id))
+    updated = _load_order(db, order_id)
+    # The customer hears about the new status by email, after the response.
+    to = email.recipient(updated)
+    news = email.order_status(updated) if updated.status != was else None
+    if to and news and email.enabled():
+        background.add_task(email.send_email, to, *news)
+    return _out(db, updated)
 
 
 @router.patch("/orders/{order_id}/items", response_model=AdminOrderOut)

@@ -33,3 +33,19 @@ services:
       # them is set in the admin panel («Настройки» → «Уведомления в Telegram»).
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      # Email for password recovery and order news to customers. Without SMTP_HOST nothing is
+      # sent (and «Забыли пароль?» can't work). Gmail / Yandex / Mail.ru: an app password from
+      # the mailbox settings; SMTP_FROM must be that mailbox.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # Error reports to Sentry (sentry.io → project → Client Keys (DSN)). Empty = none.
+      - key: SENTRY_DSN
+        sync: false

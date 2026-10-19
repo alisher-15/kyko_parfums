@@ -19,6 +19,7 @@ from alembic import command  # noqa: E402
 from app.db import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Brand, Product, ProductVariant, User, UserRole  # noqa: E402
+from app.routers.meta import client_errors  # noqa: E402
 from app.security import hash_password  # noqa: E402
 from app.services.throttle import login_failures, reset_emails  # noqa: E402
 
@@ -45,6 +46,7 @@ def _clean_db():
         conn.execute(text("INSERT INTO pricing_settings (id) VALUES (1)"))
     login_failures.clear()
     reset_emails.clear()
+    client_errors.clear()
     yield
 
 

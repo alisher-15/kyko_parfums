@@ -34,7 +34,7 @@ from app.schemas.orders import (
     QuoteOut,
     TierHintOut,
 )
-from app.services import telegram
+from app.services import email, telegram
 from app.services.orders import (
     add_event,
     change_status,
@@ -199,6 +199,10 @@ def create_order(
         chat_ids = [r.chat_id for r in telegram.recipients(db)]
         if chat_ids:
             background.add_task(telegram.send_to_all, chat_ids, telegram.order_message(placed))
+    # And the customer by email.
+    to = email.recipient(placed)
+    if to and email.enabled():
+        background.add_task(email.send_email, to, *email.order_placed(placed))
     return placed
 
 

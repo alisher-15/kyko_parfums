@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { ErrorReporter } from "@/components/ErrorReporter";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { Providers } from "./providers";
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className={`${manrope.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
+        <ErrorReporter />
         <Providers>
           <Header />
           <main className="flex-1">{children}</main>

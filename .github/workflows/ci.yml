@@ -69,6 +69,29 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
 
+  mobile:
+    name: Mobile (tsc, eslint, prettier, bundles)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run format:check
+      # Bundling for both platforms catches imports that only break on a phone.
+      - run: npx expo export --platform ios --platform android --output-dir "$RUNNER_TEMP/expo-export"
+        env:
+          EXPO_OFFLINE: "1"
+
   e2e:
     name: Browser tests (Playwright)
     runs-on: ubuntu-latest

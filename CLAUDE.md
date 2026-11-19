@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Kyko Parfum is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
+Kyko Parfum is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The customer mobile app (iOS and Android) is Expo SDK 58 + Expo Router in `mobile/`; it uses the same public API. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
 
 ## Commands
 
@@ -31,6 +31,17 @@ Frontend (run from `frontend/`):
 npm run dev                  # http://localhost:3000; /api and /media are proxied to BACKEND_URL (default :8000)
 npm run lint && npm run typecheck && npm run build   # typecheck = next typegen + tsc (PageProps/LayoutProps are generated)
 ```
+
+Mobile app (run from `mobile/`; see [mobile/README.md](mobile/README.md)):
+
+```bash
+npx expo start                                  # Expo Go on a phone; the live shop by default
+EXPO_PUBLIC_SITE_URL=http://localhost:3000 npx expo start --web   # against a local site
+npm run typecheck && npm run lint && npm run format:check
+npx expo export --platform ios --platform android                # the native bundles build
+```
+
+Add packages with `npx expo install` (SDK-matched versions; `EXPO_OFFLINE=1` when api.expo.dev is unreachable). [mobile/AGENTS.md](mobile/AGENTS.md): Expo changes every SDK, so check the installed package's types and source rather than memory.
 
 Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` database with demo data and `next start` on the existing frontend build):
 
@@ -76,13 +87,15 @@ Full stack: `docker compose up -d --build`.
 
 **Telegram** (`services/telegram.py`, `routers/admin/telegram.py`). New online orders (not store sales) are sent to every `telegram_recipients` chat by the bot in `TELEGRAM_BOT_TOKEN`, as a FastAPI background task after the checkout response, so a Telegram failure never breaks checkout. Recipients are chats, not phone numbers: the admin panel hands out a start link with a signed 24 h code (HMAC with `jwt_secret`), and `/admin/telegram/check` reads `getUpdates` and adds the chats that sent `/start <code>`. No webhook and nothing on a timer. The token is in the request URL only; never log it or put it in an error. Tests replace `telegram.call` with a fake.
 
+**Mobile app** (`mobile/`). A client of the public API only (`routers/{auth,catalog,orders}.py`), with no backend code of its own: it calls `${EXPO_PUBLIC_SITE_URL}/api` (default `https://kyko-parfums.onrender.com`) through the Next.js proxy, and resolves relative photo paths (`/bottles/…`, `/media/…`) against the same site (`src/lib/config.ts`). `src/lib/types.ts` and `format.ts` mirror `frontend/src/lib/` for the customer-facing types: when a public schema or a label changes, update both. Tokens live in the Keychain/Keystore (`expo-secure-store`; localStorage in the web build) and refresh like the website's; cart, favorites and the ₸/$ choice are in AsyncStorage. Prices come from the server only (`/cart/quote`, `/products`); `lib/auth.tsx` resets the React Query cache whenever the user or role changes, so no cached price outlives a login. Native apps send no `Origin`, so CORS doesn't apply to them; the web build (`expo start --web`, port 8081) needs its origin in `CORS_ORIGINS`. A public API change must stay backward compatible: installed app versions keep calling the old shape until users update.
+
 **Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are protected by `deps.require_admin`. The Pydantic schemas are in `app/schemas/`.
 
 **Models.** Enums are stored as VARCHAR + CHECK (`_enum()` in `models.py`), not native PG enums, so adding an enum value (e.g. a new `StockReason`) needs a migration that drops and recreates the CHECK constraint (see migrations 0003 and 0006). Money is `Decimal` internally and serialized to JSON as a number (`schemas/common.Money`). After a commit in the same session, reload objects with `.execution_options(populate_existing=True)` (see `order_load_options()`), and lock with `with_for_update(of=Model)` when the query has outer joins.
 
 ## Workflow
 
-Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and the browser tests on every PR and on `main`; merge only when all three jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
+Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks, the mobile checks and the browser tests on every PR and on `main`; merge only when all four jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
 ## Migrations: required rule
 

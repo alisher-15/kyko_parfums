@@ -40,7 +40,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
-from app.services import markups
+from app.services import bottles, markups
 from app.services.stock import set_stock
 
 # fmt: off
@@ -392,6 +392,8 @@ def import_catalog(
 
             ptype = normalize_type(raw_type)
             values = {f: _text(cell(cells, f)) for f in PRODUCT_TEXT_FIELDS}
+            # A photo that came with the code is in the bucket now (services/bottles.py).
+            values["image_url"] = bottles.bucket_url(values["image_url"])
             if values["category"]:
                 values["category"] = values["category"][:128]
             if values["longevity"]:

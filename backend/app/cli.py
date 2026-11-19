@@ -19,6 +19,7 @@ from app.db import SessionLocal
 from app.migrations import migrate
 from app.models import Product, User, UserRole
 from app.security import hash_password
+from app.services import bottles, storage
 from app.services.importer import build_template, import_catalog
 
 
@@ -45,6 +46,23 @@ def import_cmd(path: str, sheet: str | None, dry_run: bool) -> int:
     with SessionLocal() as db:
         report = import_catalog(db, p.read_bytes(), p.name, sheet=sheet, dry_run=dry_run)
     print(json.dumps(report.model_dump(), ensure_ascii=False, indent=2))
+    return 0
+
+
+def photos_to_r2(directory: Path | None, links_only: bool) -> int:
+    if not storage.use_bucket():
+        print("R2 is not set up: fill in the five R2_* variables first", file=sys.stderr)
+        return 1
+    if not links_only:
+        folder = directory or bottles.default_dir()
+        if not folder.is_dir():
+            print(f"No folder {folder}", file=sys.stderr)
+            return 1
+        print(f"Uploaded {bottles.upload(folder)} photos to R2 ({bottles.KEY_PREFIX})")
+    with SessionLocal() as db:
+        changed = bottles.relink(db)
+        db.commit()
+    print(f"Links moved to R2: {changed}")
     return 0
 
 
@@ -90,6 +108,12 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("bootstrap", help="create admin / demo data from environment variables")
     sub.add_parser("migrate", help="apply migrations; check a database newer than the code")
 
+    p = sub.add_parser(
+        "photos-to-r2", help="upload frontend/public/bottles to R2 and point the catalog at it"
+    )
+    p.add_argument("--dir", type=Path, help="the photos folder (default: frontend/public/bottles)")
+    p.add_argument("--links-only", action="store_true", help="only move /bottles/ links to R2")
+
     args = parser.parse_args(argv)
     if args.cmd == "create-admin":
         if len(args.password) < 8:
@@ -109,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
         bootstrap()
     elif args.cmd == "migrate":
         return migrate()
+    elif args.cmd == "photos-to-r2":
+        return photos_to_r2(args.dir, args.links_only)
     return 0
 
 

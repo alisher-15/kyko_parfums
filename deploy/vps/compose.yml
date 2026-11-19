@@ -1,0 +1,76 @@
+# Kyko Parfum on one VPS in Kazakhstan: PostgreSQL, the site (the all-in-one image of the root
+# Dockerfile: Next.js + FastAPI) and Caddy, which gets and renews the HTTPS certificate for the
+# domain by itself. How to use it: deploy/vps/README.md.
+name: kyko
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kyko
+      POSTGRES_USER: kyko
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/vps/.env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kyko -d kyko"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://kyko:${POSTGRES_PASSWORD}@db:5432/kyko
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/vps/.env}
+      FRONTEND_URL: https://${DOMAIN:?set DOMAIN in deploy/vps/.env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      SEED_DEMO: "false"
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      R2_ENDPOINT: ${R2_ENDPOINT:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+      PORT: "10000"
+    # Uploaded photos when R2 is not set: on a disk of the server, kept across updates.
+    volumes:
+      - media:/app/backend/media
+    expose:
+      - "10000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:

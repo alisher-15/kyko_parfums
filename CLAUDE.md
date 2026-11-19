@@ -55,6 +55,7 @@ Full stack: `docker compose up -d --build`.
 **Deploy.** There are two packaging modes:
 - `docker-compose.yml` uses the separate `backend/` and `frontend/` images.
 - The root `Dockerfile` plus `deploy/start.sh` is an all-in-one image for Render (`render.yaml`): migrate → bootstrap → uvicorn on 127.0.0.1:8000 → Next standalone server on `$PORT`.
+- `deploy/vps/` runs the same all-in-one image on a VPS in Kazakhstan with PostgreSQL and Caddy (HTTPS), plus `backup.sh`; its README is the runbook (first start, filling the shop from Excel, updates, backups).
 
 **Pricing** (`app/pricing.py`, pure functions). There are three tiers: retail, wholesale and bulk. The customer's role caps the best tier they can get. The tier is chosen by the thresholds in the `pricing_settings` row, in `order_total` mode (one tier for the whole order) or `item_quantity` mode (a tier per line). A missing wholesale or bulk price falls back to the tier above it. Business rule: the wholesale level is decided by the role, not by the order size, so in production both thresholds are 0 (the threshold modes stay available in «Настройки»). Wholesale customers additionally see the bulk price as a teaser (`next_tier_price`, `teaser_tier`), switchable by `pricing_settings.show_next_tier`; upgrade requests always target the next role (`next_role`). The server always computes prices (`POST /api/cart/quote`, `POST /api/orders`), and order items store a snapshot of price, tier, cost and product. Retail users and guests must never see wholesale prices in API responses; see `visible_tiers`.
 

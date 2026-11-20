@@ -34,7 +34,10 @@ def _client():
         aws_access_key_id=s.r2_access_key_id,
         aws_secret_access_key=s.r2_secret_access_key,
         region_name="auto",
-        config=Config(retries={"max_attempts": 3, "mode": "standard"}),
+        # A storage that can't be reached fails in seconds, not minutes per file.
+        config=Config(
+            retries={"max_attempts": 3, "mode": "standard"}, connect_timeout=10, read_timeout=60
+        ),
     )
 
 

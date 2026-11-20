@@ -49,6 +49,8 @@ def upload(directory: Path) -> int:
             continue
         storage.save(KEY_PREFIX + path.name, path.read_bytes(), content_type)
         count += 1
+        if count % 100 == 0:
+            print(f"… {count}", flush=True)
     return count
 
 

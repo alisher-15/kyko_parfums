@@ -33,6 +33,7 @@ test("новый покупатель: регистрация, заказ, от�
     await page.getByLabel("Телефон").fill("+7 701 111 22 33");
     await page.getByLabel("Email").fill(email);
     await page.getByLabel("Пароль").fill("buyer-pass-1");
+    await page.getByLabel(/согласие на обработку/).check();
     await page.getByRole("button", { name: "Зарегистрироваться" }).click();
     await page.waitForURL("**/checkout");
   });
@@ -42,6 +43,7 @@ test("новый покупатель: регистрация, заказ, от�
   await test.step("оформление заказа списывает остаток", async () => {
     await page.getByLabel("Город").fill("Алматы");
     await page.getByLabel("Адрес").fill("пр. Абая, 10");
+    await page.getByLabel(/согласие на обработку/).check();
     await page.getByRole("button", { name: /Подтвердить заказ/ }).click();
     await page.waitForURL(/\/account\/orders\/\d+/);
     await expect(page.getByText(/Спасибо! Заказ №/)).toBeVisible();

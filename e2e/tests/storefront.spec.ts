@@ -77,6 +77,19 @@ test.describe("Витрина для гостя", () => {
     await expect(page.locator("a[href^='/products/']").filter({ hasText: product.name }).first()).toBeVisible();
   });
 
+  test("оферта и политика конфиденциальности открываются из подвала", async ({ page }) => {
+    await page.goto("/");
+    for (const [link, heading] of [
+      ["Публичная оферта", "Публичная оферта"],
+      ["Политика конфиденциальности", "Политика конфиденциальности"],
+    ]) {
+      await page.locator("footer").getByRole("link", { name: link }).click();
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      await expect(page.getByText(/^Редакция от /)).toBeVisible();
+      await page.goBack();
+    }
+  });
+
   test("страница брендов", async ({ page }) => {
     await page.goto("/brands");
     await expect(page.getByText("Chanel").first()).toBeVisible();
@@ -133,6 +146,12 @@ test.describe("Витрина для гостя", () => {
     await page.getByLabel("Телефон").fill(phone);
     await page.getByLabel("Город").fill("Алматы");
     await page.getByLabel("Адрес").fill("пр. Абая, 1");
+    // Without the consent to the processing of personal data the browser won't send the form.
+    await page.getByRole("button", { name: /^Подтвердить заказ/ }).click();
+    const consent = page.getByLabel(/согласие на обработку/);
+    expect(await consent.evaluate((box: HTMLInputElement) => box.validity.valueMissing)).toBe(true);
+    await expect(page).toHaveURL(/\/checkout$/);
+    await consent.check();
     await page.getByRole("button", { name: /^Подтвердить заказ/ }).click();
     await page.waitForURL(/\/orders\/\d+\?key=.+&created=1$/);
     const link = new URL(page.url());

@@ -28,6 +28,8 @@ export function Footer() {
           <Link href="/catalog">Каталог</Link>
           <Link href="/brands">Бренды</Link>
           <Link href="/account/orders">Мои заказы</Link>
+          <Link href="/offer">Публичная оферта</Link>
+          <Link href="/privacy">Политика конфиденциальности</Link>
         </div>
         <div className="flex flex-col gap-2">
           <span className="font-semibold text-ink">Оптовым клиентам</span>

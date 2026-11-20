@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { Consent } from "@/components/Consent";
 import { QuoteHints } from "@/components/QuoteHints";
 import { Empty, ErrorBox, Field, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
@@ -143,6 +144,7 @@ function Checkout({ user }: { user: User | null }) {
             Онлайн-оплаты пока нет: после оформления менеджер свяжется с вами, подтвердит наличие
             и срок доставки. Оплата — по факту получения или переводом.
           </div>
+          <Consent offer />
           {error && <ErrorBox>{error}</ErrorBox>}
           <button
             className="btn btn-primary w-full"

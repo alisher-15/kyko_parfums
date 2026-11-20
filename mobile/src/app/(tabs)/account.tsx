@@ -16,6 +16,7 @@ import { PRIVACY_URL } from "@/lib/config";
 import { CONTACTS } from "@/lib/contacts";
 import { useCurrency } from "@/lib/currency";
 import { ROLE_LABELS, longDate, tenge } from "@/lib/format";
+import { usePushStatus } from "@/lib/notifications";
 import { useApi } from "@/lib/queries";
 import type { PricingRules, User } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
@@ -80,6 +81,7 @@ export default function AccountScreen() {
             title="Сменить пароль"
             onPress={() => router.push("/change-password")}
           />
+          <PushRow />
         </Card>
       )}
 
@@ -245,3 +247,27 @@ const styles = StyleSheet.create({
     gap: 4,
   },
 });
+
+/** «Уведомления о заказах»: turn on, or send to the phone's settings after a «no». */
+function PushRow() {
+  const { status, enable, openSettings } = usePushStatus();
+  if (status === null || status === "unsupported") return null;
+  const subtitle =
+    status === "granted"
+      ? "Включены: статус заказа придёт на телефон"
+      : status === "denied"
+        ? "Выключены в настройках телефона"
+        : "Сообщать, когда заказ примут, отправят и доставят";
+  return (
+    <>
+      <Divider style={{ marginLeft: 50 }} />
+      <MenuRow
+        testID="menu-push"
+        icon={status === "granted" ? "notifications" : "notifications-outline"}
+        title="Уведомления о заказах"
+        subtitle={subtitle}
+        onPress={() => (status === "denied" ? openSettings() : void enable())}
+      />
+    </>
+  );
+}

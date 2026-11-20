@@ -40,6 +40,14 @@
           "imageWidth": 160,
           "backgroundColor": "#faf8f5"
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#a67c52",
+          "defaultChannel": "orders"
+        }
       ]
     ],
     "experiments": {

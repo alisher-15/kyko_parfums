@@ -11,7 +11,7 @@ from email.message import EmailMessage
 
 from app.config import get_settings
 from app.models import Order, OrderChannel, OrderStatus, volume_label
-from app.services.orders import fmt_money
+from app.services.orders import customer_link, fmt_money
 
 log = logging.getLogger(__name__)
 
@@ -79,7 +79,8 @@ def recipient(order: Order) -> str | None:
 
 
 def _order_link(order: Order) -> str:
-    return f"{get_settings().frontend_url.rstrip('/')}/account/orders/{order.id}"
+    where = "Заказ на сайте" if order.user_id is None else "Заказ в личном кабинете"
+    return f"{where}: {customer_link(order)}"
 
 
 def order_placed(order: Order) -> tuple[str, str]:
@@ -100,7 +101,7 @@ def order_placed(order: Order) -> tuple[str, str]:
             f"Доставка: {order.delivery_city}, {order.delivery_address}",
             "",
             "Менеджер свяжется с вами, чтобы подтвердить заказ.",
-            f"Заказ в личном кабинете: {_order_link(order)}",
+            _order_link(order),
         ]
     )
     return f"Заказ №{order.id} принят — Kyko Parfum", body
@@ -118,7 +119,7 @@ def order_status(order: Order) -> tuple[str, str] | None:
             "",
             f"Ваш заказ №{order.id} {word}. {more}",
             "",
-            f"Заказ в личном кабинете: {_order_link(order)}",
+            _order_link(order),
         ]
     )
     return f"Заказ №{order.id} {word} — Kyko Parfum", body

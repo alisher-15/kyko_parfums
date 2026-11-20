@@ -9,8 +9,8 @@ import { useEffect, useRef } from "react";
 const YM_ID = /^\d+$/.test(process.env.NEXT_PUBLIC_YM_ID ?? "") ? Number(process.env.NEXT_PUBLIC_YM_ID) : null;
 const GA_ID = /^G-[A-Z0-9]+$/.test(process.env.NEXT_PUBLIC_GA_ID ?? "") ? process.env.NEXT_PUBLIC_GA_ID! : null;
 
-// Pages that are nobody else's business: costs, customers' data, reset links.
-const PRIVATE = /^\/(admin|account|checkout|reset-password)(\/|$)/;
+// Pages that are nobody else's business: costs, customers' data, reset and guest order links.
+const PRIVATE = /^\/(admin|account|checkout|orders|reset-password)(\/|$)/;
 
 type Queue = ((...args: unknown[]) => void) & { a?: unknown[][]; l?: number };
 declare global {

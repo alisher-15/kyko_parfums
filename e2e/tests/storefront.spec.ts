@@ -107,7 +107,7 @@ test.describe("Витрина для гостя", () => {
     await expect(page.getByText(/Под заказ|Только в наличии/)).toHaveCount(0);
   });
 
-  test("карточка товара и корзина гостя", async ({ page }) => {
+  test("карточка товара, корзина и заказ гостя без регистрации", async ({ page }) => {
     const coco = (await api("GET", "/products?q=coco")).items[0];
     const detail = await api("GET", `/products/${coco.id}`);
     for (const v of detail.variants) {
@@ -123,5 +123,43 @@ test.describe("Витрина для гостя", () => {
     await page.goto("/cart");
     await expect(page.getByText("Итого").first()).toBeVisible();
     await expect(page.locator("a[href='/login?next=/checkout']")).toBeVisible();
+
+    // No account needed: the guest orders at retail prices and gets a link of their own.
+    await page.getByRole("link", { name: "Оформить заказ" }).click();
+    await page.waitForURL("**/checkout");
+    await expect(page.getByText("Можно без регистрации — по розничным ценам.")).toBeVisible();
+    const phone = `+7 7${String(Date.now()).slice(-9)}`;
+    await page.getByLabel("Имя и фамилия").fill("Гость Тестов");
+    await page.getByLabel("Телефон").fill(phone);
+    await page.getByLabel("Город").fill("Алматы");
+    await page.getByLabel("Адрес").fill("пр. Абая, 1");
+    await page.getByRole("button", { name: /^Подтвердить заказ/ }).click();
+    await page.waitForURL(/\/orders\/\d+\?key=.+&created=1$/);
+    const link = new URL(page.url());
+    const orderId = Number(link.pathname.split("/").pop());
+    await expect(page.getByText(`Заказ № ${orderId} создан`)).toBeVisible();
+    await expect(page.getByText("Сохраните эту страницу в закладки")).toBeVisible();
+
+    const admin = await adminToken();
+    const placed = await api("GET", `/admin/orders/${orderId}`, admin);
+    expect(placed.user_email).toBeNull();
+    expect(placed.customer_role).toBe("retail");
+    expect(placed.contact_phone).toBe(phone);
+
+    // The link opens the order in another browser too; without its key it is not found.
+    const other = await page.context().browser()!.newPage();
+    await other.goto(`${link.pathname}?key=${link.searchParams.get("key")}`);
+    await expect(other.getByRole("heading", { name: new RegExp(`Заказ № ${orderId}`) })).toBeVisible();
+    await other.goto(link.pathname);
+    await expect(other.getByText("Заказ не найден")).toBeVisible();
+    await other.close();
+
+    // The guest cancels it; the shop sees who it was.
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "Отменить заказ" }).click();
+    await expect(page.getByText("Отменён").first()).toBeVisible();
+    await loginAsAdmin(page);
+    await page.goto(`/admin/orders/${orderId}`);
+    await expect(page.getByText("Без регистрации · розничные цены")).toBeVisible();
   });
 });

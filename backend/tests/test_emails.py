@@ -44,6 +44,19 @@ def test_the_customer_gets_emails_about_the_order(client, auth, catalog, outbox)
     assert len(outbox) == 2
 
 
+
+def test_a_guest_gets_the_link_of_their_order(client, catalog, outbox):
+    items = [{"variant_id": catalog["coco50"].id, "quantity": 1}]
+    order = client.post("/api/orders", json={**CHECKOUT, "items": items}).json()
+    to, _, body = outbox[0]
+    assert to == "anna@example.com"
+    site = get_settings().frontend_url.rstrip("/")
+    assert f"Заказ на сайте: {site}/orders/{order['id']}?key={order['guest_key']}" in body
+    # Without an email the guest has the link on the page only.
+    quiet = {**CHECKOUT, "contact_email": None, "contact_phone": "+7 701 111 11 11"}
+    assert client.post("/api/orders", json={**quiet, "items": items}).status_code == 201
+    assert len(outbox) == 1
+
 def test_no_emails_without_an_address_or_for_store_sales():
     online = Order(id=1, channel=OrderChannel.online, contact_email="admin")
     store = Order(id=2, channel=OrderChannel.store, contact_email="anna@example.com")

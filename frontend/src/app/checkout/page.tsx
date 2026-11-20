@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { QuoteHints } from "@/components/QuoteHints";
-import { RequireAuth } from "@/components/RequireAuth";
 import { Empty, ErrorBox, Field, Spinner } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -14,25 +13,27 @@ import { volumeLabel } from "@/lib/format";
 import type { Order, User } from "@/lib/types";
 import { useQuote } from "@/lib/use-quote";
 
+// A guest's order comes back with the secret of its link.
+type PlacedOrder = Order & { guest_key: string | null };
+
+/** Checkout with an account or without one (a guest pays retail prices; see README). */
 export default function CheckoutPage() {
-  return (
-    <RequireAuth>
-      <Checkout />
-    </RequireAuth>
-  );
+  const { user, loading } = useAuth();
+  if (loading) return <Spinner />;
+  // Logging in or out starts the form again with that person's details.
+  return <Checkout key={user?.id ?? "guest"} user={user} />;
 }
 
-function Checkout() {
-  const { user } = useAuth() as { user: User };
+function Checkout({ user }: { user: User | null }) {
   const { items, clear, ready } = useCart();
   const { quote, loading } = useQuote();
   const { money } = useCurrency();
   const router = useRouter();
   const [form, setForm] = useState({
-    contact_name: user.full_name ?? "",
-    contact_phone: user.phone ?? "",
+    contact_name: user?.full_name ?? "",
+    contact_phone: user?.phone ?? "",
     // A login like "admin" is not a deliverable address — don't prefill it into an email field.
-    contact_email: user.email.includes("@") ? user.email : "",
+    contact_email: user?.email.includes("@") ? user.email : "",
     delivery_city: "",
     delivery_address: "",
     comment: "",
@@ -61,7 +62,7 @@ function Checkout() {
     setError(null);
     setSubmitting(true);
     try {
-      const order = await api<Order>("/orders", {
+      const order = await api<PlacedOrder>("/orders", {
         body: {
           ...form,
           contact_email: form.contact_email || null,
@@ -70,7 +71,11 @@ function Checkout() {
         },
       });
       clear();
-      router.push(`/account/orders/${order.id}?created=1`);
+      router.push(
+        order.guest_key
+          ? `/orders/${order.id}?key=${encodeURIComponent(order.guest_key)}&created=1`
+          : `/account/orders/${order.id}?created=1`,
+      );
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 409
@@ -88,6 +93,15 @@ function Checkout() {
       <h1 className="mb-6 font-serif text-4xl font-bold">Оформление заказа</h1>
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         <form onSubmit={submit} className="card space-y-4 p-6">
+          {!user && (
+            <div className="rounded-xl bg-cream px-4 py-3 text-sm">
+              Можно без регистрации — по розничным ценам.{" "}
+              <Link href="/login?next=/checkout" className="font-semibold text-gold hover:underline">
+                Войдите
+              </Link>
+              , чтобы заказ сохранился в личном кабинете, а оптовые цены применились.
+            </div>
+          )}
           <h2 className="font-serif text-2xl font-semibold">Контакты</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Имя и фамилия">
@@ -103,7 +117,7 @@ function Checkout() {
                 placeholder="+7 ___ ___ __ __"
               />
             </Field>
-            <Field label="Email">
+            <Field label="Email" hint={user ? undefined : "Пришлём ссылку на заказ и новости о нём"}>
               <input className="input" type="email" value={form.contact_email} onChange={set("contact_email")} />
             </Field>
           </div>

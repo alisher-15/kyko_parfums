@@ -60,3 +60,7 @@ class Throttle:
 login_failures = Throttle(limit=10, window=15 * 60)
 # Password-reset emails per address.
 reset_emails = Throttle(limit=3, window=60 * 60)
+# Orders without an account: per phone number, and for the whole site, so that nobody can empty
+# the shelves with made-up orders. Customers with an account are not limited.
+guest_orders_per_phone = Throttle(limit=3, window=60 * 60)
+guest_orders = Throttle(limit=30, window=60 * 60)

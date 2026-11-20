@@ -165,7 +165,8 @@ def order_message(order: Order) -> str:
         items.append(line)
     tail = [
         "",
-        f"{order.contact_name}, {order.contact_phone}",
+        f"{order.contact_name}, {order.contact_phone}"
+        + (" · без регистрации" if order.user_id is None else ""),
         f"{order.delivery_city}, {order.delivery_address}",
     ]
     if order.comment:

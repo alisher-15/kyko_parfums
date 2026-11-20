@@ -148,6 +148,11 @@ class OrderOut(ORMModel):
     events: list[OrderEventOut]
 
 
+class PlacedOrderOut(OrderOut):
+    # A guest's order: the secret of their link /orders/{id}?key=… (None with an account).
+    guest_key: str | None = None
+
+
 class OrderBrief(ORMModel):
     id: int
     channel: OrderChannel

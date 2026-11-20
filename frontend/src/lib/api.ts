@@ -83,6 +83,7 @@ export interface RequestOptions {
   body?: unknown;
   form?: FormData;
   query?: Record<string, QueryValue>;
+  headers?: Record<string, string>;
 }
 
 function buildQuery(query?: Record<string, QueryValue>): string {
@@ -113,7 +114,7 @@ function errorMessage(detail: unknown, fallback = "Что-то пошло не �
 }
 
 async function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Response> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...opts.headers };
   const tokens = withAuth ? getTokens() : null;
   if (tokens) headers.Authorization = `Bearer ${tokens.access_token}`;
   let body: BodyInit | undefined;

@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import hmac
 from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
@@ -78,6 +81,26 @@ def order_load_options():
         joinedload(Order.user),
         joinedload(Order.created_by),
     )
+
+
+def guest_key(order_id: int) -> str:
+    """The secret of a guest's link to their order: only the shop can make it (jwt_secret)."""
+    mac = hmac.new(
+        get_settings().jwt_secret.encode(), f"guest-order:{order_id}".encode(), hashlib.sha256
+    )
+    return base64.urlsafe_b64encode(mac.digest()[:18]).decode()
+
+
+def guest_key_is_good(order_id: int, key: str) -> bool:
+    return hmac.compare_digest(guest_key(order_id), key or "")
+
+
+def customer_link(order: Order) -> str:
+    """Where the customer sees the order: the account, or a guest's own link."""
+    base = get_settings().frontend_url.rstrip("/")
+    if order.user_id is None:
+        return f"{base}/orders/{order.id}?key={guest_key(order.id)}"
+    return f"{base}/account/orders/{order.id}"
 
 
 def add_event(order: Order, kind: OrderEventKind, message: str, user: User | None = None) -> None:

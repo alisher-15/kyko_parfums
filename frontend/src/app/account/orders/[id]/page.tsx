@@ -1,7 +1,7 @@
-import { OrderView } from "./order-view";
+import { CustomerOrder } from "@/components/CustomerOrder";
 
 export default async function OrderPage(props: PageProps<"/account/orders/[id]">) {
   const { id } = await props.params;
   const { created } = await props.searchParams;
-  return <OrderView id={Number(id)} created={created === "1"} />;
+  return <CustomerOrder id={Number(id)} created={created === "1"} />;
 }

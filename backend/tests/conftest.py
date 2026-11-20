@@ -21,7 +21,12 @@ from app.main import app  # noqa: E402
 from app.models import Brand, Product, ProductVariant, User, UserRole  # noqa: E402
 from app.routers.meta import client_errors  # noqa: E402
 from app.security import hash_password  # noqa: E402
-from app.services.throttle import login_failures, reset_emails  # noqa: E402
+from app.services.throttle import (  # noqa: E402
+    guest_orders,
+    guest_orders_per_phone,
+    login_failures,
+    reset_emails,
+)
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 PASSWORD = "password123"
@@ -47,6 +52,8 @@ def _clean_db():
     login_failures.clear()
     reset_emails.clear()
     client_errors.clear()
+    guest_orders.clear()
+    guest_orders_per_phone.clear()
     yield
 
 

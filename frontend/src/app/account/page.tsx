@@ -16,6 +16,7 @@ export default function AccountPage() {
       <StatusCard user={user} />
       <ProfileForm user={user} />
       <PasswordForm />
+      <DeleteAccount />
     </div>
   );
 }
@@ -189,5 +190,55 @@ function PasswordForm() {
       {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
       <button className="btn btn-outline">Изменить пароль</button>
     </form>
+  );
+}
+
+/** The same rules as the app's «Удалить аккаунт»: personal data goes, orders stay. */
+function DeleteAccount() {
+  const { logout } = useAuth();
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!window.confirm("Удалить аккаунт навсегда? Восстановить его будет нельзя.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/me/delete", { body: { password } });
+      logout("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <details className="card p-6 md:col-start-2">
+      <summary className="cursor-pointer text-sm font-semibold text-red-700">Удалить аккаунт</summary>
+      <form onSubmit={submit} className="mt-4 space-y-4">
+        <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
+          <li>Email, имя, телефон и название компании удаляются с сервера магазина.</li>
+          <li>Войти в аккаунт будет нельзя — ни на сайте, ни в приложении.</li>
+          <li>Заказы остаются в учёте магазина: это документы о продажах.</li>
+          <li>Позже можно зарегистрироваться заново с тем же email.</li>
+        </ul>
+        <Field label="Пароль для подтверждения">
+          <input
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </Field>
+        {error && <ErrorBox>{error}</ErrorBox>}
+        <button className="btn btn-outline w-full border-red-200 text-red-700" disabled={busy}>
+          {busy ? "Удаляем…" : "Удалить аккаунт навсегда"}
+        </button>
+      </form>
+    </details>
   );
 }

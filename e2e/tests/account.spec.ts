@@ -1,10 +1,13 @@
 import {
   adminToken,
   api,
+  call,
   ensureStock,
   expect,
   fromBackendLog,
+  login,
   newCustomer,
+  placeOrder,
   product,
   test,
   uniqueEmail,
@@ -107,4 +110,46 @@ test("восстановление пароля по ссылке из пись�
   expect((await api("POST", "/auth/login", null, { email: customer.email, password: "brand-new-pass" })).user.email).toBe(
     customer.email,
   );
+});
+
+test("удаление аккаунта: вход закрыт, заказы остаются; политика конфиденциальности в подвале", async ({
+  page,
+}) => {
+  const admin = await adminToken();
+  const coco = await product(admin, "coco");
+  await ensureStock(admin, coco.variants[0], 1);
+  const customer = await newCustomer("delete");
+  const order = await placeOrder(customer.token, [{ variant_id: coco.variants[0].id, quantity: 1 }]);
+  await login(page, customer.email, customer.password);
+
+  await test.step("неверный пароль не удаляет аккаунт", async () => {
+    await page.goto("/account");
+    await page.getByText("Удалить аккаунт", { exact: true }).click();
+    await page.getByLabel("Пароль для подтверждения").fill("not-my-password");
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "Удалить аккаунт навсегда" }).click();
+    await expect(page.getByText("Пароль указан неверно")).toBeVisible();
+  });
+
+  await test.step("верный пароль: аккаунт удалён, вход больше не работает", async () => {
+    await page.getByLabel("Пароль для подтверждения").fill(customer.password);
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "Удалить аккаунт навсегда" }).click();
+    await page.waitForURL((url) => url.pathname === "/");
+    const r = await call("POST", "/auth/login", null, {
+      email: customer.email,
+      password: customer.password,
+    });
+    expect(r.status).toBe(401);
+    // The order is the shop's sales record: it stays, with the contacts given at checkout.
+    const kept = await api("GET", `/admin/orders/${order.id}`, admin);
+    expect(kept.contact_phone).toBeTruthy();
+  });
+
+  await test.step("ссылка на политику конфиденциальности в подвале", async () => {
+    await page.getByRole("link", { name: "Политика конфиденциальности" }).click();
+    await expect(page).toHaveURL(/\/privacy$/);
+    await expect(page.getByRole("heading", { name: "Политика конфиденциальности" })).toBeVisible();
+    await expect(page.getByText("Профиль → Удалить аккаунт")).toBeVisible();
+  });
 });

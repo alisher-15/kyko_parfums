@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,7 +26,10 @@ interface AuthState {
     full_name?: string;
     phone?: string;
   }) => Promise<User>;
-  logout: () => void;
+  /** Sign out. `to`: where a page that needs a session goes next, instead of the login page. */
+  logout: (to?: string) => void;
+  /** The `to` of the last logout, read once by RequireAuth. */
+  takeLogoutTarget: () => string | null;
   setSession: (pair: TokenPair) => void;
   refreshUser: () => Promise<void>;
   setUser: (user: User) => void;
@@ -96,9 +100,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [setSession],
   );
 
-  const logout = useCallback(() => {
+  const logoutTarget = useRef<string | null>(null);
+  const logout = useCallback((to?: string) => {
+    logoutTarget.current = to ?? null;
     setTokens(null);
     setUser(null);
+  }, []);
+  const takeLogoutTarget = useCallback(() => {
+    const to = logoutTarget.current;
+    logoutTarget.current = null;
+    return to;
   }, []);
 
   const value = useMemo<AuthState>(
@@ -109,11 +120,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      takeLogoutTarget,
       setSession,
       refreshUser,
       setUser,
     }),
-    [user, loading, login, register, logout, setSession, refreshUser],
+    [user, loading, login, register, logout, takeLogoutTarget, setSession, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

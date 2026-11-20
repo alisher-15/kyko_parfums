@@ -8,3 +8,4 @@ backend/media/*
 data/*
 **/.env
 .git
+mobile

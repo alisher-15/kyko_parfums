@@ -13,6 +13,10 @@
 #   curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy/vps/install.sh | DOMAIN=kyko.kz bash
 set -euo pipefail
 
+# The whole script is read before it runs: with `curl … | bash` the script itself is stdin, and a
+# command reading stdin (docker compose exec) would otherwise swallow the rest of it.
+main() {
+
 REPO=${KYKO_REPO:-https://github.com/alisher-15/kyko_parfums.git}
 DIR=${KYKO_DIR:-/opt/kyko}
 KIT=$DIR/deploy/vps
@@ -143,3 +147,6 @@ if command -v crontab >/dev/null && ! crontab -l 2>/dev/null | grep -F "$KIT/bac
 fi
 
 say "Готово: https://$DOMAIN  (админка: https://$DOMAIN/admin, вход: $(sed -n 's/^ADMIN_EMAIL=//p' .env))"
+}
+
+main "$@" </dev/null

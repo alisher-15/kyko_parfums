@@ -99,6 +99,7 @@ if [ ! -f .env ]; then
   echo "Адрес магазина: https://$DOMAIN"
   echo "Владелец магазина (вход в админку):"
   admin_email=${ADMIN_EMAIL:-}
+  # Not written to .env: docker compose would read a "$" in it as a variable.
   admin_password=${ADMIN_PASSWORD:-}
   [ -n "$admin_email" ] || read -r -p "  email: " admin_email </dev/tty
   while [ "${#admin_password}" -lt 8 ]; do
@@ -110,10 +111,6 @@ if [ ! -f .env ]; then
       -e "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 32)|" \
       -e "s|^ADMIN_EMAIL=.*|ADMIN_EMAIL=$admin_email|" \
       .env.example > .env
-  # The password goes in as is, whatever characters it has.
-  awk -v p="$admin_password" '/^ADMIN_PASSWORD=/ {print "ADMIN_PASSWORD=" p; next} {print}' .env > .env.new
-  mv .env.new .env
-  unset admin_password
 elif [ -n "${DOMAIN:-}" ]; then
   sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" .env
 fi
@@ -134,6 +131,10 @@ health() {
 for _ in $(seq 60); do health && break; sleep 5; done
 health || { docker compose logs --tail 30 app; fail "Сайт не отвечает. Сфотографируйте экран и пришлите."; }
 echo "Сайт и база: работают"
+if [ -n "${admin_password:-}" ]; then
+  docker compose exec -T -w /app/backend app python -m app.cli create-admin "$admin_email" "$admin_password"
+  unset admin_password
+fi
 if curl -fsS --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" >/dev/null 2>&1; then
   echo "HTTPS: сертификат получен"
 else

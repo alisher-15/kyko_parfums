@@ -3,7 +3,10 @@
  * Next.js), and photos are either absolute (Cloudflare R2) or paths on the site
  * (/bottles/…, /media/…).
  */
-const DEFAULT_SITE_URL = "https://kyko-parfums.onrender.com";
+// The shop's server in Kazakhstan, at its temporary address until the domain is bought. Builds
+// for the stores must name the final domain (EXPO_PUBLIC_SITE_URL in eas.json «production»):
+// installed apps keep calling the address they were built with.
+const DEFAULT_SITE_URL = "https://89-126-205-132.sslip.io";
 
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || DEFAULT_SITE_URL).replace(/\/+$/, "");
 export const API_URL = `${SITE_URL}/api`;

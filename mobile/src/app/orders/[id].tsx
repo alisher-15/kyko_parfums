@@ -26,6 +26,7 @@ import {
 import { ApiError, api, errorText } from "@/lib/api";
 import { CONTACTS, whatsappAbout } from "@/lib/contacts";
 import { dateTime, percentOff, tenge, volumeLabel } from "@/lib/format";
+import { usePushStatus } from "@/lib/notifications";
 import { useApi } from "@/lib/queries";
 import type { Order } from "@/lib/types";
 import { colors, fonts } from "@/theme";
@@ -91,6 +92,7 @@ export default function OrderScreen() {
           Заказ оформлен! Менеджер свяжется с вами, чтобы подтвердить наличие и доставку.
         </Notice>
       )}
+      {created === "1" && <PushOffer />}
 
       <Card style={{ gap: 6 }}>
         <View style={styles.headRow}>
@@ -204,3 +206,25 @@ const styles = StyleSheet.create({
   event: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.line, marginTop: 6 },
 });
+
+/** Right after an order: the moment to ask about notifications (iOS asks only once). */
+function PushOffer() {
+  const { status, enable } = usePushStatus();
+  if (status !== "undetermined") return null;
+  return (
+    <Card style={{ gap: 10 }}>
+      <Txt style={{ fontFamily: fonts.sansSemi }}>Сообщать о статусе заказа?</Txt>
+      <Muted style={{ fontSize: 13 }}>
+        Пришлём уведомление, когда заказ примут в работу, отправят и доставят.
+      </Muted>
+      <Button
+        testID="enable-push"
+        small
+        icon="notifications-outline"
+        title="Включить уведомления"
+        onPress={() => void enable()}
+        style={{ alignSelf: "flex-start" }}
+      />
+    </Card>
+  );
+}

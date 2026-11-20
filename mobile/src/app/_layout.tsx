@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
 import { FavoritesProvider } from "@/lib/favorites";
+import { useNotificationTaps } from "@/lib/notifications";
 import { ApiError } from "@/lib/api";
 import { colors, fonts } from "@/theme";
 
@@ -70,6 +71,7 @@ function Navigation() {
   useEffect(() => {
     if (ready) SplashScreen.hide();
   }, [ready]);
+  useNotificationTaps(ready);
   if (!ready) return null;
 
   return (

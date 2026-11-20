@@ -4,13 +4,14 @@ from math import ceil
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import PasswordResetToken, User, UserRole
+from app.models import PasswordResetToken, PushToken, User, UserRole
 from app.permissions import STAFF
 from app.pricing import next_role
 from app.schemas.auth import (
@@ -19,6 +20,8 @@ from app.schemas.auth import (
     ForgotPasswordIn,
     LoginIn,
     ProfileUpdate,
+    PushTokenForgetIn,
+    PushTokenIn,
     RefreshIn,
     RegisterIn,
     ResetPasswordIn,
@@ -36,6 +39,7 @@ from app.security import (
     hash_reset_token,
     verify_password,
 )
+from app.services import push
 from app.services.email import send_password_reset
 from app.services.throttle import login_failures, reset_emails
 
@@ -243,6 +247,7 @@ def delete_me(
     login_failures.reset(user.email)
 
     db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
+    db.execute(delete(PushToken).where(PushToken.user_id == user.id))
     user.email = f"deleted-{user.id}@deleted.invalid"
     user.password_hash = hash_password(secrets.token_urlsafe(32))
     user.full_name = None
@@ -253,5 +258,37 @@ def delete_me(
     user.upgrade_request_note = None
     user.is_active = False
     user.token_version += 1  # revoke refresh tokens; access tokens fail on is_active
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Order notifications on phones (services/push.py) ----------
+
+
+@me_router.post("/push-tokens", status_code=status.HTTP_204_NO_CONTENT)
+def register_push_token(
+    data: PushTokenIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """The app's phone, after the customer allowed notifications. A token already registered
+    by someone else on this phone moves to the user signed in now."""
+    if not push.is_token(data.token):
+        raise HTTPException(422, "Это не адрес для уведомлений Expo")
+    db.execute(
+        insert(PushToken)
+        .values(user_id=user.id, token=data.token, platform=data.platform)
+        .on_conflict_do_update(
+            index_elements=[PushToken.token],
+            set_={"user_id": user.id, "platform": data.platform, "updated_at": func.now()},
+        )
+    )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/push-tokens/forget", status_code=status.HTTP_204_NO_CONTENT)
+def forget_push_token(data: PushTokenForgetIn, db: Session = Depends(get_db)):
+    """On logout the app stops this phone's notifications. No session needed: it may already
+    have expired, and the token itself is known only to the phone."""
+    db.execute(delete(PushToken).where(PushToken.token == data.token))
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

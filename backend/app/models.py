@@ -906,3 +906,26 @@ class TelegramRecipient(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class PushToken(Base):
+    """A phone that gets the customer's order notifications: an Expo push token from the app.
+
+    Registered by the app after the customer allows notifications (POST /me/push-tokens) and
+    removed on logout or when Expo says the app is gone from the phone (services/push.py).
+    One token belongs to one user: signing in as someone else on the same phone moves it.
+    """
+
+    __tablename__ = "push_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(255), unique=True)
+    # "ios" / "android", for the admin's curiosity only.
+    platform: Mapped[str | None] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )

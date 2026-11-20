@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { ApiError, api, loadTokens, onSignedOut, setTokens } from "./api";
+import { forgetPush, syncPush } from "./notifications";
 import { prefs } from "./storage";
 import type { TokenPair, User } from "./types";
 
@@ -81,7 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       roleRef.current = cached ? `${cached.id}:${cached.role}` : null;
       setUserState(cached);
       setReady(true);
-      if (signedIn) await reload();
+      if (signedIn) {
+        await reload();
+        void syncPush();
+      }
     })();
     return () => {
       alive = false;
@@ -94,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (pair: TokenPair) => {
       await setTokens(pair);
       applyUser(pair.user);
+      // This phone now gets this customer's order notifications (if they are allowed).
+      void syncPush();
     },
     [applyUser],
   );
@@ -117,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    await forgetPush();
     await setTokens(null);
     applyUser(null);
   }, [applyUser]);

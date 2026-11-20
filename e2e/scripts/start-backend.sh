@@ -13,6 +13,7 @@ export ADMIN_EMAIL=admin ADMIN_PASSWORD=admin12345 SEED_DEMO=true SMTP_HOST=""
 export EMAIL_LOG_BODY=true  # the password-reset test reads the link from the log
 export RATE_SOURCE_URL=""  # tests type the dollar rate; they never ask the real mig.kz
 export TELEGRAM_BOT_TOKEN=""  # no order messages from test orders, even with a token in .env
+export EXPO_PUSH_URL=""  # no order notifications to Expo from test orders
 
 mkdir -p "$E2E_DIR/.logs"
 LOG="$E2E_DIR/.logs/backend.log"

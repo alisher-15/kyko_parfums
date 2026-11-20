@@ -54,6 +54,13 @@ class Settings(BaseSettings):
     # Empty => no messages; who gets them is set in the admin panel.
     telegram_bot_token: str = ""
 
+    # Order notifications on the mobile app's phones go through Expo's push service
+    # (app/services/push.py), which hands them to Apple and Google. Empty URL => never send
+    # (tests, the e2e backend). EXPO_ACCESS_TOKEN is needed only when «Enhanced security for push
+    # notifications» is on in the Expo project.
+    expo_push_url: str = "https://exp.host/--/api/v2/push/send"
+    expo_access_token: str = ""
+
     # SMTP for password recovery and order emails to customers (app/services/email.py). Empty
     # host => no emails; each one is only noted in the log.
     smtp_host: str = ""

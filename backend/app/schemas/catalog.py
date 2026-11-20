@@ -1,9 +1,9 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
 from app.models import Gender, PriceTier, PricingMode, UserRole
-from app.schemas.common import Money, ORMModel
+from app.schemas.common import Money, ORMModel, Page
 
 
 class BrandBrief(ORMModel):
@@ -71,6 +71,11 @@ class ProductListItem(BaseModel):
     deal: DealOut | None = None
 
 
+class ProductPage(Page[ProductListItem]):
+    # Nothing has the searched words: these are the closest products (typos, odd spellings).
+    similar: bool = False
+
+
 class ProductDetail(ProductListItem):
     top_notes: str | None
     mid_notes: str | None
@@ -118,3 +123,15 @@ class PricingRulesOut(BaseModel):
     next_role: UserRole | None = None
     next_tier: PriceTier | None = None
     next_tier_terms: str | None = None
+
+
+class SitemapProduct(BaseModel):
+    id: int
+    updated_at: datetime
+
+
+class SitemapOut(BaseModel):
+    """What sitemap.xml lists: the products on sale and their brands."""
+
+    products: list[SitemapProduct]
+    brand_ids: list[int]

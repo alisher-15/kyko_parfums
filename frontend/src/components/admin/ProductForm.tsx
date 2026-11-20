@@ -21,6 +21,7 @@ type FormState = {
   mid_notes: string;
   base_notes: string;
   description: string;
+  search_names: string;
   image_url: string | null;
   is_active: boolean;
   is_new: boolean;
@@ -38,6 +39,7 @@ function toForm(p?: AdminProduct): FormState {
     mid_notes: p?.mid_notes ?? "",
     base_notes: p?.base_notes ?? "",
     description: p?.description ?? "",
+    search_names: p?.search_names ?? "",
     image_url: p?.image_url ?? null,
     is_active: p?.is_active ?? true,
     is_new: p?.is_new ?? false,
@@ -77,6 +79,7 @@ export function ProductForm({
       mid_notes: nullIfEmpty(form.mid_notes),
       base_notes: nullIfEmpty(form.base_notes),
       description: nullIfEmpty(form.description),
+      search_names: nullIfEmpty(form.search_names),
       image_url: form.image_url,
       is_active: form.is_active,
       is_new: form.is_new,
@@ -85,6 +88,8 @@ export function ProductForm({
       const saved = product
         ? await api<AdminProduct>(`/admin/products/${product.id}`, { method: "PATCH", body })
         : await api<AdminProduct>("/admin/products", { body });
+      // The form shows what the server keeps (trimmed, normalized).
+      setForm(toForm(saved));
       setMsg({ ok: true, text: "Сохранено" });
       onSaved(saved);
     } catch (err) {
@@ -158,6 +163,12 @@ export function ProductForm({
         <Field label="Описание">
           <textarea className="input min-h-28" value={form.description} onChange={set("description")} />
         </Field>
+        <Field
+          label="Другие названия для поиска"
+          hint="Через запятую: «соваж», «баккара». Русское написание и опечатки сайт понимает и без них"
+        >
+          <input className="input" value={form.search_names} onChange={set("search_names")} />
+        </Field>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -177,7 +188,8 @@ export function ProductForm({
           Новинка — показывать в «Новых поступлениях» на главной
         </label>
         {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
-        <button className="btn btn-primary" disabled={busy}>
+        {/* Until the brands are loaded the brand list has no choice and the form would not send. */}
+        <button className="btn btn-primary" disabled={busy || !brands.data}>
           {product ? "Сохранить изменения" : "Создать товар"}
         </button>
       </div>

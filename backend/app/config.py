@@ -54,13 +54,22 @@ class Settings(BaseSettings):
     # Empty => no messages; who gets them is set in the admin panel.
     telegram_bot_token: str = ""
 
-    # SMTP for password recovery. Empty host => reset links are written to the log (dev mode).
+    # SMTP for password recovery and order emails to customers (app/services/email.py). Empty
+    # host => no emails; each one is only noted in the log.
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = "no-reply@kyko.local"
     smtp_tls: bool = True
+    # Without SMTP, write the whole email to the log too: dev and the browser tests read reset
+    # links from it. Never on a live site, where a logged link resets someone's password.
+    email_log_body: bool = False
+
+    # Error reports to Sentry (sentry.io). Empty => none. Browser errors come through
+    # POST /api/client-errors, so one DSN covers the site and the API.
+    sentry_dsn: str = ""
+    sentry_environment: str = "production"
 
     @field_validator("database_url")
     @classmethod

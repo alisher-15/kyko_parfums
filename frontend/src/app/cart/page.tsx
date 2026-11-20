@@ -139,20 +139,23 @@ export default function CartPage() {
             <p className="mt-2 text-xs text-muted">
               Оплата по факту или переводом после подтверждения менеджером.
             </p>
-            {user ? (
-              <Link
-                href="/checkout"
-                className={`btn btn-primary mt-4 w-full ${
-                  !quote?.can_checkout || loading ? "pointer-events-none opacity-50" : ""
-                }`}
-                aria-disabled={!quote?.can_checkout}
-              >
-                Оформить заказ
-              </Link>
-            ) : (
-              <Link href="/login?next=/checkout" className="btn btn-primary mt-4 w-full">
-                Войти и оформить заказ
-              </Link>
+            <Link
+              href="/checkout"
+              className={`btn btn-primary mt-4 w-full ${
+                !quote?.can_checkout || loading ? "pointer-events-none opacity-50" : ""
+              }`}
+              aria-disabled={!quote?.can_checkout}
+            >
+              Оформить заказ
+            </Link>
+            {!user && (
+              <p className="mt-2 text-center text-xs text-muted">
+                Без регистрации или{" "}
+                <Link href="/login?next=/checkout" className="text-gold hover:underline">
+                  войдите
+                </Link>{" "}
+                — заказы будут в личном кабинете
+              </p>
             )}
           </div>
         </aside>

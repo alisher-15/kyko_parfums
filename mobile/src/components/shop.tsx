@@ -1,8 +1,10 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -13,7 +15,7 @@ import {
 } from "react-native";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { assetUrl } from "@/lib/config";
+import { OFFER_URL, PRIVACY_URL, assetUrl } from "@/lib/config";
 import { useCurrency } from "@/lib/currency";
 import {
   ROLE_LABELS,
@@ -357,4 +359,52 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   statusText: { fontFamily: fonts.sansBold, fontSize: 12 },
+  consent: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
 });
+
+// ---------- Consent ----------
+
+/**
+ * The box a form can't be sent without, as on the website (components/Consent.tsx): consent to
+ * the processing of personal data (the Law of Kazakhstan «О персональных данных и их защите»),
+ * and on checkout the public offer too. The documents open on the website.
+ */
+export function Consent({
+  checked,
+  onChange,
+  offer = false,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  offer?: boolean;
+}) {
+  const doc = (url: string, text: string) => (
+    <Txt
+      accessibilityRole="link"
+      onPress={() => Linking.openURL(url)}
+      style={{ fontSize: 13, color: colors.gold, fontFamily: fonts.sansSemi }}
+    >
+      {text}
+    </Txt>
+  );
+  return (
+    <Pressable
+      testID="consent"
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      onPress={() => onChange(!checked)}
+      style={styles.consent}
+    >
+      <Ionicons
+        name={checked ? "checkbox" : "square-outline"}
+        size={22}
+        color={checked ? colors.ink : colors.muted}
+      />
+      <Txt style={{ flex: 1, fontSize: 13, lineHeight: 19 }}>
+        {offer ? <>Принимаю условия {doc(OFFER_URL, "публичной оферты")} и даю </> : <>Даю </>}
+        согласие на обработку моих персональных данных в соответствии с{" "}
+        {doc(PRIVACY_URL, "политикой конфиденциальности")}
+      </Txt>
+    </Pressable>
+  );
+}

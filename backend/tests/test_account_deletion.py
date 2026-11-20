@@ -82,11 +82,12 @@ def test_wrong_password_keeps_the_account_and_is_throttled(client, db):
     assert client.get("/api/me", headers=headers).json()["email"] == "careful@example.com"
 
 
-def test_admin_account_cannot_be_deleted(client, auth):
-    headers = auth(UserRole.admin)
-    r = _delete(client, headers)
-    assert r.status_code == 409
-    assert client.get("/api/me", headers=headers).status_code == 200
+def test_staff_accounts_cannot_be_deleted(client, auth):
+    for role in (UserRole.admin, UserRole.cashier, UserRole.warehouse):
+        headers = auth(role)
+        r = _delete(client, headers)
+        assert r.status_code == 409, role
+        assert client.get("/api/me", headers=headers).status_code == 200
 
 
 def test_deleting_needs_a_session(client):

@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     Date,
     DateTime,
     Enum,
@@ -35,7 +36,11 @@ class UserRole(enum.StrEnum):
     retail = "retail"
     wholesale = "wholesale"
     bulk_wholesale = "bulk_wholesale"
+    # The owner: the whole admin panel.
     admin = "admin"
+    # Staff with part of it (app/permissions.py); they buy at retail prices like anyone.
+    cashier = "cashier"
+    warehouse = "warehouse"
 
 
 class Gender(enum.StrEnum):
@@ -68,6 +73,13 @@ class PaymentMethod(enum.StrEnum):
     card = "card"
     transfer = "transfer"  # Kaspi / bank transfer
     other = "other"
+
+
+class PriceField(enum.StrEnum):
+    cost = "cost"
+    retail = "retail"
+    wholesale = "wholesale"
+    bulk = "bulk"
 
 
 class StockReason(enum.StrEnum):
@@ -182,6 +194,10 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
+    # The name as it sounds, written by the database (search_fold, migration 0018).
+    search_text: Mapped[str | None] = mapped_column(
+        Text, Computed("search_fold(name)", persisted=True)
+    )
 
     products: Mapped[list[Product]] = relationship(back_populates="brand")
 
@@ -202,6 +218,16 @@ class Product(TimestampMixin, Base):
     mid_notes: Mapped[str | None] = mapped_column(Text)
     base_notes: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    # Other names customers search by ("соваж", "баккара"), set in the admin panel.
+    search_names: Mapped[str | None] = mapped_column(Text)
+    # Name, type and other names as they sound, written by the database (search_fold).
+    search_text: Mapped[str | None] = mapped_column(
+        Text,
+        Computed(
+            "search_fold(name || ' ' || coalesce(type, '') || ' ' || coalesce(search_names, ''))",
+            persisted=True,
+        ),
+    )
     image_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Marked "Новинка" by an admin: shown in «Новые поступления» on the home page, the latest
@@ -244,15 +270,15 @@ class ProductVariant(TimestampMixin, Base):
     sku: Mapped[str | None] = mapped_column(String(64), unique=True)
     # Below zero: customers ordered more than the shop has (backorder); receipts fill it first.
     stock: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
-    retail_price: Mapped[Decimal] = mapped_column(MONEY)
+    retail_price: Mapped[Decimal] = mapped_column(MONEY, active_history=True)
     # NULL => falls back to the next cheaper-for-us tier (bulk -> wholesale -> retail).
-    wholesale_price: Mapped[Decimal | None] = mapped_column(MONEY)
-    bulk_price: Mapped[Decimal | None] = mapped_column(MONEY)
+    wholesale_price: Mapped[Decimal | None] = mapped_column(MONEY, active_history=True)
+    bulk_price: Mapped[Decimal | None] = mapped_column(MONEY, active_history=True)
     photo_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Average purchase cost of one unit in stock: moving average over posted receipts,
     # or set by hand. NULL = unknown, the margin of such sales is not counted.
-    cost_price: Mapped[Decimal | None] = mapped_column(MONEY)
+    cost_price: Mapped[Decimal | None] = mapped_column(MONEY, active_history=True)
     # Markup on the cost for each price level, percent, remembered when the prices or the cost are
     # set by hand (services/markups.py). NULL = not known (no cost, or no such price).
     retail_markup: Mapped[Decimal | None] = mapped_column(MARKUP)
@@ -534,6 +560,27 @@ class PricingSettings(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+
+class PriceChange(Base):
+    """A volume's cost or price changed: from what, to what, where from (the admin panel, an
+    import, a supplier's price list, a receipt) and who. Written by services/price_history."""
+
+    __tablename__ = "price_changes"
+    __table_args__ = (Index("ix_price_changes_variant_id", "variant_id", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    variant_id: Mapped[int] = mapped_column(ForeignKey("product_variants.id", ondelete="CASCADE"))
+    field: Mapped[PriceField] = mapped_column(_enum(PriceField, "price_field"))
+    old_value: Mapped[Decimal | None] = mapped_column(MONEY)
+    new_value: Mapped[Decimal | None] = mapped_column(MONEY)
+    source: Mapped[str] = mapped_column(String(255))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[User | None] = relationship()
 
 
 class StockMovement(Base):

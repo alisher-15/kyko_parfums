@@ -22,3 +22,6 @@ export function siteUrl(path: string): string {
 
 /** The privacy policy, a page of the website (the stores link to it too). */
 export const PRIVACY_URL = siteUrl("/privacy");
+
+/** The public offer: the terms of sale accepted at checkout. */
+export const OFFER_URL = siteUrl("/offer");

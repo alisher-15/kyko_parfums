@@ -8,7 +8,6 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
-from app.deps import require_admin
 from app.models import (
     Brand,
     Order,
@@ -25,6 +24,7 @@ from app.models import (
     VariantBarcode,
     volume_label,
 )
+from app.permissions import require_staff
 from app.pricing import Deal, deal_price, discount_percent, max_tier_for_role, price_for_tier
 from app.schemas.admin import (
     AdminOrderOut,
@@ -74,6 +74,7 @@ def search_variants(
     q: str = Query(min_length=1, max_length=200),
     limit: int = Query(default=20, ge=1, le=50),
     db: Session = Depends(get_db),
+    user: User = Depends(require_staff),
 ):
     """Find volumes by barcode or SKU (exact match first) or by name/brand."""
     term = q.strip()
@@ -99,7 +100,11 @@ def search_variants(
         )
         .limit(limit)
     )
-    return [variant_item(v) for v in db.scalars(stmt)]
+    items = [variant_item(v) for v in db.scalars(stmt)]
+    if user.role != UserRole.admin:
+        # The cost is the owner's to see.
+        items = [i.model_copy(update={"cost_price": None}) for i in items]
+    return items
 
 
 @dataclass
@@ -190,8 +195,9 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
 
 
 @router.post("/quote", response_model=StoreQuoteOut)
-def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
+def quote(data: StoreQuoteIn, db: Session = Depends(get_db), user: User = Depends(require_staff)):
     p = _price(db, data, lock=False)
+    owner = user.role == UserRole.admin
     return StoreQuoteOut(
         price_tier=p.tier,
         max_discount_percent=float(p.max_discount),
@@ -213,7 +219,8 @@ def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
                 unit_price=ln.unit_price,
                 line_total=ln.total,
                 promotion_title=ln.deal.title if ln.deal else None,
-                cost_price=ln.variant.cost_price,
+                # The cost and the margin are the owner's to see.
+                cost_price=ln.variant.cost_price if owner else None,
             )
             for ln in p.lines
         ],
@@ -228,7 +235,7 @@ def quote(data: StoreQuoteIn, db: Session = Depends(get_db)):
 
 @router.post("/sales", response_model=AdminOrderOut, status_code=status.HTTP_201_CREATED)
 def create_sale(
-    data: StoreSaleIn, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+    data: StoreSaleIn, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     """Record a sale made in the shop: the order is created as delivered and stock is deducted."""
     p = _price(db, data, lock=True)

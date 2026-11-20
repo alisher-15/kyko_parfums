@@ -1,4 +1,4 @@
-export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin";
+export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin" | "cashier" | "warehouse";
 export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";
@@ -22,6 +22,11 @@ export interface Page<T> {
   total: number;
   page: number;
   page_size: number;
+}
+
+/** The catalog: when no product has the searched words, the closest ones, marked `similar`. */
+export interface ProductPage extends Page<ProductListItem> {
+  similar: boolean;
 }
 
 export interface User {
@@ -303,6 +308,8 @@ export interface AdminProduct {
   mid_notes: string | null;
   base_notes: string | null;
   description: string | null;
+  /** Other names customers search by («соваж, баккара»). */
+  search_names: string | null;
   image_url: string | null;
   is_active: boolean;
   /** «Новинка»: shown in «Новые поступления» on the home page. */
@@ -555,6 +562,23 @@ export interface StockMovement {
   count_id: number | null;
   user_email: string | null;
   note: string | null;
+  created_at: string;
+}
+
+export type PriceField = "cost" | "retail" | "wholesale" | "bulk";
+
+/** A change of a volume's cost or price: where it came from and who made it. */
+export interface PriceChange {
+  id: number;
+  variant_id: number;
+  volume_ml: number;
+  is_tester: boolean;
+  field: PriceField;
+  old_value: number | null;
+  new_value: number | null;
+  /** «Админка», «Импорт Excel», «Прайс Канат», «Приёмка №12», … */
+  source: string;
+  user_email: string | null;
   created_at: string;
 }
 

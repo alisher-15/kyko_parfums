@@ -10,8 +10,22 @@ import { PAYMENT_LABELS, dateTime } from "@/lib/format";
 import type { Order } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
-export function OrderView({ id, created }: { id: number; created: boolean }) {
-  const { data: order, error, reload } = useApi<Order>(`/orders/${id}`);
+/**
+ * An order as its customer sees it: in the account, or by the link a guest gets after ordering
+ * without an account (`/orders/{id}?key=…`; the key goes to the API in a header).
+ */
+export function CustomerOrder({
+  id,
+  created,
+  guestKey,
+}: {
+  id: number;
+  created: boolean;
+  guestKey?: string;
+}) {
+  const path = guestKey === undefined ? `/orders/${id}` : `/orders/guest/${id}`;
+  const headers = guestKey === undefined ? undefined : { "X-Order-Key": guestKey };
+  const { data: order, error, reload } = useApi<Order>(path, { headers });
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -22,7 +36,7 @@ export function OrderView({ id, created }: { id: number; created: boolean }) {
     if (!confirm("Отменить заказ?")) return;
     setBusy(true);
     try {
-      await api(`/orders/${id}/cancel`, { method: "POST" });
+      await api(`${path}/cancel`, { method: "POST", headers });
       reload();
     } catch (err) {
       setCancelError(err instanceof Error ? err.message : String(err));
@@ -37,13 +51,26 @@ export function OrderView({ id, created }: { id: number; created: boolean }) {
         <SuccessBox>
           Спасибо! Заказ № {order.id} создан. Менеджер свяжется с вами для подтверждения и оплаты
           (по факту или переводом).
+          {guestKey !== undefined && (
+            <>
+              {" "}
+              Сохраните эту страницу в закладки: по её адресу видно, что с заказом
+              {order.contact_email ? `, и мы прислали его на ${order.contact_email}` : ""}.
+            </>
+          )}
         </SuccessBox>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link href="/account/orders" className="text-sm text-muted hover:text-ink">
-            ← Все заказы
-          </Link>
+          {guestKey === undefined ? (
+            <Link href="/account/orders" className="text-sm text-muted hover:text-ink">
+              ← Все заказы
+            </Link>
+          ) : (
+            <Link href="/catalog" className="text-sm text-muted hover:text-ink">
+              ← В каталог
+            </Link>
+          )}
           <h2 className="mt-1 font-serif text-3xl font-bold">
             {order.channel === "store" ? "Покупка" : "Заказ"} № {order.id}{" "}
             <StatusBadge status={order.status} />

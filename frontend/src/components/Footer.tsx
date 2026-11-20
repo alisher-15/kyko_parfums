@@ -28,6 +28,8 @@ export function Footer() {
           <Link href="/catalog">Каталог</Link>
           <Link href="/brands">Бренды</Link>
           <Link href="/account/orders">Мои заказы</Link>
+          <Link href="/offer">Публичная оферта</Link>
+          <Link href="/privacy">Политика конфиденциальности</Link>
         </div>
         <div className="flex flex-col gap-2">
           <span className="font-semibold text-ink">Оптовым клиентам</span>
@@ -61,10 +63,7 @@ export function Footer() {
       </div>
       <div className="border-t border-line py-4 text-center text-xs text-stone-400">
         © {new Date().getFullYear()} Kyko Parfum. Оплата по факту или переводом — онлайн-оплата
-        появится позже.{" "}
-        <Link href="/privacy" className="underline hover:text-ink">
-          Политика конфиденциальности
-        </Link>
+        появится позже.
       </div>
     </footer>
   );

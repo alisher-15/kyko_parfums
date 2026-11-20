@@ -44,6 +44,10 @@ def test_variant_search_by_name_and_sku(client, auth, catalog, db):
     assert r[0]["wholesale_price"] == 120
     r = client.get("/api/admin/store/variants", params={"q": "sauv-1"}, headers=h).json()
     assert [i["sku"] for i in r] == ["SAUV-100"]
+    # A name typed in Russian or with the layout switched (app/services/search.py).
+    for q in ("соваж", "ыфгм"):
+        r = client.get("/api/admin/store/variants", params={"q": q}, headers=h).json()
+        assert [i["product_name"] for i in r] == ["Sauvage"], q
 
 
 def test_anonymous_cash_sale_deducts_stock_and_is_journaled(client, auth, catalog, db):

@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
 from app.models import PasswordResetToken, User, UserRole
+from app.permissions import STAFF
 from app.pricing import next_role
 from app.schemas.auth import (
     ChangePasswordIn,
@@ -225,8 +226,9 @@ def delete_me(
     password is replaced with a random one, and every session ends. Orders keep the contact
     details given at checkout. The email can be registered again as a new account.
     """
-    if user.role == UserRole.admin:
-        raise HTTPException(status.HTTP_409_CONFLICT, "Аккаунт администратора нельзя удалить")
+    # Staff accounts belong to the shop: the owner manages them in the admin panel.
+    if user.role in STAFF:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Аккаунт сотрудника магазина нельзя удалить")
     # The same throttle as logging in: a stolen session must not be a way to guess the password.
     wait = login_failures.retry_after(user.email)
     if wait:

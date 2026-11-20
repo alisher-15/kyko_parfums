@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Manrope } from "next/font/google";
+import { Analytics } from "@/components/Analytics";
+import { ErrorReporter } from "@/components/ErrorReporter";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { SITE_OPEN_GRAPH, SITE_URL } from "@/lib/site";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -17,14 +20,18 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "Kyko Parfum — парфюмерия и косметика", template: "%s — Kyko Parfum" },
   description: "Оригинальная парфюмерия и косметика в розницу и оптом.",
+  openGraph: SITE_OPEN_GRAPH,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className={`${manrope.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col font-sans">
+        <ErrorReporter />
+        <Analytics />
         <Providers>
           <Header />
           <main className="flex-1">{children}</main>

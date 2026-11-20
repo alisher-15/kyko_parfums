@@ -10,8 +10,17 @@ COPY . .
 # Rewrites (/api, /media -> backend) are resolved at build time.
 ARG BACKEND_URL=http://backend:8000
 ARG NEXT_PUBLIC_CURRENCY=₸
+ARG NEXT_PUBLIC_YM_ID=
+ARG NEXT_PUBLIC_GA_ID=
+# The site's address for link previews of the pages made at build time (lib/site.ts).
+ARG SITE_URL=
+ARG RENDER_EXTERNAL_URL=
 ENV BACKEND_URL=$BACKEND_URL \
+    SITE_URL=$SITE_URL \
+    RENDER_EXTERNAL_URL=$RENDER_EXTERNAL_URL \
     NEXT_PUBLIC_CURRENCY=$NEXT_PUBLIC_CURRENCY \
+    NEXT_PUBLIC_YM_ID=$NEXT_PUBLIC_YM_ID \
+    NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

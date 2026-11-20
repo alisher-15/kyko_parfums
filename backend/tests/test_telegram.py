@@ -175,6 +175,13 @@ def test_new_order_goes_to_every_recipient(client, auth, catalog, db, tg):
     assert text.endswith(f"/admin/orders/{order['id']}")
 
 
+def test_a_guest_order_is_marked(client, catalog, db, tg):
+    add_recipient(db, 111, "Айгерим")
+    item = {"variant_id": catalog["coco50"].id, "quantity": 1}
+    assert client.post("/api/orders", json={**CHECKOUT, "items": [item]}).status_code == 201
+    assert "Анна, +7 700 123 45 67 · без регистрации" in tg.sent()[0][1]
+
+
 def test_telegram_down_does_not_break_checkout(client, auth, catalog, db, tg):
     add_recipient(db, 111, "Айгерим")
     tg.down = True
@@ -244,6 +251,7 @@ def test_a_big_order_fits_in_one_message():
     )
     order = SimpleNamespace(
         id=42,
+        user_id=7,
         total_amount=1_000_000,
         items=[item] * 200,
         contact_name="Анна",

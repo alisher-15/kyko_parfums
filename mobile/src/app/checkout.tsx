@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
-import { QuoteHints, TengeNote } from "@/components/shop";
+import { Consent, QuoteHints, TengeNote } from "@/components/shop";
 import {
   Button,
   Card,
@@ -40,6 +40,7 @@ export default function CheckoutScreen() {
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [consent, setConsent] = useState(false);
 
   if (!user) {
     return (
@@ -194,6 +195,7 @@ export default function CheckoutScreen() {
           <TengeNote total={q?.total} />
         </Card>
 
+        <Consent offer checked={consent} onChange={setConsent} />
         {error && <Notice tone="error">{error}</Notice>}
         {q && !q.can_checkout && (
           <Notice tone="error">В корзине есть недоступные позиции — исправьте корзину.</Notice>
@@ -202,12 +204,12 @@ export default function CheckoutScreen() {
           testID="place-order"
           title={submitting ? "Оформляем…" : `Подтвердить заказ${q ? ` на ${money(q.total)}` : ""}`}
           loading={submitting}
-          disabled={missing || quote.isFetching || !q?.can_checkout}
+          disabled={missing || !consent || quote.isFetching || !q?.can_checkout}
           onPress={submit}
         />
-        {missing && (
+        {(missing || !consent) && (
           <Muted style={{ textAlign: "center", fontSize: 13 }}>
-            Заполните имя, телефон, город и адрес
+            {missing ? "Заполните имя, телефон, город и адрес" : "Отметьте согласие выше"}
           </Muted>
         )}
       </ScrollView>

@@ -7,7 +7,8 @@ import type { UserRole } from "@/lib/types";
 import { Spinner } from "./ui";
 
 /** Client-side guard. The API enforces access on its own; this only handles redirects. */
-export function RequireAuth({ children, role }: { children: ReactNode; role?: UserRole }) {
+/** `roles`: who may see the page; any signed-in user when left out. */
+export function RequireAuth({ children, roles }: { children: ReactNode; roles?: UserRole[] }) {
   const { user, loading, takeLogoutTarget } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -15,9 +16,9 @@ export function RequireAuth({ children, role }: { children: ReactNode; role?: Us
   useEffect(() => {
     if (loading) return;
     if (!user) router.replace(takeLogoutTarget() ?? `/login?next=${encodeURIComponent(pathname)}`);
-    else if (role && user.role !== role) router.replace("/");
-  }, [loading, user, role, router, pathname, takeLogoutTarget]);
+    else if (roles && !roles.includes(user.role)) router.replace("/");
+  }, [loading, user, roles, router, pathname, takeLogoutTarget]);
 
-  if (loading || !user || (role && user.role !== role)) return <Spinner />;
+  if (loading || !user || (roles && !roles.includes(user.role))) return <Spinner />;
   return <>{children}</>;
 }

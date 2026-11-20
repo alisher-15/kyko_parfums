@@ -92,8 +92,7 @@ npx expo export --platform ios --platform android   # собираются ли 
 Перед подачей в сторы:
 
 - **Политика конфиденциальности** — страница `/privacy` на сайте; её ссылку вписывают в App
-  Store Connect и Google Play Console. Сначала заполните реквизиты магазина (ИП/ТОО, БИН, email)
-  в `OPERATOR` в `frontend/src/app/privacy/page.tsx`.
+  Store Connect и Google Play Console. Реквизиты продавца берутся из `frontend/src/lib/legal.ts`.
 - **Удаление аккаунта** (требование Apple) уже есть: Профиль → Удалить аккаунт.
 - Скриншоты и описание для витрины.
 

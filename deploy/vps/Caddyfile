@@ -1,0 +1,10 @@
+# HTTPS for the shop's domain: Caddy gets the certificate from Let's Encrypt and renews it.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:10000
+}
+
+# www.kyko.kz → kyko.kz
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

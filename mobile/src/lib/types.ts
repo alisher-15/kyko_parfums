@@ -1,6 +1,8 @@
 // The customer-facing API types, the same as frontend/src/lib/types.ts (admin types left out).
 
-export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin";
+// Staff (admin, cashier, warehouse) buy at retail prices on the storefront.
+export type UserRole =
+  "retail" | "wholesale" | "bulk_wholesale" | "admin" | "cashier" | "warehouse";
 export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";

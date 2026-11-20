@@ -1,4 +1,4 @@
-import { adminToken, api, createProduct, expect, productLinks, test } from "./support";
+import { adminToken, api, createProduct, expect, loginAsAdmin, productLinks, test } from "./support";
 
 test.describe("Витрина для гостя", () => {
   test("главная показывает подборки и товары", async ({ page }) => {
@@ -44,6 +44,52 @@ test.describe("Витрина для гостя", () => {
     expect(filters.price_min).toBeGreaterThan(0);
   });
 
+  test("поиск по-русски, в другой раскладке, с опечаткой и по другим названиям", async ({ page }) => {
+    // A Russian name finds the same products as the Latin one.
+    const chanel = await api("GET", "/products?q=chanel");
+    await page.goto("/");
+    const search = page.getByPlaceholder("Поиск по аромату или бренду").filter({ visible: true });
+    await search.fill("шанель");
+    await search.press("Enter");
+    await page.waitForURL(/\/catalog\?q=/);
+    await expect.poll(() => productLinks(page)).toBe(chanel.total);
+
+    // "sauvage" typed with the Russian layout on.
+    await page.goto(`/catalog?q=${encodeURIComponent("ыфгмфпу")}`);
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: "Sauvage" }).first()).toBeVisible();
+
+    // A typo: no exact match, the closest products are offered as similar.
+    await page.goto("/catalog?q=savage");
+    await expect(page.getByText("Точно по запросу «savage» ничего нет. Похожие товары:")).toBeVisible();
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: "Sauvage" }).first()).toBeVisible();
+
+    // A name of its own, set in the admin panel.
+    const admin = await adminToken();
+    const { product } = await createProduct(admin, [{ volume_ml: 50, stock: 1, retail_price: 10000 }]);
+    const nickname = `ласточка${Date.now()}`;
+    await loginAsAdmin(page);
+    await page.goto(`/admin/products/${product.id}`);
+    await page.getByLabel("Другие названия для поиска").fill(`${nickname}, птичка`);
+    await page.getByRole("button", { name: "Сохранить изменения" }).click();
+    await expect(page.getByText("Сохранено")).toBeVisible();
+    await page.goto(`/catalog?q=${nickname}`);
+    await expect.poll(() => productLinks(page)).toBe(1);
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: product.name }).first()).toBeVisible();
+  });
+
+  test("оферта и политика конфиденциальности открываются из подвала", async ({ page }) => {
+    await page.goto("/");
+    for (const [link, heading] of [
+      ["Публичная оферта", "Публичная оферта"],
+      ["Политика конфиденциальности", "Политика конфиденциальности"],
+    ]) {
+      await page.locator("footer").getByRole("link", { name: link }).click();
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      await expect(page.getByText(/^Редакция от /)).toBeVisible();
+      await page.goBack();
+    }
+  });
+
   test("страница брендов", async ({ page }) => {
     await page.goto("/brands");
     await expect(page.getByText("Chanel").first()).toBeVisible();
@@ -74,7 +120,7 @@ test.describe("Витрина для гостя", () => {
     await expect(page.getByText(/Под заказ|Только в наличии/)).toHaveCount(0);
   });
 
-  test("карточка товара и корзина гостя", async ({ page }) => {
+  test("карточка товара, корзина и заказ гостя без регистрации", async ({ page }) => {
     const coco = (await api("GET", "/products?q=coco")).items[0];
     const detail = await api("GET", `/products/${coco.id}`);
     for (const v of detail.variants) {
@@ -90,5 +136,49 @@ test.describe("Витрина для гостя", () => {
     await page.goto("/cart");
     await expect(page.getByText("Итого").first()).toBeVisible();
     await expect(page.locator("a[href='/login?next=/checkout']")).toBeVisible();
+
+    // No account needed: the guest orders at retail prices and gets a link of their own.
+    await page.getByRole("link", { name: "Оформить заказ" }).click();
+    await page.waitForURL("**/checkout");
+    await expect(page.getByText("Можно без регистрации — по розничным ценам.")).toBeVisible();
+    const phone = `+7 7${String(Date.now()).slice(-9)}`;
+    await page.getByLabel("Имя и фамилия").fill("Гость Тестов");
+    await page.getByLabel("Телефон").fill(phone);
+    await page.getByLabel("Город").fill("Алматы");
+    await page.getByLabel("Адрес").fill("пр. Абая, 1");
+    // Without the consent to the processing of personal data the browser won't send the form.
+    await page.getByRole("button", { name: /^Подтвердить заказ/ }).click();
+    const consent = page.getByLabel(/согласие на обработку/);
+    expect(await consent.evaluate((box: HTMLInputElement) => box.validity.valueMissing)).toBe(true);
+    await expect(page).toHaveURL(/\/checkout$/);
+    await consent.check();
+    await page.getByRole("button", { name: /^Подтвердить заказ/ }).click();
+    await page.waitForURL(/\/orders\/\d+\?key=.+&created=1$/);
+    const link = new URL(page.url());
+    const orderId = Number(link.pathname.split("/").pop());
+    await expect(page.getByText(`Заказ № ${orderId} создан`)).toBeVisible();
+    await expect(page.getByText("Сохраните эту страницу в закладки")).toBeVisible();
+
+    const admin = await adminToken();
+    const placed = await api("GET", `/admin/orders/${orderId}`, admin);
+    expect(placed.user_email).toBeNull();
+    expect(placed.customer_role).toBe("retail");
+    expect(placed.contact_phone).toBe(phone);
+
+    // The link opens the order in another browser too; without its key it is not found.
+    const other = await page.context().browser()!.newPage();
+    await other.goto(`${link.pathname}?key=${link.searchParams.get("key")}`);
+    await expect(other.getByRole("heading", { name: new RegExp(`Заказ № ${orderId}`) })).toBeVisible();
+    await other.goto(link.pathname);
+    await expect(other.getByText("Заказ не найден")).toBeVisible();
+    await other.close();
+
+    // The guest cancels it; the shop sees who it was.
+    page.once("dialog", (d) => d.accept());
+    await page.getByRole("button", { name: "Отменить заказ" }).click();
+    await expect(page.getByText("Отменён").first()).toBeVisible();
+    await loginAsAdmin(page);
+    await page.goto(`/admin/orders/${orderId}`);
+    await expect(page.getByText("Без регистрации · розничные цены")).toBeVisible();
   });
 });

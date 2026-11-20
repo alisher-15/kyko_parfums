@@ -82,6 +82,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   wholesale: "Опт",
   bulk_wholesale: "Крупный опт",
   admin: "Администратор",
+  cashier: "Кассир",
+  warehouse: "Склад",
 };
 
 export const TIER_LABELS: Record<PriceTier, string> = {

@@ -1,9 +1,10 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from math import ceil
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -13,6 +14,7 @@ from app.models import PasswordResetToken, User, UserRole
 from app.pricing import next_role
 from app.schemas.auth import (
     ChangePasswordIn,
+    DeleteAccountIn,
     ForgotPasswordIn,
     LoginIn,
     ProfileUpdate,
@@ -210,3 +212,44 @@ def request_upgrade(
     db.commit()
     db.refresh(user)
     return user
+
+
+@me_router.post("/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    data: DeleteAccountIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Delete the account from the app or the site (App Store rule 5.1.1(v)).
+
+    Orders reference their customer and are the shop's sales records, so the row is anonymized
+    instead of removed: the email, name, phone, company and upgrade request are erased, the
+    password is replaced with a random one, and every session ends. Orders keep the contact
+    details given at checkout. The email can be registered again as a new account.
+    """
+    if user.role == UserRole.admin:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Аккаунт администратора нельзя удалить")
+    # The same throttle as logging in: a stolen session must not be a way to guess the password.
+    wait = login_failures.retry_after(user.email)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Слишком много неверных паролей. Попробуйте через {ceil(wait / 60)} мин.",
+            headers={"Retry-After": str(wait)},
+        )
+    if not verify_password(data.password, user.password_hash):
+        login_failures.hit(user.email)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Пароль указан неверно")
+    login_failures.reset(user.email)
+
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
+    user.email = f"deleted-{user.id}@deleted.invalid"
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
+    user.full_name = None
+    user.phone = None
+    user.company_name = None
+    user.wholesale_requested = False
+    user.requested_role = None
+    user.upgrade_request_note = None
+    user.is_active = False
+    user.token_version += 1  # revoke refresh tokens; access tokens fail on is_active
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

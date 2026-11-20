@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, View } from "react-native";
 import { Button, Field, Muted, Notice, Title, Txt } from "@/components/ui";
 import { errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { PRIVACY_URL } from "@/lib/config";
 import { afterAuth } from "@/lib/navigation";
 import { colors, fonts } from "@/theme";
 
@@ -90,6 +91,16 @@ export default function RegisterScreen() {
           disabled={!form.email.trim() || form.password.length < 8}
           onPress={submit}
         />
+        <Muted style={{ fontSize: 12, textAlign: "center" }}>
+          Регистрируясь, вы соглашаетесь с{" "}
+          <Txt
+            accessibilityRole="link"
+            onPress={() => Linking.openURL(PRIVACY_URL)}
+            style={{ fontSize: 12, color: colors.gold, fontFamily: fonts.sansSemi }}
+          >
+            политикой конфиденциальности
+          </Txt>
+        </Muted>
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 6 }}>
           <Muted>Уже есть аккаунт?</Muted>
           <Pressable

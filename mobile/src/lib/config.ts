@@ -19,3 +19,6 @@ export function assetUrl(path: string | null | undefined): string | null {
 export function siteUrl(path: string): string {
   return `${SITE_URL}${path}`;
 }
+
+/** The privacy policy, a page of the website (the stores link to it too). */
+export const PRIVACY_URL = siteUrl("/privacy");

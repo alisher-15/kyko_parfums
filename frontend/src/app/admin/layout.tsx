@@ -54,7 +54,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <Link href="/" className="block py-1 hover:text-white">
               ← На сайт
             </Link>
-            <button onClick={logout} className="py-1 hover:text-white">
+            <button onClick={() => logout()} className="py-1 hover:text-white">
               Выйти
             </button>
           </div>

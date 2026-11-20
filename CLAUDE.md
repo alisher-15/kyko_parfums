@@ -47,7 +47,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 41 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 42 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -88,6 +88,8 @@ Full stack: `docker compose up -d --build`.
 **Telegram** (`services/telegram.py`, `routers/admin/telegram.py`). New online orders (not store sales) are sent to every `telegram_recipients` chat by the bot in `TELEGRAM_BOT_TOKEN`, as a FastAPI background task after the checkout response, so a Telegram failure never breaks checkout. Recipients are chats, not phone numbers: the admin panel hands out a start link with a signed 24 h code (HMAC with `jwt_secret`), and `/admin/telegram/check` reads `getUpdates` and adds the chats that sent `/start <code>`. No webhook and nothing on a timer. The token is in the request URL only; never log it or put it in an error. Tests replace `telegram.call` with a fake.
 
 **Mobile app** (`mobile/`). A client of the public API only (`routers/{auth,catalog,orders}.py`), with no backend code of its own: it calls `${EXPO_PUBLIC_SITE_URL}/api` (default `https://kyko-parfums.onrender.com`) through the Next.js proxy, and resolves relative photo paths (`/bottles/…`, `/media/…`) against the same site (`src/lib/config.ts`). `src/lib/types.ts` and `format.ts` mirror `frontend/src/lib/` for the customer-facing types: when a public schema or a label changes, update both. Tokens live in the Keychain/Keystore (`expo-secure-store`; localStorage in the web build) and refresh like the website's; cart, favorites and the ₸/$ choice are in AsyncStorage. Prices come from the server only (`/cart/quote`, `/products`); `lib/auth.tsx` resets the React Query cache whenever the user or role changes, so no cached price outlives a login. Native apps send no `Origin`, so CORS doesn't apply to them; the web build (`expo start --web`, port 8081) needs its origin in `CORS_ORIGINS`. A public API change must stay backward compatible: installed app versions keep calling the old shape until users update.
+
+**Account deletion** (`POST /api/me/delete`, «Удалить аккаунт» on the site's account page and in the app). Orders reference the user (`RESTRICT`), so deletion anonymizes the row instead of removing it: email `deleted-<id>@deleted.invalid`, personal fields and the upgrade request cleared, a random password, `is_active=False`, `token_version` bumped, reset tokens dropped. It needs the current password and shares the login throttle. Admins can't delete themselves this way. When a new personal field is added to `users`, clear it there too. The privacy policy (`frontend/src/app/privacy/page.tsx`) describes what is collected and who receives it: update it when that changes (new analytics, a new third party, new fields).
 
 **Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are protected by `deps.require_admin`. The Pydantic schemas are in `app/schemas/`.
 

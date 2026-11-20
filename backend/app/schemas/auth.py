@@ -49,6 +49,11 @@ class ChangePasswordIn(BaseModel):
     new_password: str = Password
 
 
+class DeleteAccountIn(BaseModel):
+    # The current password: a phone left unlocked must not be enough to delete the account.
+    password: str = Field(max_length=128)
+
+
 class UserOut(ORMModel):
     id: int
     email: str

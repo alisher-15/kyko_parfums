@@ -93,6 +93,7 @@ function Navigation() {
       <Stack.Screen name="profile" options={{ title: "Профиль" }} />
       <Stack.Screen name="change-password" options={{ title: "Смена пароля" }} />
       <Stack.Screen name="wholesale" options={{ title: "Оптовые цены" }} />
+      <Stack.Screen name="delete-account" options={{ title: "Удаление аккаунта" }} />
       <Stack.Screen name="login" options={{ title: "Вход", presentation: "modal" }} />
       <Stack.Screen name="register" options={{ title: "Регистрация", presentation: "modal" }} />
       <Stack.Screen

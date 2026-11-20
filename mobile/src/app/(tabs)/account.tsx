@@ -12,6 +12,7 @@ import {
 import { CurrencySwitch } from "@/components/shop";
 import { Button, Card, Divider, Eyebrow, MenuRow, Muted, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { PRIVACY_URL } from "@/lib/config";
 import { CONTACTS } from "@/lib/contacts";
 import { useCurrency } from "@/lib/currency";
 import { ROLE_LABELS, longDate, tenge } from "@/lib/format";
@@ -117,18 +118,34 @@ export default function AccountScreen() {
             />
           </View>
         ))}
+        <Divider style={{ marginLeft: 50 }} />
+        <MenuRow
+          icon="shield-checkmark-outline"
+          title="Политика конфиденциальности"
+          onPress={() => Linking.openURL(PRIVACY_URL)}
+        />
       </Card>
 
-      {user && <MenuRowCard onPress={confirmLogout} />}
+      {user && (
+        <Card style={styles.menu}>
+          <MenuRow
+            icon="log-out-outline"
+            title="Выйти"
+            danger
+            onPress={confirmLogout}
+            testID="logout"
+          />
+          <Divider style={{ marginLeft: 50 }} />
+          <MenuRow
+            icon="trash-outline"
+            title="Удалить аккаунт"
+            danger
+            onPress={() => router.push("/delete-account")}
+            testID="menu-delete-account"
+          />
+        </Card>
+      )}
     </ScrollView>
-  );
-}
-
-function MenuRowCard({ onPress }: { onPress: () => void }) {
-  return (
-    <Card style={styles.menu}>
-      <MenuRow icon="log-out-outline" title="Выйти" danger onPress={onPress} testID="logout" />
-    </Card>
   );
 }
 

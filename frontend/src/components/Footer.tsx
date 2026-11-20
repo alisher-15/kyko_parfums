@@ -61,7 +61,10 @@ export function Footer() {
       </div>
       <div className="border-t border-line py-4 text-center text-xs text-stone-400">
         © {new Date().getFullYear()} Kyko Parfum. Оплата по факту или переводом — онлайн-оплата
-        появится позже.
+        появится позже.{" "}
+        <Link href="/privacy" className="underline hover:text-ink">
+          Политика конфиденциальности
+        </Link>
       </div>
     </footer>
   );

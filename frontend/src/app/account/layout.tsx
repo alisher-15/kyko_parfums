@@ -19,7 +19,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <h1 className="font-serif text-4xl font-bold">Личный кабинет</h1>
-          <button className="btn btn-outline btn-sm" onClick={logout}>
+          <button className="btn btn-outline btn-sm" onClick={() => logout()}>
             Выйти
           </button>
         </div>

@@ -36,7 +36,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 41 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 43 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -78,6 +78,8 @@ Full stack: `docker compose up -d --build`.
 **Telegram** (`services/telegram.py`, `routers/admin/telegram.py`). New online orders (not store sales) are sent to every `telegram_recipients` chat by the bot in `TELEGRAM_BOT_TOKEN`, as a FastAPI background task after the checkout response, so a Telegram failure never breaks checkout. Recipients are chats, not phone numbers: the admin panel hands out a start link with a signed 24 h code (HMAC with `jwt_secret`), and `/admin/telegram/check` reads `getUpdates` and adds the chats that sent `/start <code>`. No webhook and nothing on a timer. The token is in the request URL only; never log it or put it in an error. Tests replace `telegram.call` with a fake.
 
 **Email, errors, monitoring** (`services/email.py`, `routers/meta.py`). With `SMTP_HOST` set, password resets and customer emails go out: «order placed» after an online checkout and a note when an admin moves an online order to processing/shipped/delivered/cancelled, to the order's contact email (`email.recipient`), as background tasks. Without SMTP nothing is sent; only `EMAIL_LOG_BODY=true` (dev, the e2e backend) writes the email text, reset links included, to the log, never on a live site. `SENTRY_DSN` turns Sentry on (no request bodies, no PII); browser errors reach it through `POST /api/client-errors` (`components/ErrorReporter.tsx`, throttled 60/min overall). `/api/health` runs `SELECT 1` and answers 503 when the database is down, for Render and an uptime monitor. `next.config.ts` sends a Content-Security-Policy (scripts, styles, fonts, API calls: same origin; images: any https); a new external script needs its origin added there. Alembic's `env.py` keeps existing loggers, so tests can read the app's logs with `caplog`.
+
+**SEO and analytics** (`src/lib/site.ts`, `app/products/[id]/page.tsx`, `app/sitemap.ts`, `app/robots.ts`, `components/Analytics.tsx`). Pages stay client-rendered, but the product page's `generateMetadata` fetches the product as a guest (`publicProduct`, straight from `BACKEND_URL`, cached per render) for the title, description, canonical URL, link preview and a schema.org `Product` JSON-LD with retail prices. A page's `openGraph` replaces the layout's whole, so spread `SITE_OPEN_GRAPH` into it; `public/og.png` is the preview of pages and products without a photo. `sitemap.xml` (active products with an active volume, `GET /api/sitemap`) and `robots.txt` are made per request (`force-dynamic`: the API isn't there at build time). Absolute URLs use `SITE_URL`, else `RENDER_EXTERNAL_URL`; static pages are built with it, so the Dockerfiles pass both as build args. Yandex Metrica (`NEXT_PUBLIC_YM_ID`) and GA4 (`NEXT_PUBLIC_GA_ID`) are built in when set: a page view per pathname change, never on `/admin`, `/account`, `/checkout`, `/reset-password`; the CSP adds their hosts only when the ids are set.
 
 **Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are protected by `deps.require_admin`. The Pydantic schemas are in `app/schemas/`.
 

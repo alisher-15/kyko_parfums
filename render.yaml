@@ -49,3 +49,14 @@ services:
       # Error reports to Sentry (sentry.io → project → Client Keys (DSN)). Empty = none.
       - key: SENTRY_DSN
         sync: false
+      # The shop's own domain (https://kyko.kz) for links in the sitemap, search results and link
+      # previews. Empty = the onrender.com address. Used when the site is built, so a change needs
+      # a new deploy.
+      - key: SITE_URL
+        sync: false
+      # Yandex Metrica counter number and Google Analytics 4 id (G-…). Empty = no counter. They are
+      # built into the site, so a change needs a new deploy («Save, rebuild, and deploy»).
+      - key: NEXT_PUBLIC_YM_ID
+        sync: false
+      - key: NEXT_PUBLIC_GA_ID
+        sync: false

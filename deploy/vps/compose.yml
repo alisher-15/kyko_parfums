@@ -23,6 +23,11 @@ services:
     build:
       context: ../..
       dockerfile: Dockerfile
+      # Built into the site: link previews, analytics (a change needs `up -d --build`).
+      args:
+        SITE_URL: https://${DOMAIN:?set DOMAIN in deploy/vps/.env}
+        NEXT_PUBLIC_YM_ID: ${NEXT_PUBLIC_YM_ID:-}
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
     restart: unless-stopped
     depends_on:
       db:
@@ -30,7 +35,8 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://kyko:${POSTGRES_PASSWORD}@db:5432/kyko
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/vps/.env}
-      FRONTEND_URL: https://${DOMAIN:?set DOMAIN in deploy/vps/.env}
+      SITE_URL: https://${DOMAIN}
+      FRONTEND_URL: https://${DOMAIN}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SEED_DEMO: "false"

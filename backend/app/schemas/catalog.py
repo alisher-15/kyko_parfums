@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel
 
@@ -118,3 +118,15 @@ class PricingRulesOut(BaseModel):
     next_role: UserRole | None = None
     next_tier: PriceTier | None = None
     next_tier_terms: str | None = None
+
+
+class SitemapProduct(BaseModel):
+    id: int
+    updated_at: datetime
+
+
+class SitemapOut(BaseModel):
+    """What sitemap.xml lists: the products on sale and their brands."""
+
+    products: list[SitemapProduct]
+    brand_ids: list[int]

@@ -28,6 +28,8 @@ from app.schemas.catalog import (
     ProductDetail,
     ProductListItem,
     PromotionPublic,
+    SitemapOut,
+    SitemapProduct,
     VariantPublic,
 )
 from app.schemas.common import Page
@@ -268,6 +270,21 @@ def _brand_counts():
         select(Brand, func.count(Product.id).label("cnt"))
         .outerjoin(Product, and_(Product.brand_id == Brand.id, Product.is_active))
         .group_by(Brand.id)
+    )
+
+
+@router.get("/sitemap", response_model=SitemapOut)
+def sitemap(db: Session = Depends(get_db)):
+    """The products a guest can buy (shown, with a volume on sale) and their brands."""
+    on_sale = exists().where(ProductVariant.product_id == Product.id, ProductVariant.is_active)
+    rows = db.execute(
+        select(Product.id, Product.updated_at, Product.brand_id)
+        .where(Product.is_active, on_sale)
+        .order_by(Product.id)
+    ).all()
+    return SitemapOut(
+        products=[SitemapProduct(id=i, updated_at=u) for i, u, _ in rows],
+        brand_ids=sorted({b for _, _, b in rows}),
     )
 
 

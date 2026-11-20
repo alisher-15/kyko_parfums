@@ -7,13 +7,19 @@ const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
 // Scripts, styles, fonts and API calls only from this site, so an injected script can't load
 // code from elsewhere or send a stolen session away. Next.js needs inline scripts (no nonces
 // here: pages are static); photos may come from anywhere over https (R2, links in imports).
+// Analytics (components/Analytics.tsx) adds its own hosts only when its counter id is set.
+const ym = process.env.NEXT_PUBLIC_YM_ID ? ["https://mc.yandex.ru", "https://mc.yandex.com"] : [];
+const ga = process.env.NEXT_PUBLIC_GA_ID
+  ? ["https://www.googletagmanager.com", "https://*.google-analytics.com", "https://*.analytics.google.com"]
+  : [];
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}`,
+  ["script-src 'self' 'unsafe-inline'", ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []), ...ym, ...ga].join(" "),
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  ["connect-src 'self'", ...ym, ...ga].join(" "),
+  ["frame-src 'self'", ...ym].join(" "),
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",

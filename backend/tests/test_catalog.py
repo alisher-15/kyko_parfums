@@ -47,6 +47,16 @@ def test_list_item_shape(client, catalog):
     assert item["min_price"] == 90
 
 
+def test_sitemap_lists_products_on_sale_and_their_brands(client, catalog):
+    body = client.get("/api/sitemap").json()
+    # J'adore has no volume on sale, Hidden is hidden.
+    assert [p["id"] for p in body["products"]] == sorted(
+        [catalog["coco"].id, catalog["sauvage"].id]
+    )
+    assert body["brand_ids"] == sorted({catalog["coco"].brand_id, catalog["sauvage"].brand_id})
+    assert all(p["updated_at"] for p in body["products"])
+
+
 def test_filters_and_search(client, catalog):
     assert _names(client.get("/api/products", params={"gender": "male"})) == ["Sauvage"]
     r = client.get("/api/products", params={"brand_id": [catalog["chanel"].id]})

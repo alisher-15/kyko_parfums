@@ -9,6 +9,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     Date,
     DateTime,
     Enum,
@@ -182,6 +183,10 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
+    # The name as it sounds, written by the database (search_fold, migration 0018).
+    search_text: Mapped[str | None] = mapped_column(
+        Text, Computed("search_fold(name)", persisted=True)
+    )
 
     products: Mapped[list[Product]] = relationship(back_populates="brand")
 
@@ -202,6 +207,16 @@ class Product(TimestampMixin, Base):
     mid_notes: Mapped[str | None] = mapped_column(Text)
     base_notes: Mapped[str | None] = mapped_column(Text)
     description: Mapped[str | None] = mapped_column(Text)
+    # Other names customers search by ("соваж", "баккара"), set in the admin panel.
+    search_names: Mapped[str | None] = mapped_column(Text)
+    # Name, type and other names as they sound, written by the database (search_fold).
+    search_text: Mapped[str | None] = mapped_column(
+        Text,
+        Computed(
+            "search_fold(name || ' ' || coalesce(type, '') || ' ' || coalesce(search_names, ''))",
+            persisted=True,
+        ),
+    )
     image_url: Mapped[str | None] = mapped_column(String(1024))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     # Marked "Новинка" by an admin: shown in «Новые поступления» on the home page, the latest

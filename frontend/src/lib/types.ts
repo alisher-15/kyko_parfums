@@ -24,6 +24,11 @@ export interface Page<T> {
   page_size: number;
 }
 
+/** The catalog: when no product has the searched words, the closest ones, marked `similar`. */
+export interface ProductPage extends Page<ProductListItem> {
+  similar: boolean;
+}
+
 export interface User {
   id: number;
   email: string;
@@ -303,6 +308,8 @@ export interface AdminProduct {
   mid_notes: string | null;
   base_notes: string | null;
   description: string | null;
+  /** Other names customers search by («соваж, баккара»). */
+  search_names: string | null;
   image_url: string | null;
   is_active: boolean;
   /** «Новинка»: shown in «Новые поступления» on the home page. */

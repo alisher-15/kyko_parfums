@@ -1,4 +1,4 @@
-import { adminToken, api, createProduct, expect, productLinks, test } from "./support";
+import { adminToken, api, createProduct, expect, loginAsAdmin, productLinks, test } from "./support";
 
 test.describe("Витрина для гостя", () => {
   test("главная показывает подборки и товары", async ({ page }) => {
@@ -42,6 +42,39 @@ test.describe("Витрина для гостя", () => {
     const filters = await api("GET", "/filters");
     expect(filters.brands.length).toBeGreaterThan(0);
     expect(filters.price_min).toBeGreaterThan(0);
+  });
+
+  test("поиск по-русски, в другой раскладке, с опечаткой и по другим названиям", async ({ page }) => {
+    // A Russian name finds the same products as the Latin one.
+    const chanel = await api("GET", "/products?q=chanel");
+    await page.goto("/");
+    const search = page.getByPlaceholder("Поиск по аромату или бренду").filter({ visible: true });
+    await search.fill("шанель");
+    await search.press("Enter");
+    await page.waitForURL(/\/catalog\?q=/);
+    await expect.poll(() => productLinks(page)).toBe(chanel.total);
+
+    // "sauvage" typed with the Russian layout on.
+    await page.goto(`/catalog?q=${encodeURIComponent("ыфгмфпу")}`);
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: "Sauvage" }).first()).toBeVisible();
+
+    // A typo: no exact match, the closest products are offered as similar.
+    await page.goto("/catalog?q=savage");
+    await expect(page.getByText("Точно по запросу «savage» ничего нет. Похожие товары:")).toBeVisible();
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: "Sauvage" }).first()).toBeVisible();
+
+    // A name of its own, set in the admin panel.
+    const admin = await adminToken();
+    const { product } = await createProduct(admin, [{ volume_ml: 50, stock: 1, retail_price: 10000 }]);
+    const nickname = `ласточка${Date.now()}`;
+    await loginAsAdmin(page);
+    await page.goto(`/admin/products/${product.id}`);
+    await page.getByLabel("Другие названия для поиска").fill(`${nickname}, птичка`);
+    await page.getByRole("button", { name: "Сохранить изменения" }).click();
+    await expect(page.getByText("Сохранено")).toBeVisible();
+    await page.goto(`/catalog?q=${nickname}`);
+    await expect.poll(() => productLinks(page)).toBe(1);
+    await expect(page.locator("a[href^='/products/']").filter({ hasText: product.name }).first()).toBeVisible();
   });
 
   test("страница брендов", async ({ page }) => {

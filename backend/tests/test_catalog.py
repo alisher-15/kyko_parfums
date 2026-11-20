@@ -71,6 +71,69 @@ def test_filters_and_search(client, catalog):
     assert _names(client.get("/api/products", params={"type": "EDT"})) == ["Sauvage"]
 
 
+def _search(client, q: str) -> tuple[list[str], bool]:
+    body = client.get("/api/products", params={"q": q}).json()
+    return [i["name"] for i in body["items"]], body["similar"]
+
+
+def test_search_by_sound_layout_and_type(client, catalog):
+    # Russian spelling, any case: the database compares names by how they sound.
+    assert _search(client, "шанель") == (["Coco Mademoiselle"], False)
+    assert _search(client, "ШАНЕЛЬ коко") == (["Coco Mademoiselle"], False)
+    assert _search(client, "соваж") == (["Sauvage"], False)
+    assert _search(client, "диор жадор") == (["J'adore"], False)
+    # "sauvage" typed with the Russian layout on.
+    assert _search(client, "ыфгмфпу") == (["Sauvage"], False)
+    # The type is searched too.
+    assert _search(client, "dior edt") == (["Sauvage"], False)
+
+
+def test_search_falls_back_to_similar_products(client, catalog):
+    # No product has these letters: the closest ones are shown, marked as similar.
+    assert _search(client, "savage") == (["Sauvage"], True)
+    assert _search(client, "madamoiselle") == (["Coco Mademoiselle"], True)
+    # Typos that sound the same are found exactly.
+    assert _search(client, "mademoisele coko") == (["Coco Mademoiselle"], False)
+    # Nothing close: nothing, and not "similar".
+    assert _search(client, "абракадабра") == ([], False)
+    # Filters still apply to similar products.
+    r = client.get("/api/products", params={"q": "savage", "gender": "female"})
+    assert r.json()["items"] == []
+
+
+def test_search_by_other_names(client, catalog, db):
+    assert _search(client, "кокошка") == ([], False)
+    catalog["coco"].search_names = "кокошка, мадмуазель"
+    db.commit()
+    assert _search(client, "кокошка") == (["Coco Mademoiselle"], False)
+
+
+def test_admin_sets_other_names_and_finds_by_sound(client, catalog, auth):
+    h = auth(UserRole.admin)
+    coco = catalog["coco"].id
+    r = client.patch(f"/api/admin/products/{coco}", json={"search_names": "кокошка"}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()["search_names"] == "кокошка"
+
+    def found(q: str) -> list[str]:
+        r = client.get("/api/admin/products", params={"q": q}, headers=h)
+        return [p["name"] for p in r.json()["items"]]
+
+    assert found("кокошка") == ["Coco Mademoiselle"]
+    assert found("шанель") == ["Coco Mademoiselle"]
+    # The admin list has no similar products: it shows exactly what has the words.
+    assert found("savage") == []
+
+
+def test_brand_search_by_sound(client, catalog):
+    def names(q: str) -> list[str]:
+        return [b["name"] for b in client.get("/api/brands", params={"q": q}).json()]
+
+    assert names("шанель") == ["Chanel"]
+    assert names("dio") == ["Dior"]
+    assert names("вшщк") == ["Dior"]
+
+
 def test_price_filter_uses_role_price(client, catalog, auth):
     # Retail: coco 100/150, sauvage 90.
     r = client.get("/api/products", params={"max_price": 95})

@@ -27,15 +27,20 @@ from app.schemas.catalog import (
     PricingRulesOut,
     ProductDetail,
     ProductListItem,
+    ProductPage,
     PromotionPublic,
     SitemapOut,
     SitemapProduct,
     VariantPublic,
 )
-from app.schemas.common import Page
 from app.schemas.currency import CurrencyOut
 from app.services import promotions, rates
-from app.services.search import contains, product_name_match
+from app.services.search import (
+    SIMILAR,
+    brand_name_match,
+    product_name_match,
+    product_similarity,
+)
 from app.services.settings import get_pricing_settings
 
 router = APIRouter(tags=["catalog"])
@@ -119,7 +124,7 @@ def _list_item_fields(
     )
 
 
-@router.get("/products", response_model=Page[ProductListItem])
+@router.get("/products", response_model=ProductPage)
 def list_products(
     q: str | None = Query(default=None, max_length=200),
     brand_id: list[int] = Query(default=[]),
@@ -154,8 +159,6 @@ def list_products(
     )
 
     conditions = [Product.is_active]
-    if q and q.strip():
-        conditions.append(product_name_match(q))
     if brand_id:
         conditions.append(Product.brand_id.in_(brand_id))
     if gender:
@@ -178,14 +181,26 @@ def list_products(
             variant_conds.append(price <= max_price)
         conditions.append(exists().where(*variant_conds))
 
-    base = (
-        select(Product.id, agg.c.min_price)
-        .join(Brand, Brand.id == Product.brand_id)
-        .outerjoin(agg, agg.c.product_id == Product.id)
-        .where(*conditions)
-    )
+    def matching(*more):
+        return (
+            select(Product.id, agg.c.min_price)
+            .join(Brand, Brand.id == Product.brand_id)
+            .outerjoin(agg, agg.c.product_id == Product.id)
+            .where(*conditions, *more)
+        )
 
-    total = db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    def count(stmt) -> int:
+        return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+
+    search = q.strip() if q else ""
+    base = matching(product_name_match(search)) if search else matching()
+    total = count(base)
+    # Nothing has these words: the closest products instead (a typo, an odd spelling).
+    similarity = None
+    if search and total == 0:
+        similarity = product_similarity(search)
+        base = matching(similarity >= SIMILAR)
+        total = count(base)
 
     order_by = {
         ProductSort.default: [
@@ -204,6 +219,8 @@ def list_products(
             Product.id.desc(),
         ],
     }[sort]
+    if similarity is not None and sort == ProductSort.default:
+        order_by = [similarity.desc(), *order_by]
 
     rows = db.execute(
         base.order_by(*order_by, Product.id).offset((page - 1) * page_size).limit(page_size)
@@ -234,7 +251,13 @@ def list_products(
         )
         for pid in ids
     ]
-    return Page(items=items, total=total, page=page, page_size=page_size)
+    return ProductPage(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        similar=similarity is not None and total > 0,
+    )
 
 
 @router.get("/products/{product_id}", response_model=ProductDetail)
@@ -291,8 +314,8 @@ def sitemap(db: Session = Depends(get_db)):
 @router.get("/brands", response_model=list[BrandOut])
 def list_brands(q: str | None = Query(default=None, max_length=100), db: Session = Depends(get_db)):
     stmt = _brand_counts().order_by(Brand.name)
-    if q:
-        stmt = stmt.where(Brand.name.ilike(contains(q)))
+    if q and q.strip():
+        stmt = stmt.where(brand_name_match(q))
     return [
         BrandOut(
             id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c

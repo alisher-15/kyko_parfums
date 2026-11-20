@@ -55,7 +55,8 @@ export function ProductEdit({ id }: { id: number }) {
           </>
         }
       />
-      <ProductForm key={product.updated_at} product={product} onSaved={reload} />
+      {/* Keyed by id, not by updated_at: a reload after saving keeps «Сохранено» and unsaved edits. */}
+      <ProductForm key={product.id} product={product} onSaved={reload} />
       <VariantsEditor productId={product.id} variants={product.variants} onChanged={reload} />
       <StockHistory
         productId={product.id}

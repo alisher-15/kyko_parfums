@@ -3,7 +3,7 @@ from datetime import date, datetime
 from pydantic import BaseModel
 
 from app.models import Gender, PriceTier, PricingMode, UserRole
-from app.schemas.common import Money, ORMModel
+from app.schemas.common import Money, ORMModel, Page
 
 
 class BrandBrief(ORMModel):
@@ -69,6 +69,11 @@ class ProductListItem(BaseModel):
     is_new: bool = False
     # A running promotion lowers a price this viewer pays (the badge "−15%").
     deal: DealOut | None = None
+
+
+class ProductPage(Page[ProductListItem]):
+    # Nothing has the searched words: these are the closest products (typos, odd spellings).
+    similar: bool = False
 
 
 class ProductDetail(ProductListItem):

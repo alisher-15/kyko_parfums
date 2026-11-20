@@ -10,7 +10,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, object_session, selectinload
 
 from app.db import get_db
-from app.deps import require_admin
 from app.models import (
     DocumentStatus,
     Product,
@@ -23,6 +22,7 @@ from app.models import (
     SupplierPrice,
     User,
 )
+from app.permissions import require_staff
 from app.routers.admin.store import variant_item
 from app.schemas.admin import AdminVariantOut, VariantSearchItem
 from app.schemas.warehouse import (
@@ -294,7 +294,7 @@ def receipt_suppliers(db: Session = Depends(get_db)):
 
 @router.post("/receipts", response_model=ReceiptOut, status_code=status.HTTP_201_CREATED)
 def create_receipt(
-    data: ReceiptIn, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+    data: ReceiptIn, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     receipt = StockReceipt(**data.model_dump(), created_by=admin)
     db.add(receipt)
@@ -364,7 +364,7 @@ def delete_receipt_line(receipt_id: int, line_id: int, db: Session = Depends(get
 
 @router.post("/receipts/{receipt_id}/post", response_model=ReceiptOut)
 def post_receipt_route(
-    receipt_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+    receipt_id: int, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     receipt = _draft_receipt(db, receipt_id)
     if not receipt.items:
@@ -492,7 +492,7 @@ def list_counts(
 
 @router.post("/counts", response_model=CountOut, status_code=status.HTTP_201_CREATED)
 def create_count(
-    data: CountIn, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+    data: CountIn, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     count = StockCount(note=data.note, created_by=admin)
     db.add(count)
@@ -557,7 +557,7 @@ def delete_count_line(count_id: int, line_id: int, db: Session = Depends(get_db)
 
 @router.post("/counts/{count_id}/post", response_model=CountOut)
 def post_count_route(
-    count_id: int, db: Session = Depends(get_db), admin: User = Depends(require_admin)
+    count_id: int, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     count = _draft_count(db, count_id)
     if not count.items:

@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from app.models import PricingMode, PricingSettings, ProductVariant, UserRole
+from app.models import Order, PricingMode, PricingSettings, ProductVariant, UserRole
+from app.services.orders import guest_key
 
 CHECKOUT = {
     "contact_name": "Анна",
@@ -87,12 +88,64 @@ def test_quote_item_quantity_mode(client, catalog, auth, db):
     assert body["price_tier"] is None
 
 
-def test_checkout_requires_auth(client, catalog):
-    r = client.post(
-        "/api/orders",
-        json={**CHECKOUT, "items": [{"variant_id": catalog["coco50"].id, "quantity": 1}]},
-    )
-    assert r.status_code == 401
+def test_guest_checkout_at_retail_prices_with_own_link(client, catalog, auth, db):
+    items = [{"variant_id": catalog["coco50"].id, "quantity": 2}]
+    r = client.post("/api/orders", json={**CHECKOUT, "items": items})
+    assert r.status_code == 201, r.text
+    order = r.json()
+    assert order["total_amount"] == 200  # retail: 100 × 2
+    assert order["items"][0]["price_tier"] == "retail"
+    key = order["guest_key"]
+    assert key and len(key) == 24
+    db.refresh(catalog["coco50"])
+    assert catalog["coco50"].stock == 8
+    placed = db.get(Order, order["id"])
+    assert placed.user_id is None and placed.customer_role == UserRole.retail
+    assert placed.events[0].message == "Заказ оформлен на сайте без регистрации"
+
+    # The link /orders/{id}?key=… opens it; the key goes in a header.
+    path = f"/api/orders/guest/{order['id']}"
+    seen = client.get(path, headers={"X-Order-Key": key})
+    assert seen.status_code == 200 and seen.json()["status"] == "new"
+    assert client.get(path).status_code == 404
+    assert client.get(path, headers={"X-Order-Key": key[:-1] + "A"}).status_code == 404
+    other = client.post("/api/orders", json={**CHECKOUT, "items": items}).json()
+    assert client.get(path, headers={"X-Order-Key": other["guest_key"]}).status_code == 404
+
+    # The guest cancels it like a customer with an account; the stock comes back.
+    r = client.post(f"{path}/cancel", headers={"X-Order-Key": key})
+    assert r.status_code == 200 and r.json()["status"] == "cancelled"
+    db.refresh(catalog["coco50"])
+    assert catalog["coco50"].stock == 8  # 10 − 2 − 2 (the other order) + 2
+    assert client.post(f"{path}/cancel", headers={"X-Order-Key": key}).status_code == 409
+
+
+def test_guest_links_open_only_guest_orders(client, catalog, auth):
+    items = [{"variant_id": catalog["coco50"].id, "quantity": 1}]
+    mine = client.post("/api/orders", json={**CHECKOUT, "items": items}, headers=auth()).json()
+    assert mine["guest_key"] is None
+    path = f"/api/orders/guest/{mine['id']}"
+    assert client.get(path, headers={"X-Order-Key": guest_key(mine["id"])}).status_code == 404
+
+
+def test_guest_needs_a_whole_phone_and_is_limited(client, catalog, auth):
+    items = [{"variant_id": catalog["coco50"].id, "quantity": 1}]
+    r = client.post("/api/orders", json={**CHECKOUT, "contact_phone": "123", "items": items})
+    assert r.status_code == 422
+    assert "телефон полностью" in r.json()["detail"]
+
+    for _ in range(3):
+        assert client.post("/api/orders", json={**CHECKOUT, "items": items}).status_code == 201
+    # The same number a fourth time within an hour, however it is written.
+    same = {**CHECKOUT, "contact_phone": "+7 (700) 123-45-67", "items": items}
+    r = client.post("/api/orders", json=same)
+    assert r.status_code == 429
+    assert int(r.headers["retry-after"]) > 0
+    # Another number may order; a customer with an account is never limited.
+    other = {**CHECKOUT, "contact_phone": "+7 701 000 00 00", "items": items}
+    assert client.post("/api/orders", json=other).status_code == 201
+    with_account = client.post("/api/orders", json={**CHECKOUT, "items": items}, headers=auth())
+    assert with_account.status_code == 201
 
 
 def test_checkout_creates_order_and_decrements_stock(client, catalog, auth, db):

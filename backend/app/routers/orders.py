@@ -1,6 +1,7 @@
+import re
 from decimal import Decimal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from app.models import (
     OrderStatus,
     StockReason,
     User,
+    UserRole,
 )
 from app.pricing import (
     Quote,
@@ -29,21 +31,25 @@ from app.schemas.orders import (
     CheckoutIn,
     OrderBrief,
     OrderOut,
+    PlacedOrderOut,
     QuoteIn,
     QuoteLineOut,
     QuoteOut,
     TierHintOut,
 )
-from app.services import telegram
+from app.services import email, telegram
 from app.services.orders import (
     add_event,
     change_status,
+    guest_key,
+    guest_key_is_good,
     load_sellable_variants,
     order_load_options,
 )
 from app.services.promotions import deals_for_variants
 from app.services.settings import get_pricing_settings
 from app.services.stock import move_stock
+from app.services.throttle import guest_orders, guest_orders_per_phone
 
 router = APIRouter(tags=["cart & orders"])
 
@@ -116,13 +122,35 @@ def quote_cart(
     return out
 
 
-@router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
+def _guest_checks(phone: str) -> str:
+    """A guest's phone as digits, if it is a whole number and they may order now."""
+    digits = re.sub(r"\D", "", phone)
+    if not 10 <= len(digits) <= 15:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "Укажите телефон полностью, например +7 700 123 45 67: по нему с вами свяжутся",
+        )
+    wait = max(guest_orders.retry_after("all"), guest_orders_per_phone.retry_after(digits))
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Слишком много заказов без регистрации. Войдите в аккаунт или попробуйте "
+            f"через {max(1, wait // 60)} мин.",
+            headers={"Retry-After": str(wait)},
+        )
+    return digits
+
+
+@router.post("/orders", response_model=PlacedOrderOut, status_code=status.HTTP_201_CREATED)
 def create_order(
     data: CheckoutIn,
     background: BackgroundTasks,
-    user: User = Depends(get_current_user),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
+    # Without an account: retail prices, a whole phone number, and a limit on such orders.
+    phone = _guest_checks(data.contact_phone) if user is None else None
+    role = user.role if user else UserRole.retail
     settings = get_pricing_settings(db)
     variants = load_sellable_variants(db, (i.variant_id for i in data.items), lock=True)
 
@@ -140,18 +168,18 @@ def create_order(
             QuoteItem(variants[i.variant_id], i.quantity, deals.get(i.variant_id))
             for i in data.items
         ],
-        user.role,
+        role,
         settings,
     )
     order = Order(
-        user_id=user.id,
+        user_id=user.id if user else None,
         channel=OrderChannel.online,
         status=OrderStatus.new,
         total_amount=quote.total,
-        customer_role=user.role,
+        customer_role=role,
         contact_name=data.contact_name.strip(),
         contact_phone=data.contact_phone.strip(),
-        contact_email=data.contact_email or user.email,
+        contact_email=data.contact_email or (user.email if user else None),
         delivery_city=data.delivery_city.strip(),
         delivery_address=data.delivery_address.strip(),
         comment=data.comment,
@@ -190,16 +218,27 @@ def create_order(
             )
         )
     # Backorders are the manager's business: the customer's history doesn't mention them.
-    add_event(order, OrderEventKind.created, "Заказ оформлен на сайте", user)
+    created = "Заказ оформлен на сайте" if user else "Заказ оформлен на сайте без регистрации"
+    add_event(order, OrderEventKind.created, created, user)
     db.add(order)
     db.commit()
-    placed = _own_order(db, order.id, user)
+    if phone is not None:
+        guest_orders.hit("all")
+        guest_orders_per_phone.hit(phone)
+    placed = _load_order(db, order.id)
     # The shop learns about it in Telegram, after the customer has the answer.
     if telegram.enabled():
         chat_ids = [r.chat_id for r in telegram.recipients(db)]
         if chat_ids:
             background.add_task(telegram.send_to_all, chat_ids, telegram.order_message(placed))
-    return placed
+    # And the customer by email.
+    to = email.recipient(placed)
+    if to and email.enabled():
+        background.add_task(email.send_email, to, *email.order_placed(placed))
+    out = PlacedOrderOut.model_validate(placed)
+    if user is None:
+        out.guest_key = guest_key(placed.id)
+    return out
 
 
 @router.get("/orders", response_model=Page[OrderBrief])
@@ -242,14 +281,36 @@ def my_orders(
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 
-def _own_order(db: Session, order_id: int, user: User, lock: bool = False) -> Order:
-    stmt = select(Order).where(Order.id == order_id, Order.user_id == user.id)
+def _load_order(db: Session, order_id: int, *where, lock: bool = False) -> Order:
+    stmt = select(Order).where(Order.id == order_id, *where)
     if lock:
         stmt = stmt.with_for_update(of=Order)
     order = db.scalar(stmt.options(*order_load_options()).execution_options(populate_existing=True))
     if order is None:
         raise HTTPException(404, "Заказ не найден")
     return order
+
+
+def _own_order(db: Session, order_id: int, user: User, lock: bool = False) -> Order:
+    return _load_order(db, order_id, Order.user_id == user.id, lock=lock)
+
+
+def _guest_order(db: Session, order_id: int, key: str, lock: bool = False) -> Order:
+    """An order placed without an account, by the key from its link."""
+    if not guest_key_is_good(order_id, key):
+        raise HTTPException(404, "Заказ не найден")
+    return _load_order(
+        db, order_id, Order.user_id.is_(None), Order.channel == OrderChannel.online, lock=lock
+    )
+
+
+def _cancel(db: Session, order: Order, user: User | None) -> None:
+    if order.status != OrderStatus.new:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Отменить можно только новый заказ — свяжитесь с менеджером"
+        )
+    change_status(db, order, OrderStatus.cancelled, user)
+    db.commit()
 
 
 @router.get("/orders/{order_id}", response_model=OrderOut)
@@ -261,11 +322,25 @@ def my_order(order_id: int, user: User = Depends(get_current_user), db: Session 
 def cancel_my_order(
     order_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    order = _own_order(db, order_id, user, lock=True)
-    if order.status != OrderStatus.new:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Отменить можно только новый заказ — свяжитесь с менеджером"
-        )
-    change_status(db, order, OrderStatus.cancelled, user)
-    db.commit()
+    _cancel(db, _own_order(db, order_id, user, lock=True), user)
     return _own_order(db, order_id, user)
+
+
+# A guest's order: the key travels in a header, so it stays out of the server's access log.
+@router.get("/orders/guest/{order_id}", response_model=OrderOut)
+def guest_order(
+    order_id: int,
+    key: str = Header(default="", alias="X-Order-Key"),
+    db: Session = Depends(get_db),
+):
+    return _guest_order(db, order_id, key)
+
+
+@router.post("/orders/guest/{order_id}/cancel", response_model=OrderOut)
+def cancel_guest_order(
+    order_id: int,
+    key: str = Header(default="", alias="X-Order-Key"),
+    db: Session = Depends(get_db),
+):
+    _cancel(db, _guest_order(db, order_id, key, lock=True), None)
+    return _guest_order(db, order_id, key)

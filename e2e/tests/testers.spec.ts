@@ -80,6 +80,7 @@ test("тестер: выбор «Товар / Тестер» в карточке
     await m.waitForURL("**/checkout");
     await m.getByLabel("Город").fill("Алматы");
     await m.getByLabel("Адрес").fill("пр. Абая, 7");
+    await m.getByLabel(/согласие на обработку/).check();
     await m.getByRole("button", { name: /Подтвердить заказ/ }).click();
     await m.waitForURL(/\/account\/orders\/\d+/);
     orderId = Number(new URL(m.url()).pathname.split("/").pop());

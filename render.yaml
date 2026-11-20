@@ -33,3 +33,30 @@ services:
       # them is set in the admin panel («Настройки» → «Уведомления в Telegram»).
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      # Email for password recovery and order news to customers. Without SMTP_HOST nothing is
+      # sent (and «Забыли пароль?» can't work). Gmail / Yandex / Mail.ru: an app password from
+      # the mailbox settings; SMTP_FROM must be that mailbox.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      # Error reports to Sentry (sentry.io → project → Client Keys (DSN)). Empty = none.
+      - key: SENTRY_DSN
+        sync: false
+      # The shop's own domain (https://kyko.kz) for links in the sitemap, search results and link
+      # previews. Empty = the onrender.com address. Used when the site is built, so a change needs
+      # a new deploy.
+      - key: SITE_URL
+        sync: false
+      # Yandex Metrica counter number and Google Analytics 4 id (G-…). Empty = no counter. They are
+      # built into the site, so a change needs a new deploy («Save, rebuild, and deploy»).
+      - key: NEXT_PUBLIC_YM_ID
+        sync: false
+      - key: NEXT_PUBLIC_GA_ID
+        sync: false

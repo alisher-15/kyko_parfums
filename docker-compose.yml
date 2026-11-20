@@ -41,6 +41,9 @@ services:
       args:
         BACKEND_URL: http://backend:8000
         NEXT_PUBLIC_CURRENCY: ${CURRENCY:-₸}
+        NEXT_PUBLIC_YM_ID: ${YM_ID:-}
+        NEXT_PUBLIC_GA_ID: ${GA_ID:-}
+        SITE_URL: ${SITE_URL:-}
     depends_on:
       - backend
     ports:

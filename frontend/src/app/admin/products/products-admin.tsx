@@ -22,6 +22,7 @@ type Filter =
   | "is_new"
   | "no_photo"
   | "no_barcode"
+  | "price_check"
   | "page";
 
 /**
@@ -43,6 +44,7 @@ export function ProductsAdmin() {
   const onlyNew = params.get("is_new") === "true";
   const noPhoto = params.get("no_photo") === "true";
   const noBarcode = params.get("no_barcode") === "true";
+  const priceCheck = params.get("price_check") ?? "";
   const page = Math.max(1, Math.floor(Number(params.get("page"))) || 1);
 
   useEffect(() => {
@@ -97,6 +99,7 @@ export function ProductsAdmin() {
       is_new: onlyNew || undefined,
       no_photo: noPhoto || undefined,
       no_barcode: noBarcode || undefined,
+      price_check: priceCheck,
       page,
       page_size: PAGE_SIZE,
     },
@@ -140,6 +143,18 @@ export function ProductsAdmin() {
           <option value="">Все</option>
           <option value="true">Опубликованные</option>
           <option value="false">Скрытые</option>
+        </select>
+        <select
+          className="input w-auto"
+          value={priceCheck}
+          onChange={(e) => setFilters({ price_check: e.target.value })}
+          aria-label="Проверка цен"
+          title="Наценка сравнивается с той, что объём запомнил, когда цены ставили вручную; ±5 пунктов не в счёт"
+        >
+          <option value="">Цены: все</option>
+          <option value="below_cost">Цена ниже себестоимости</option>
+          <option value="markup_down">Наценка упала</option>
+          <option value="markup_up">Наценка выросла</option>
         </select>
         <label className="flex items-center gap-2 text-sm">
           <input

@@ -115,7 +115,7 @@ export function OrdersAdmin({
                 </div>
                 <div className="mt-1 text-sm">{o.contact_name ?? "Покупатель без имени"}</div>
                 <div className="text-xs text-muted">
-                  {[o.contact_phone, ROLE_LABELS[o.customer_role]].filter(Boolean).join(" · ")}
+                  {[o.contact_phone, ROLE_LABELS[o.customer_role], guest(o)].filter(Boolean).join(" · ")}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-sm">
                   <span className="text-xs text-muted">
@@ -169,7 +169,7 @@ export function OrdersAdmin({
                       <td>
                         <div>{o.contact_name ?? <span className="text-muted">—</span>}</div>
                         <div className="text-xs text-muted">
-                          {[o.contact_phone, o.user_email].filter(Boolean).join(" · ")}
+                          {[o.contact_phone, o.user_email ?? guest(o)].filter(Boolean).join(" · ")}
                         </div>
                       </td>
                       <td className="text-xs">{ROLE_LABELS[o.customer_role]}</td>
@@ -197,6 +197,11 @@ export function OrdersAdmin({
       {data && <Pagination page={page} total={data.total} pageSize={PAGE_SIZE} onChange={setPage} />}
     </>
   );
+}
+
+/** An order placed on the site without an account: the manager has only the phone. */
+function guest(order: AdminOrderBrief): string | null {
+  return order.channel === "online" && !order.user_email ? "без регистрации" : null;
 }
 
 function ChannelTag({ order }: { order: AdminOrderBrief }) {

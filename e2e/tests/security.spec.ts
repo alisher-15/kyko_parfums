@@ -20,6 +20,12 @@ test.describe("Безопасность", () => {
     expect(headers["x-content-type-options"]).toBe("nosniff");
     expect(headers["referrer-policy"]).toBe("strict-origin-when-cross-origin");
     expect(headers["permissions-policy"]).toContain("camera=(self)");
+    // Scripts and API calls from this site only (an XSS can't load code or send a session away).
+    const csp = headers["content-security-policy"];
+    expect(csp).toContain("script-src 'self' 'unsafe-inline'");
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).not.toContain("unsafe-eval");
     expect(headers["x-powered-by"]).toBeUndefined();
 
     const icon = await request.get("/icon.svg");

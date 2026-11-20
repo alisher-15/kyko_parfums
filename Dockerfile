@@ -7,9 +7,19 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ .
+# Render passes the service's env vars as build args; these are baked into the build.
 ARG NEXT_PUBLIC_CURRENCY=₸
+ARG NEXT_PUBLIC_YM_ID=
+ARG NEXT_PUBLIC_GA_ID=
+# The site's address for link previews of the pages made at build time (lib/site.ts).
+ARG SITE_URL=
+ARG RENDER_EXTERNAL_URL=
 ENV BACKEND_URL=http://127.0.0.1:8000 \
+    SITE_URL=$SITE_URL \
+    RENDER_EXTERNAL_URL=$RENDER_EXTERNAL_URL \
     NEXT_PUBLIC_CURRENCY=$NEXT_PUBLIC_CURRENCY \
+    NEXT_PUBLIC_YM_ID=$NEXT_PUBLIC_YM_ID \
+    NEXT_PUBLIC_GA_ID=$NEXT_PUBLIC_GA_ID \
     NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

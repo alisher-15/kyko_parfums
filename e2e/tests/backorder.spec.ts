@@ -35,6 +35,7 @@ test("товара нет в наличии: клиент заказывает �
     await expect(page.getByText(/под заказ/i)).toHaveCount(0);
     await page.getByLabel("Город").fill("Алматы");
     await page.getByLabel("Адрес").fill("пр. Абая, 5");
+    await page.getByLabel(/согласие на обработку/).check();
     await page.getByRole("button", { name: /Подтвердить заказ/ }).click();
     await page.waitForURL(/\/account\/orders\/\d+/);
     orderId = Number(new URL(page.url()).pathname.split("/").pop());

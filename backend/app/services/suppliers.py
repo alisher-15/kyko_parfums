@@ -39,7 +39,7 @@ from app.models import (
     VariantBarcode,
 )
 from app.schemas.admin import check_price_order
-from app.services import markups
+from app.services import markups, price_history
 from app.services.barcodes import candidates
 from app.services.importer import (
     _norm_header,
@@ -54,15 +54,20 @@ from app.services.importer import (
 )
 from app.services.price_lists import PriceLine, line_key
 
+# Prices go up in steps of 100 ₸, and of 10 ₸ under 5 000 ₸: a 2 ml sample at 610 ₸ would
+# otherwise jump to 700 ₸, 15% more than its markup.
 PRICE_STEP = Decimal(100)
+SMALL_PRICE = Decimal(5000)
+SMALL_PRICE_STEP = Decimal(10)
 
 Prices = tuple[Decimal, Decimal | None, Decimal | None]
 
 
 def price_from_cost(cost: Decimal, markup: Decimal) -> Decimal:
-    """cost × (1 + markup / 100) in whole tenge, rounded up to hundreds."""
+    """cost × (1 + markup / 100) in whole tenge, rounded up to hundreds (tens under 5 000 ₸)."""
     price = (cost * (100 + markup) / 100).quantize(Decimal(1), rounding=ROUND_HALF_UP)
-    return (price / PRICE_STEP).to_integral_value(rounding=ROUND_CEILING) * PRICE_STEP
+    step = SMALL_PRICE_STEP if price < SMALL_PRICE else PRICE_STEP
+    return (price / step).to_integral_value(rounding=ROUND_CEILING) * step
 
 
 def raised(old: Decimal | None, cost: Decimal, markup: Decimal | None) -> Decimal | None:
@@ -252,6 +257,7 @@ def apply_price_list(
     db: Session, supplier: Supplier, plan: Plan, file_name: str, user: User | None
 ) -> SupplierPriceList:
     """Store the supplier's prices and the new costs and prices; the caller commits."""
+    price_history.label(db, f"Прайс {supplier.name}", user)
     matched = sum(1 for m in plan.matches if m.variant is not None)
     ignored = sum(1 for m in plan.matches if m.ignored)
     price_list = SupplierPriceList(

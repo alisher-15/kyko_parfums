@@ -217,6 +217,9 @@ export function OrderAdmin({ id }: { id: number }) {
           ) : (
             <div className="text-muted">Анонимный покупатель</div>
           )}
+          {order.channel === "online" && !order.user_email && (
+            <div className="mt-2 text-xs text-muted">Без регистрации · розничные цены</div>
+          )}
           {order.user_email && (
             <>
               <div className="mt-2 text-xs text-muted">

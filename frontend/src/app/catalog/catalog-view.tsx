@@ -8,7 +8,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { CURRENCY, GENDER_LABELS, dayMonth, money, percentOff, plural } from "@/lib/format";
-import type { Filters, Page, ProductListItem, PromotionPublic } from "@/lib/types";
+import type { Filters, ProductPage, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 24;
@@ -46,7 +46,7 @@ export function CatalogView() {
     [params],
   );
 
-  const products = useApi<Page<ProductListItem>>("/products", { query });
+  const products = useApi<ProductPage>("/products", { query });
   const filters = useApi<Filters>("/filters");
   const promotion = useApi<PromotionPublic>(
     query.promotion_id ? `/promotions/${encodeURIComponent(query.promotion_id)}` : null,
@@ -170,6 +170,11 @@ export function CatalogView() {
           {products.loading && !products.data && <Spinner />}
           {products.data && products.data.items.length === 0 && (
             <Empty title="Ничего не найдено">Попробуйте изменить фильтры или запрос.</Empty>
+          )}
+          {products.data?.similar && (
+            <p className="mb-4 text-sm text-muted">
+              Точно по запросу «{query.q}» ничего нет. Похожие товары:
+            </p>
           )}
           <div
             className={`grid grid-cols-2 gap-4 md:grid-cols-3 ${products.loading ? "opacity-60" : ""}`}

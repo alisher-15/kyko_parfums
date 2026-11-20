@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
+from enum import StrEnum
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
@@ -11,6 +13,7 @@ from app.db import get_db
 from app.deps import require_admin
 from app.models import (
     Brand,
+    PriceChange,
     Product,
     ProductVariant,
     StockMovement,
@@ -23,6 +26,7 @@ from app.schemas.admin import (
     AdminVariantOut,
     BrandIn,
     BrandUpdate,
+    PriceChangeOut,
     ProductIn,
     ProductUpdate,
     StockMovementOut,
@@ -32,7 +36,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
-from app.services import markups
+from app.services import markups, price_history
 from app.services.importer import build_export
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
@@ -126,6 +130,44 @@ def _load_product(db: Session, product_id: int) -> Product:
     return product
 
 
+class PriceCheck(StrEnum):
+    # A price under the cost: the shop loses on every sale.
+    below_cost = "below_cost"
+    # The markup is MARKUP_DRIFT points under the one the volume remembers: the cost went up
+    # (a receipt's average) and the price didn't; or a price was lowered by hand.
+    markup_down = "markup_down"
+    # And over it: the cost went down, the price stayed (prices never go down by themselves).
+    markup_up = "markup_up"
+
+
+MARKUP_DRIFT = Decimal(5)
+
+
+def _price_check(check: PriceCheck):
+    """A volume on sale whose prices fail the check."""
+    v = ProductVariant
+    cost = v.cost_price
+    levels = [
+        (v.retail_price, v.retail_markup),
+        (v.wholesale_price, v.wholesale_markup),
+        (v.bulk_price, v.bulk_markup),
+    ]
+    if check == PriceCheck.below_cost:
+        failing = or_(*(price < cost for price, _ in levels))
+    else:
+        drifted = []
+        for price, markup in levels:
+            actual = (price / cost - 1) * 100
+            off = (
+                actual < markup - MARKUP_DRIFT
+                if check == PriceCheck.markup_down
+                else actual > markup + MARKUP_DRIFT
+            )
+            drifted.append(and_(price.is_not(None), markup.is_not(None), off))
+        failing = or_(*drifted)
+    return Product.variants.any(and_(v.is_active, cost > 0, failing))
+
+
 @dataclass
 class ProductFilters:
     conds: list[Any]
@@ -141,6 +183,7 @@ def product_filters(
     is_new: bool = False,
     no_photo: bool = False,
     no_barcode: bool = False,
+    price_check: PriceCheck | None = None,
 ) -> ProductFilters:
     """The filters of the products list, shared by the list and its Excel export."""
     conds: list[Any] = []
@@ -164,6 +207,8 @@ def product_filters(
     if no_barcode:
         # A volume nothing scans to yet: the barcode goes in at the next receipt.
         conds.append(Product.variants.any(~ProductVariant.barcodes.any()))
+    if price_check is not None:
+        conds.append(_price_check(price_check))
     return ProductFilters(conds=conds, no_barcode=no_barcode)
 
 
@@ -342,6 +387,7 @@ def update_variant(
     if new_stock is not None:
         set_stock(db, variant, new_stock, StockReason.manual, user=admin, note=stock_note)
     repriced = any(changes.get(k, getattr(variant, k)) != getattr(variant, k) for k in PRICE_FIELDS)
+    price_history.label(db, "Админка", admin)
     for k, v in changes.items():
         setattr(variant, k, v)
     if repriced:
@@ -359,6 +405,40 @@ def delete_variant(variant_id: int, db: Session = Depends(get_db)):
     db.delete(variant)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/products/{product_id}/price-history", response_model=list[PriceChangeOut])
+def price_history_of(
+    product_id: int,
+    limit: int = Query(default=200, ge=1, le=1000),
+    db: Session = Depends(get_db),
+):
+    """Latest changes of the costs and prices of all volumes of a product."""
+    if db.get(Product, product_id) is None:
+        raise HTTPException(404, "Товар не найден")
+    rows = db.execute(
+        select(PriceChange, ProductVariant, User.email)
+        .join(ProductVariant, ProductVariant.id == PriceChange.variant_id)
+        .outerjoin(User, User.id == PriceChange.user_id)
+        .where(ProductVariant.product_id == product_id)
+        .order_by(PriceChange.created_at.desc(), PriceChange.id.desc())
+        .limit(limit)
+    ).all()
+    return [
+        PriceChangeOut(
+            id=c.id,
+            variant_id=c.variant_id,
+            volume_ml=v.volume_ml,
+            is_tester=v.is_tester,
+            field=c.field,
+            old_value=c.old_value,
+            new_value=c.new_value,
+            source=c.source,
+            user_email=email,
+            created_at=c.created_at,
+        )
+        for c, v, email in rows
+    ]
 
 
 @router.get("/products/{product_id}/stock-movements", response_model=list[StockMovementOut])

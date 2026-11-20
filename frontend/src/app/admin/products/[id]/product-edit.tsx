@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { PriceHistory } from "@/components/admin/PriceHistory";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { StockHistory } from "@/components/admin/StockHistory";
 import { VariantsEditor } from "@/components/admin/VariantsEditor";
@@ -55,11 +56,18 @@ export function ProductEdit({ id }: { id: number }) {
           </>
         }
       />
-      <ProductForm key={product.updated_at} product={product} onSaved={reload} />
+      {/* Keyed by id, not by updated_at: a reload after saving keeps «Сохранено» and unsaved edits. */}
+      <ProductForm key={product.id} product={product} onSaved={reload} />
       <VariantsEditor productId={product.id} variants={product.variants} onChanged={reload} />
       <StockHistory
         productId={product.id}
         version={product.variants.map((v) => `${v.id}:${v.stock}`).join(",")}
+      />
+      <PriceHistory
+        productId={product.id}
+        version={product.variants
+          .map((v) => [v.id, v.cost_price, v.retail_price, v.wholesale_price, v.bulk_price].join(":"))
+          .join(",")}
       />
     </div>
   );

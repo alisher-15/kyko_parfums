@@ -8,6 +8,7 @@ from app.models import (
     OrderChannel,
     OrderStatus,
     PaymentMethod,
+    PriceField,
     PriceTier,
     PricingMode,
     StockReason,
@@ -133,6 +134,8 @@ class ProductIn(BaseModel):
     mid_notes: str | None = None
     base_notes: str | None = None
     description: str | None = None
+    # Other names customers search by: "соваж", "баккара".
+    search_names: str | None = Field(default=None, max_length=1000)
     image_url: str | None = Field(default=None, max_length=1024)
     is_active: bool = True
     # «Новинка»: shown in «Новые поступления» on the home page.
@@ -151,6 +154,8 @@ class ProductUpdate(BaseModel):
     mid_notes: str | None = None
     base_notes: str | None = None
     description: str | None = None
+    # Other names customers search by: "соваж", "баккара".
+    search_names: str | None = Field(default=None, max_length=1000)
     image_url: str | None = Field(default=None, max_length=1024)
     is_active: bool | None = None
     is_new: bool | None = None
@@ -174,6 +179,7 @@ class AdminProductOut(ORMModel):
     mid_notes: str | None
     base_notes: str | None
     description: str | None
+    search_names: str | None = None
     image_url: str | None
     is_active: bool
     is_new: bool = False
@@ -395,6 +401,19 @@ class StockMovementOut(ORMModel):
     count_id: int | None = None
     user_email: str | None
     note: str | None
+    created_at: datetime
+
+
+class PriceChangeOut(BaseModel):
+    id: int
+    variant_id: int
+    volume_ml: int
+    is_tester: bool = False
+    field: PriceField
+    old_value: Money | None
+    new_value: Money | None
+    source: str
+    user_email: str | None
     created_at: datetime
 
 

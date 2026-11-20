@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { AuthCard } from "@/components/AuthCard";
+import { Consent } from "@/components/Consent";
 import { ErrorBox, Field } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/safe-next";
@@ -78,6 +79,7 @@ export function RegisterForm() {
             onChange={set("password")}
           />
         </Field>
+        <Consent />
         {error && <ErrorBox>{error}</ErrorBox>}
         <button className="btn btn-primary w-full" disabled={busy}>
           {busy ? "Создаём аккаунт…" : "Зарегистрироваться"}

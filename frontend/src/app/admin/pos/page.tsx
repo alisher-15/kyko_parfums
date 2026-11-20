@@ -8,6 +8,7 @@ import { ScanResultCard, type ScanResult } from "@/components/admin/ScanResultCa
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money, volumeLabel } from "@/lib/format";
 import { hasCyrillic, fromRussianLayout } from "@/lib/scan-code";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
@@ -82,7 +83,9 @@ export default function PosPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<AdminOrder | null>(null);
-  const showCost = useSyncExternalStore(subscribeShowCost, readShowCost, () => false);
+  // The cost and margin are the owner's: a cashier's till gets no cost from the API either.
+  const owner = useAuth().user?.role === "admin";
+  const showCost = useSyncExternalStore(subscribeShowCost, readShowCost, () => false) && owner;
   const searchRef = useRef<HTMLInputElement>(null);
   // The latest receipt right away: scans can come faster than re-renders.
   const linesRef = useRef<Line[]>([]);
@@ -240,14 +243,16 @@ export default function PosPage() {
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-serif text-2xl font-semibold">Чек</h2>
               <div className="flex items-center gap-4">
-                <label className="flex items-center gap-1.5 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={showCost}
-                    onChange={(e) => setShowCost(e.target.checked)}
-                  />
-                  Показать себестоимость
-                </label>
+                {owner && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={showCost}
+                      onChange={(e) => setShowCost(e.target.checked)}
+                    />
+                    Показать себестоимость
+                  </label>
+                )}
                 {lines.length > 0 && (
                   <button className="text-xs text-muted hover:text-red-600" onClick={reset}>
                     Очистить

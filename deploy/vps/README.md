@@ -7,30 +7,38 @@ hoster.kz и т. п.): PostgreSQL, сайт (тот же образ, что на
 
 ## Что нужно
 
-- VPS: Ubuntu 24.04, 2 vCPU, 4 ГБ памяти, от 40 ГБ диска (сборка сайта требует ~2 ГБ памяти).
+- VPS: Ubuntu 24.04, 2 vCPU, 4 ГБ памяти, от 25 ГБ диска.
 - Домен (например, `kyko.kz`), у которого A-запись указывает на IP сервера; если нужен `www`,
   ещё A-запись `www` на тот же IP.
-- Доступ к репозиторию с сервера: репозиторий закрытый, поэтому нужен deploy key (GitHub →
-  репозиторий → Settings → Deploy keys) или токен.
 
 ## Первый запуск
 
-```bash
-# на сервере, под root
-apt update && apt -y upgrade
-curl -fsSL https://get.docker.com | sh
-ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw --force enable
+Одна команда под root, на чистом сервере или рядом с другим проектом:
 
-git clone git@github.com:alisher-15/kyko_parfums.git /opt/kyko
-cd /opt/kyko/deploy/vps
-cp .env.example .env
-nano .env        # DOMAIN, пароли (openssl rand -hex 32), ADMIN_EMAIL/ADMIN_PASSWORD, почта…
-docker compose up -d --build
-docker compose logs -f app   # «Application startup complete» — сайт готов
+```bash
+curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy/vps/install.sh | bash
 ```
 
-Через минуту `https://<домен>` открывается с сертификатом. При старте сами применяются миграции
-и создаётся владелец из `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+`install.sh` сначала смотрит на сервер (память, диск, кто занял порты 80/443). Если порты
+держит другая программа, он ничего не меняет и говорит, какая. Иначе он:
+
+1. добавляет подкачку 4 ГБ, если её нет (сборке сайта нужно ~2 ГБ памяти);
+2. ставит Docker и git;
+3. скачивает код в `/opt/kyko`;
+4. пишет `deploy/vps/.env` с новыми паролями базы и JWT, спрашивая только email и пароль
+   владельца;
+5. собирает и запускает сайт, базу и Caddy (10–15 минут, лог в `/var/log/kyko-install.log`);
+6. проверяет, что сайт отвечает, и ставит ночную копию базы.
+
+Без домена магазин открывается на `https://<ip-через-дефисы>.sslip.io` с настоящим сертификатом.
+Когда A-запись домена укажет на сервер, та же команда переводит магазин на него:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy/vps/install.sh | DOMAIN=kyko.kz bash
+```
+
+Почта, Telegram, Sentry, аналитика и R2 — в `/opt/kyko/deploy/vps/.env` (образец —
+`.env.example`), затем `cd /opt/kyko/deploy/vps && docker compose up -d --build`.
 
 ## Наполнение магазина из Excel
 

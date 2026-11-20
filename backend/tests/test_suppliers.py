@@ -7,6 +7,7 @@ from sqlalchemy import event, select
 
 from app.db import engine
 from app.models import (
+    PriceChange,
     PriceFormat,
     ProductVariant,
     Supplier,
@@ -101,11 +102,16 @@ def _state(db, variant_id: int) -> tuple:
     return (v.cost_price, v.retail_price, v.wholesale_price, v.bulk_price)
 
 
-def test_price_from_cost_rounds_up_to_hundreds():
+def test_price_from_cost_rounds_up_to_hundreds_and_cheap_ones_to_tens():
     assert price_from_cost(Decimal("11000"), Decimal("60")) == 17600
     assert price_from_cost(Decimal("10000"), Decimal("59.9088")) == 16000
     # 9999.45 × 1.599088 is 15 990.00 in whole tenge, not a hair above it.
     assert price_from_cost(Decimal("9999.45"), Decimal("59.9088")) == 16000
+    # Under 5 000 ₸ the step is 10 ₸: a sample doesn't jump from 610 to 700.
+    assert price_from_cost(Decimal("320"), Decimal("90")) == 610  # 608
+    assert price_from_cost(Decimal("3000"), Decimal("66")) == 4980
+    assert price_from_cost(Decimal("3000"), Decimal("66.5")) == 5000  # 4 995 → 5 000
+    assert price_from_cost(Decimal("3100"), Decimal("63")) == 5100  # 5 053: over 5 000, hundreds
 
 
 def test_reading_both_formats():
@@ -474,3 +480,36 @@ def test_a_receipt_leaves_the_suppliers_cost_alone(client, auth, db, catalog, su
     # A volume no supplier has: the receipt gives it its first cost and the markups of its prices.
     v100 = db.get(ProductVariant, coco100.id)
     assert (v100.cost_price, v100.retail_markup) == (8000, 50)
+
+
+def _history(client, h, product_id: int) -> list[tuple]:
+    rows = client.get(f"/api/admin/products/{product_id}/price-history", headers=h).json()
+    return [(r["volume_ml"], r["field"], r["old_value"], r["new_value"], r["source"]) for r in rows]
+
+
+def test_price_lists_and_receipts_go_down_in_the_price_history(
+    client, auth, db, catalog, suppliers
+):
+    h = auth(UserRole.admin)
+    kanat = suppliers["kanat"]
+    coco50, coco100 = catalog["coco50"], catalog["coco100"]
+    _priced(db, coco50, "10000", "16000")  # 60 %
+    db.query(PriceChange).delete()  # what the test set up is not the story
+    db.commit()
+    _link(client, h, kanat, "CHANEL Coco 50", coco50.id)
+    _upload(client, h, kanat, kanat_file([("CHANEL Coco 50", 11000)]), apply=True)
+    # The newest first: the cost from the list, and the price by its markup.
+    assert sorted(_history(client, h, coco50.product_id)) == [
+        (50, "cost", 10000, 11000, "Прайс Канат"),
+        (50, "retail", 16000, 17600, "Прайс Канат"),
+    ]
+
+    rid = client.post("/api/admin/receipts", json={}, headers=h).json()["id"]
+    client.post(
+        f"/api/admin/receipts/{rid}/lines",
+        json={"variant_id": coco100.id, "quantity": 2, "cost_price": 9000},
+        headers=h,
+    )
+    assert client.post(f"/api/admin/receipts/{rid}/post", headers=h).status_code == 200
+    receipt = f"Приёмка №{rid}"
+    assert _history(client, h, coco100.product_id)[0] == (100, "cost", None, 9000, receipt)

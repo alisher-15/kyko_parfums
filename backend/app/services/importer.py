@@ -40,7 +40,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
-from app.services import bottles, markups
+from app.services import bottles, markups, price_history
 from app.services.stock import set_stock
 
 # fmt: off
@@ -341,6 +341,7 @@ def import_catalog(
     dry_run: bool = False,
     user: User | None = None,
 ) -> ImportReport:
+    price_history.label(db, "Импорт Excel", user)
     rows, header_idx = read_rows(content, filename, sheet)
     header = rows[header_idx][1]
     columns: dict[str, int] = {}

@@ -565,6 +565,23 @@ export interface StockMovement {
   created_at: string;
 }
 
+export type PriceField = "cost" | "retail" | "wholesale" | "bulk";
+
+/** A change of a volume's cost or price: where it came from and who made it. */
+export interface PriceChange {
+  id: number;
+  variant_id: number;
+  volume_ml: number;
+  is_tester: boolean;
+  field: PriceField;
+  old_value: number | null;
+  new_value: number | null;
+  /** «Админка», «Импорт Excel», «Прайс Канат», «Приёмка №12», … */
+  source: string;
+  user_email: string | null;
+  created_at: string;
+}
+
 // ---------- Warehouse: receipts and stock counts ----------
 
 export interface ReceiptLine {

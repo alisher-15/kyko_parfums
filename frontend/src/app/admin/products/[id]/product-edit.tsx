@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { PriceHistory } from "@/components/admin/PriceHistory";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { StockHistory } from "@/components/admin/StockHistory";
 import { VariantsEditor } from "@/components/admin/VariantsEditor";
@@ -61,6 +62,12 @@ export function ProductEdit({ id }: { id: number }) {
       <StockHistory
         productId={product.id}
         version={product.variants.map((v) => `${v.id}:${v.stock}`).join(",")}
+      />
+      <PriceHistory
+        productId={product.id}
+        version={product.variants
+          .map((v) => [v.id, v.cost_price, v.retail_price, v.wholesale_price, v.bulk_price].join(":"))
+          .join(",")}
       />
     </div>
   );

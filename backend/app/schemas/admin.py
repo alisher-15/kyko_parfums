@@ -8,6 +8,7 @@ from app.models import (
     OrderChannel,
     OrderStatus,
     PaymentMethod,
+    PriceField,
     PriceTier,
     PricingMode,
     StockReason,
@@ -400,6 +401,19 @@ class StockMovementOut(ORMModel):
     count_id: int | None = None
     user_email: str | None
     note: str | None
+    created_at: datetime
+
+
+class PriceChangeOut(BaseModel):
+    id: int
+    variant_id: int
+    volume_ml: int
+    is_tester: bool = False
+    field: PriceField
+    old_value: Money | None
+    new_value: Money | None
+    source: str
+    user_email: str | None
     created_at: datetime
 
 

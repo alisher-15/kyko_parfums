@@ -18,7 +18,7 @@ from app.models import (
     SupplierPrice,
     User,
 )
-from app.services import markups
+from app.services import markups, price_history
 from app.services.stock import lock_variants, move_stock, set_stock
 
 CENT = Decimal("0.01")
@@ -55,6 +55,7 @@ def post_receipt(db: Session, receipt: StockReceipt, user: User) -> None:
 
     A volume with a supplier's price keeps its cost: the price lists set it
     (services/suppliers.py). A volume that gets its first cost remembers its markups."""
+    price_history.label(db, f"Приёмка №{receipt.id}", user)
     variants = lock_variants(db, (i.variant_id for i in receipt.items))
     priced = set(
         db.scalars(

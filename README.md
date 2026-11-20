@@ -36,7 +36,7 @@ docker compose exec backend python -m app.cli seed-demo           # демо-т�
 через Expo Go и публикация в App Store / Google Play — в [mobile/README.md](mobile/README.md).
 
 ```bash
-cd mobile && npm ci && npx expo start     # QR-код для Expo Go; по умолчанию — живой магазин
+cd mobile && npm ci && npx expo start     # QR-код для Expo Go; по умолчанию — сервер магазина
 ```
 
 ## Деплой в облако (Render, бесплатный тариф)

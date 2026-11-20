@@ -142,7 +142,8 @@ fi
 
 cron="15 3 * * * $KIT/backup.sh >> /var/log/kyko-backup.log 2>&1"
 if command -v crontab >/dev/null && ! crontab -l 2>/dev/null | grep -F "$KIT/backup.sh" >/dev/null; then
-  (crontab -l 2>/dev/null; echo "$cron") | crontab -
+  # No crontab yet is not an error (set -e would end the script there without a word).
+  { crontab -l 2>/dev/null || true; echo "$cron"; } | crontab -
   echo "Копия базы: каждую ночь в 3:15, /var/backups/kyko"
 fi
 

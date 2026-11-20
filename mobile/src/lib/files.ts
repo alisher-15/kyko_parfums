@@ -1,0 +1,84 @@
+import * as DocumentPicker from "expo-document-picker";
+import { File, Paths } from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
+import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
+import { apiFile, type Query } from "./api";
+
+/** A file the customer or staff picked, ready to go into a FormData. */
+export interface PickedFile {
+  name: string;
+  type: string;
+  /** Native: the file's uri; web: the File object itself. */
+  part: Blob | { uri: string; name: string; type: string };
+}
+
+/** A FormData with one file under `field` (the API takes uploads as `file`). */
+export function formWith(file: PickedFile, field = "file"): FormData {
+  const form = new FormData();
+  // React Native's FormData takes {uri, name, type}; the browser's takes a Blob and a name.
+  form.append(field, file.part as Blob, file.name);
+  return form;
+}
+
+/** A photo from the gallery or, with `camera`, a new one. Null when the person cancels. */
+export async function pickImage(camera = false): Promise<PickedFile | null> {
+  if (camera) {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) return null;
+  }
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 0.9 };
+  const result = camera
+    ? await ImagePicker.launchCameraAsync(options)
+    : await ImagePicker.launchImageLibraryAsync(options);
+  const asset = result.canceled ? null : result.assets[0];
+  if (!asset) return null;
+  const type = asset.mimeType ?? "image/jpeg";
+  const name = asset.fileName ?? `photo.${type.split("/")[1] ?? "jpg"}`;
+  return { name, type, part: asset.file ?? { uri: asset.uri, name, type } };
+}
+
+const EXCEL = [
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "text/comma-separated-values",
+];
+
+/** An Excel or CSV file from the phone (an import, a price list). */
+export async function pickSpreadsheet(): Promise<PickedFile | null> {
+  const result = await DocumentPicker.getDocumentAsync({ type: EXCEL, copyToCacheDirectory: true });
+  const asset = result.canceled ? null : result.assets[0];
+  if (!asset) return null;
+  const type = asset.mimeType ?? "application/octet-stream";
+  return { name: asset.name, type, part: asset.file ?? { uri: asset.uri, name: asset.name, type } };
+}
+
+/**
+ * Fetch a protected file from the API and hand it to the phone's «Поделиться» (save to Files,
+ * send in WhatsApp…); in the web build it downloads.
+ */
+export async function saveAndShare(
+  path: string,
+  filename: string,
+  mimeType: string,
+  query?: Query,
+): Promise<void> {
+  const bytes = await apiFile(path, query);
+  if (Platform.OS === "web") {
+    const url = URL.createObjectURL(new Blob([bytes], { type: mimeType }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    return;
+  }
+  const file = new File(Paths.cache, filename);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(new Uint8Array(bytes));
+  await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: filename });
+}
+
+export const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

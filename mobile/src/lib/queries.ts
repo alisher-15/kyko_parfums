@@ -72,3 +72,18 @@ export function useQuote(items: CartItem[]) {
     placeholderData: keepPreviousData,
   });
 }
+
+/** An admin list (orders, users, products, receipts…), page after page as staff scroll. */
+export function usePages<T>(path: string, query: Query = {}, pageSize = 30) {
+  const { ready } = useAuth();
+  return useInfiniteQuery({
+    queryKey: [path, "pages", query],
+    queryFn: ({ pageParam }) =>
+      api<Page<T>>(path, { query: { ...query, page: pageParam, page_size: pageSize } }),
+    initialPageParam: 1,
+    getNextPageParam: (last) =>
+      last.page * last.page_size < last.total ? last.page + 1 : undefined,
+    enabled: ready,
+    placeholderData: keepPreviousData,
+  });
+}

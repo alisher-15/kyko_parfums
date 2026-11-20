@@ -48,6 +48,23 @@
           "color": "#a67c52",
           "defaultChannel": "orders"
         }
+      ],
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Камера нужна сотрудникам магазина, чтобы сканировать штрихкоды и фотографировать товары.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Доступ к фото нужен сотрудникам магазина, чтобы загружать фотографии товаров, логотипы и баннеры.",
+          "cameraPermission": "Камера нужна сотрудникам магазина, чтобы сканировать штрихкоды и фотографировать товары.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

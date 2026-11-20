@@ -1,4 +1,13 @@
-import type { Gender, OrderStatus, PriceTier, ProductSort, UserRole } from "./types";
+import type { PromotionStatus, StockReason } from "./admin-types";
+import type {
+  Gender,
+  OrderChannel,
+  OrderStatus,
+  PaymentMethod,
+  PriceTier,
+  ProductSort,
+  UserRole,
+} from "./types";
 
 // Same texts and rules as frontend/src/lib/format.ts.
 
@@ -107,3 +116,42 @@ export const SORT_LABELS: Record<ProductSort, string> = {
   name: "По названию",
   new: "Новинки",
 };
+
+// ---------- Admin ----------
+
+export const PROMOTION_STATUS_LABELS: Record<PromotionStatus, string> = {
+  running: "Идёт",
+  scheduled: "Запланирована",
+  ended: "Закончилась",
+  off: "Выключена",
+};
+
+export const CHANNEL_LABELS: Record<OrderChannel, string> = {
+  online: "Сайт",
+  store: "Магазин",
+};
+
+export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
+  cash: "Наличные",
+  card: "Карта",
+  transfer: "Kaspi / перевод",
+  other: "Другое",
+};
+
+export const STOCK_REASON_LABELS: Record<StockReason, string> = {
+  online_order: "Заказ на сайте",
+  store_sale: "Продажа в магазине",
+  order_cancel: "Отмена / возврат",
+  manual: "Ручная правка",
+  import: "Импорт Excel",
+  order_edit: "Изменение заказа",
+  return: "Возврат покупателя",
+  receipt: "Приёмка",
+  inventory: "Инвентаризация",
+};
+
+/** "12.11.2026" for a calendar date "2026-11-12". */
+export function shortDate(isoDate: string): string {
+  const [y, m, d] = isoDate.slice(0, 10).split("-");
+  return `${d}.${m}.${y}`;
+}

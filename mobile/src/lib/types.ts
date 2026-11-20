@@ -192,6 +192,8 @@ export interface OrderItem {
   is_tester: boolean;
   quantity: number;
   original_quantity: number;
+  /** Admin only: units not in stock at checkout, ordered from a supplier. */
+  backordered?: number;
   returned_quantity: number;
   list_price: number;
   discount_percent: number;

@@ -2,7 +2,9 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
+import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
+import { isStaff } from "@/lib/staff";
 import { useFavorites } from "@/lib/favorites";
 import { colors, fonts } from "@/theme";
 
@@ -25,6 +27,7 @@ function icon(active: IconName, idle: IconName) {
 
 export default function TabsLayout() {
   const { count } = useCart();
+  const { user } = useAuth();
   const favorites = useFavorites();
   return (
     <Tabs
@@ -69,6 +72,16 @@ export default function TabsLayout() {
           tabBarIcon: icon("bag", "bag-outline"),
           tabBarBadge: count ? (count > 99 ? "99+" : count) : undefined,
           tabBarButtonTestID: "tab-cart",
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: "Админка",
+          // Staff only: owner, cashier, warehouse (lib/staff.ts).
+          href: isStaff(user?.role) ? undefined : null,
+          tabBarIcon: icon("briefcase", "briefcase-outline"),
+          tabBarButtonTestID: "tab-admin",
         }}
       />
       <Tabs.Screen

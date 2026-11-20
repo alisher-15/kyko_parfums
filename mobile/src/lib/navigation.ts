@@ -5,6 +5,8 @@ import { router, type Href } from "expo-router";
  * heading (`next`, e.g. "/checkout"). Only plain screens of the app are accepted.
  */
 export function afterAuth(next: string | undefined) {
+  // Opened straight from a link (nothing to go back to): to the home page.
   if (router.canGoBack()) router.back();
+  else if (!next) router.replace("/");
   if (next && /^\/[a-z-]+$/.test(next)) router.push(next as Href);
 }

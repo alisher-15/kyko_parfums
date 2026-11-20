@@ -89,6 +89,8 @@ export type Query = Record<string, QueryValue>;
 export interface RequestOptions {
   method?: string;
   body?: unknown;
+  /** A multipart form (a photo, an Excel file), instead of a JSON body. */
+  form?: FormData;
   query?: Query;
 }
 
@@ -136,8 +138,11 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Response> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (withAuth && tokens) headers.Authorization = `Bearer ${tokens.access_token}`;
-  let body: string | undefined;
-  if (opts.body !== undefined) {
+  let body: string | FormData | undefined;
+  if (opts.form) {
+    // The platform sets the multipart boundary itself.
+    body = opts.form;
+  } else if (opts.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(opts.body);
   }
@@ -148,13 +153,16 @@ function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Re
   });
 }
 
+async function request(path: string, opts: RequestOptions): Promise<Response> {
+  const res = await send(path, opts, true);
+  if (res.status !== 401 || !tokens) return res;
+  // The access token expired: refresh once, or go on as a guest.
+  const refreshed = await refreshTokens();
+  return send(path, opts, refreshed);
+}
+
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  let res = await send(path, opts, true);
-  if (res.status === 401 && tokens) {
-    // The access token expired: refresh once, or go on as a guest.
-    const refreshed = await refreshTokens();
-    res = await send(path, opts, refreshed);
-  }
+  const res = await request(path, opts);
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
@@ -168,4 +176,14 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 export function errorText(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+/** A protected file (an invoice, an Excel template) as bytes, with the session's token. */
+export async function apiFile(path: string, query?: Query): Promise<ArrayBuffer> {
+  const res = await request(path, { query });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new ApiError(res.status, errorMessage(data?.detail, `Ошибка ${res.status}`), data);
+  }
+  return res.arrayBuffer();
 }

@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ComponentProps, ReactNode } from "react";
+import { Children, type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -196,7 +196,7 @@ export function Notice({
       accessibilityRole={tone === "error" ? "alert" : undefined}
       style={[styles.notice, { backgroundColor: t.bg, borderColor: t.border }, style]}
     >
-      {typeof children === "string" ? (
+      {Children.toArray(children).every((c) => typeof c === "string" || typeof c === "number") ? (
         <Text style={[styles.noticeText, { color: t.fg }]}>{children}</Text>
       ) : (
         children

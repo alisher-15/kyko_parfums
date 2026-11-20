@@ -7,6 +7,7 @@ import { AuthCard } from "@/components/AuthCard";
 import { ErrorBox, Field } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/safe-next";
+import { isStaff, staffHome } from "@/lib/staff";
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -23,7 +24,7 @@ export function LoginForm() {
     setError(null);
     try {
       const user = await login(email, password);
-      const fallback = user.role === "admin" ? "/admin" : "/account";
+      const fallback = isStaff(user.role) ? staffHome(user.role) : "/account";
       router.replace(safeNext(params.get("next"), fallback));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

@@ -36,7 +36,7 @@ Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` 
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 46 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 48 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -87,7 +87,7 @@ Full stack: `docker compose up -d --build`.
 
 **Legal pages** (`app/offer`, `app/privacy`, `lib/legal.ts`). The offer and the privacy policy are templates: the seller's details and `DATA_STORAGE` come from `lib/legal.ts`, and an empty one shows as a highlighted gap (`components/LegalPage.tsx`). Checkout and registration can't be sent without the `<Consent>` checkbox (personal data law of Kazakhstan); e2e flows tick it with `getByLabel(/согласие на обработку/)`. When the privacy policy's facts change (a new processor, analytics, the hosting), update the page.
 
-**Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are protected by `deps.require_admin`. The Pydantic schemas are in `app/schemas/`.
+**Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are staff only (`permissions.require_staff`), and `routers/admin/__init__.py` says whose each router is: `allow()` alone is the owner's (`admin`), `allow(Area.orders)` adds the roles with that area, `reading=` grants GET only. Roles and areas are in `app/permissions.py` (`cashier`: till + orders; `warehouse`: stock + orders), mirrored for the menu in `frontend/src/lib/staff.ts`; change both together. A route that needs the user takes `Depends(require_staff)`; owner-only data in a shared response (the cost at the till) is blanked for the others. Staff are retail buyers on the storefront. The Pydantic schemas are in `app/schemas/`.
 
 **Models.** Enums are stored as VARCHAR + CHECK (`_enum()` in `models.py`), not native PG enums, so adding an enum value (e.g. a new `StockReason`) needs a migration that drops and recreates the CHECK constraint (see migrations 0003 and 0006). Money is `Decimal` internally and serialized to JSON as a number (`schemas/common.Money`). After a commit in the same session, reload objects with `.execution_options(populate_existing=True)` (see `order_load_options()`), and lock with `with_for_update(of=Model)` when the query has outer joins.
 

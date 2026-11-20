@@ -36,7 +36,11 @@ class UserRole(enum.StrEnum):
     retail = "retail"
     wholesale = "wholesale"
     bulk_wholesale = "bulk_wholesale"
+    # The owner: the whole admin panel.
     admin = "admin"
+    # Staff with part of it (app/permissions.py); they buy at retail prices like anyone.
+    cashier = "cashier"
+    warehouse = "warehouse"
 
 
 class Gender(enum.StrEnum):

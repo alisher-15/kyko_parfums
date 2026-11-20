@@ -3,7 +3,6 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.deps import require_admin
 from app.models import (
     Order,
     OrderChannel,
@@ -13,6 +12,7 @@ from app.models import (
     ProductVariant,
     User,
 )
+from app.permissions import require_staff
 from app.schemas.admin import (
     AdminOrderBrief,
     AdminOrderOut,
@@ -155,7 +155,7 @@ def update_order(
     data: OrderStatusUpdate,
     background: BackgroundTasks,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_staff),
 ):
     order = _load_order(db, order_id, lock=True)
     changes = data.model_dump(exclude_unset=True)
@@ -179,7 +179,7 @@ def edit_order_items(
     order_id: int,
     data: OrderItemsEditIn,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_staff),
 ):
     """Remove lines / reduce quantities before the order is shipped. Freed stock goes back."""
     order = _load_order(db, order_id, lock=True)
@@ -197,7 +197,7 @@ def create_order_return(
     order_id: int,
     data: ReturnIn,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_staff),
 ):
     """Partial or full return of a delivered order (store sale or website order)."""
     order = _load_order(db, order_id, lock=True)

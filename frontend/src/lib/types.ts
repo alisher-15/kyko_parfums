@@ -1,4 +1,4 @@
-export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin";
+export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin" | "cashier" | "warehouse";
 export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";

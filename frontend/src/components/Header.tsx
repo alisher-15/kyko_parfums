@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { CurrencySwitch } from "@/lib/currency";
 import { ROLE_LABELS } from "@/lib/format";
+import { isStaff, staffHome } from "@/lib/staff";
 import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 
 const NAV = [
@@ -78,8 +79,8 @@ export function Header() {
 
         <div className="ml-auto flex items-center gap-1 md:ml-0">
           <CurrencySwitch className="mr-1" />
-          {user?.role === "admin" && (
-            <Link href="/admin" className="btn btn-outline btn-sm mr-1 hidden sm:inline-flex">
+          {isStaff(user?.role) && (
+            <Link href={staffHome(user?.role)} className="btn btn-outline btn-sm mr-1 hidden sm:inline-flex">
               Админка
             </Link>
           )}
@@ -120,8 +121,8 @@ export function Header() {
                 {n.label}
               </Link>
             ))}
-            {user?.role === "admin" && (
-              <Link href="/admin" onClick={() => setOpen(false)} className="py-2 text-gold">
+            {isStaff(user?.role) && (
+              <Link href={staffHome(user?.role)} onClick={() => setOpen(false)} className="py-2 text-gold">
                 Админ-панель
               </Link>
             )}

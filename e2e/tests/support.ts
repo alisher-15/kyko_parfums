@@ -42,8 +42,8 @@ export function uniqueEmail(tag: string): string {
   return `${tag}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@example.com`;
 }
 
-/** A new customer account, optionally promoted by the admin. */
-export async function newCustomer(tag: string, role?: "wholesale" | "bulk_wholesale") {
+/** A new account, optionally given a role by the admin (a price level or a staff role). */
+export async function newCustomer(tag: string, role?: "wholesale" | "bulk_wholesale" | "cashier" | "warehouse") {
   const email = uniqueEmail(tag);
   const password = "e2e-pass-1";
   const pair = await api("POST", "/auth/register", null, {

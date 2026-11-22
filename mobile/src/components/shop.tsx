@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import {
   FlatList,
   Linking,
@@ -10,8 +11,6 @@ import {
   Text,
   View,
   useWindowDimensions,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
 } from "react-native";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -32,105 +31,82 @@ import { Button, Field, Muted, Notice, Txt } from "./ui";
 
 // ---------- Promotions ----------
 
+/** Cards in view: two and a bit on phones, three on tablets, four on wide screens (as the site). */
+function railShare(width: number): number {
+  if (width >= 768) return 0.25;
+  if (width >= 640) return 0.31;
+  return 0.44;
+}
+
 /**
- * Banners of the running promotions, 8:3 like on the website (one 2400×900 picture fits every
- * screen). A finished banner (image_only) is shown whole; otherwise the app writes the discount,
- * the dates and the title over the picture. They turn by themselves every 5 seconds.
+ * The promotions running today as a sideways row of 3:2 cards at the top of the home page, like
+ * the website (one 1200×800 picture fills a card). Each opens its products in the catalog.
  */
-export function PromotionCarousel({ promotions }: { promotions: PromotionPublic[] }) {
+export function PromotionRail({ promotions }: { promotions: PromotionPublic[] }) {
   const { width } = useWindowDimensions();
-  const slideWidth = Math.min(width, 720) - 32;
-  const height = Math.round((slideWidth * 3) / 8);
-  const list = useRef<FlatList<PromotionPublic>>(null);
-  const [index, setIndex] = useState(0);
-  const touched = useRef(false);
-
-  useEffect(() => {
-    if (promotions.length < 2) return;
-    const timer = setInterval(() => {
-      if (touched.current) return;
-      setIndex((i) => {
-        const next = (i + 1) % promotions.length;
-        list.current?.scrollToOffset({ offset: next * (slideWidth + 12), animated: true });
-        return next;
-      });
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [promotions.length, slideWidth]);
-
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / (slideWidth + 12));
-    if (i !== index && i >= 0 && i < promotions.length) setIndex(i);
-  };
-
+  const inner = Math.min(width, 1100) - 32;
+  const gap = 12;
+  const share = railShare(width);
+  const cardWidth = Math.floor(share === 0.25 ? (inner - 3 * gap) / 4 : inner * share);
   return (
-    <View>
-      <FlatList
-        ref={list}
-        data={promotions}
-        horizontal
-        keyExtractor={(p) => String(p.id)}
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={slideWidth + 12}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-        onScroll={onScroll}
-        scrollEventThrottle={32}
-        onScrollBeginDrag={() => (touched.current = true)}
-        renderItem={({ item }) => (
-          <PromotionSlide promotion={item} width={slideWidth} height={height} />
-        )}
-      />
-      {promotions.length > 1 && (
-        <View style={styles.dots} accessibilityElementsHidden>
-          {promotions.map((p, i) => (
-            <View key={p.id} style={[styles.dot, i === index && styles.dotActive]} />
-          ))}
-        </View>
-      )}
-    </View>
+    <FlatList
+      data={promotions}
+      horizontal
+      accessibilityLabel="Баннеры акций"
+      keyExtractor={(p) => String(p.id)}
+      showsHorizontalScrollIndicator={false}
+      snapToInterval={cardWidth + gap}
+      decelerationRate="fast"
+      contentContainerStyle={{ paddingHorizontal: 16, gap }}
+      renderItem={({ item }) => <PromotionCard promotion={item} width={cardWidth} />}
+    />
   );
 }
 
-function PromotionSlide({
-  promotion: p,
-  width,
-  height,
-}: {
-  promotion: PromotionPublic;
-  width: number;
-  height: number;
-}) {
+/**
+ * One card, 3:2. A finished banner (its text is on the picture) is shown whole, with a blurred
+ * copy of itself around a picture of other proportions. Otherwise the picture fills the card and
+ * the app writes the discount, the end date and the title over it (or over a dark background).
+ */
+function PromotionCard({ promotion: p, width }: { promotion: PromotionPublic; width: number }) {
   const src = assetUrl(p.image_url);
   const open = () =>
     router.push({ pathname: "/collection", params: { promotion_id: p.id, title: p.title } });
+  const whole = p.image_only && !!src;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={p.title}
+      testID={`promotion-card-${p.id}`}
       onPress={open}
-      style={[styles.slide, { width, height }]}
+      style={({ pressed }) => [
+        styles.card,
+        { width, height: Math.round((width * 2) / 3) },
+        pressed && { opacity: 0.85 },
+      ]}
     >
-      {src && (
-        <Image
-          source={src}
-          style={StyleSheet.absoluteFill}
-          contentFit={p.image_only ? "contain" : "cover"}
-        />
-      )}
-      {!p.image_only && (
+      {whole ? (
         <>
-          <View style={styles.slideShade} />
-          <View style={styles.slideText}>
-            <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <Image source={src} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={24} />
+          <Image source={src} style={StyleSheet.absoluteFill} contentFit="contain" />
+        </>
+      ) : (
+        <>
+          {src && <Image source={src} style={StyleSheet.absoluteFill} contentFit="cover" />}
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.25)", "rgba(0,0,0,0.75)"]}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.cardText}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
               {p.discount_percent !== null && (
-                <View style={styles.slideBadge}>
-                  <Text style={styles.slideBadgeText}>{percentOff(p.discount_percent)}</Text>
+                <View style={styles.cardBadge}>
+                  <Text style={styles.cardBadgeText}>{percentOff(p.discount_percent)}</Text>
                 </View>
               )}
-              {p.ends_on && <Text style={styles.slideDates}>до {dayMonth(p.ends_on)}</Text>}
+              {p.ends_on && <Text style={styles.cardDates}>до {dayMonth(p.ends_on)}</Text>}
             </View>
-            <Text style={styles.slideTitle} numberOfLines={2}>
+            <Text style={styles.cardTitle} numberOfLines={2}>
               {p.title}
             </Text>
           </View>
@@ -319,21 +295,17 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 
 const styles = StyleSheet.create({
   bold: { fontFamily: fonts.sansBold },
-  dots: { flexDirection: "row", justifyContent: "center", gap: 6, marginTop: 10 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.line },
-  dotActive: { width: 18, backgroundColor: colors.gold },
-  slide: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
-  slideShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.38)" },
-  slideText: { position: "absolute", left: 14, right: 14, bottom: 12, gap: 4 },
-  slideBadge: {
+  card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
+  cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },
+  cardBadge: {
     backgroundColor: colors.gold,
     borderRadius: radius.pill,
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  slideBadgeText: { fontFamily: fonts.sansBold, fontSize: 12, color: colors.white },
-  slideDates: { fontFamily: fonts.sansMedium, fontSize: 12, color: "#e7e5e4" },
-  slideTitle: { fontFamily: fonts.serifBold, fontSize: 24, lineHeight: 26, color: colors.white },
+  cardBadgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.white },
+  cardDates: { fontFamily: fonts.sansMedium, fontSize: 11, color: "#e7e5e4" },
+  cardTitle: { fontFamily: fonts.serifBold, fontSize: 15, lineHeight: 17, color: colors.white },
   switch: {
     flexDirection: "row",
     borderWidth: 1,

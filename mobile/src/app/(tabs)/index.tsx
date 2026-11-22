@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product";
-import { CurrencySwitch, PromotionCarousel } from "@/components/shop";
+import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { Chip, Eyebrow, Loader, Muted, Notice, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { CONTACTS } from "@/lib/contacts";
@@ -72,8 +72,8 @@ export default function HomeScreen() {
       </Pressable>
 
       {!!promotions.data?.length && (
-        <View style={{ marginTop: 16 }}>
-          <PromotionCarousel promotions={promotions.data} />
+        <View style={{ marginTop: 12 }}>
+          <PromotionRail promotions={promotions.data} />
         </View>
       )}
 

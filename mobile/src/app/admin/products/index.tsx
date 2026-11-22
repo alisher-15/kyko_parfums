@@ -265,7 +265,7 @@ function FiltersSheet({
           <View style={styles.chips}>
             {(
               [
-                ["", "Все"],
+                ["", "На сайте и скрытые"],
                 ["true", "Опубликованные"],
                 ["false", "Скрытые"],
               ] as const

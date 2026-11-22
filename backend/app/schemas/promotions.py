@@ -68,6 +68,9 @@ class PromotionBrand(ORMModel):
 class PromotionProduct(ORMModel):
     id: int
     name: str
+    # Two products of one name differ by type (EDP, Extrait): the form shows it.
+    type: str | None = None
+    image_url: str | None = None
     brand: PromotionBrand
 
 

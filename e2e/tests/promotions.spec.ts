@@ -41,7 +41,10 @@ test("акция: баннер, скидка в карточке и корзин
       await page.getByLabel("Текст на баннере").fill("Только на этой неделе");
       await page.getByLabel("Скидка, %").fill("20");
       await page.getByPlaceholder("Найти товар: название или бренд").fill(product.name);
-      await page.getByRole("button", { name: new RegExp(product.name) }).click();
+      // A found product shows its volumes and price: two products of one name differ by them.
+      const option = page.getByRole("button", { name: new RegExp(product.name) });
+      await expect(option).toContainText(/50 мл · от 30\s000/);
+      await option.click();
       await page.getByRole("button", { name: "Создать акцию" }).click();
       await page.waitForURL(/\/admin\/promotions\/\d+$/);
       promotionId = Number(new URL(page.url()).pathname.split("/").pop());

@@ -3,11 +3,12 @@
 import { useState, type FormEvent } from "react";
 import { ErrorBox, Field, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
+import { money, volumeLabel } from "@/lib/format";
 import type { AdminProduct, Brand, BrandBrief, Page, Promotion } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 import { ImageUpload } from "./ImageUpload";
 
-type ProductChoice = { id: number; name: string; brand: BrandBrief };
+type ProductChoice = { id: number; name: string; type: string | null; image_url: string | null; brand: BrandBrief };
 
 type FormState = {
   title: string;
@@ -130,7 +131,7 @@ export function PromotionForm({
             : "Баннер — карточка 3:2 в ленте акций вверху главной: лучше всего картинка 1200×800. Сайт пишет поверх неё скидку, дату окончания и название, поэтому оставьте внизу место под текст. Без картинки карточка будет тёмной с текстом."}
         </p>
       </div>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4">
         <Field label="Название">
           <input
             className="input"
@@ -159,10 +160,10 @@ export function PromotionForm({
             />
           </Field>
           <Field label="Начало" hint="Пусто — сразу">
-            <input className="input" type="date" value={form.starts_on} onChange={set("starts_on")} />
+            <input className="input min-w-0" type="date" value={form.starts_on} onChange={set("starts_on")} />
           </Field>
           <Field label="Конец (включительно)" hint="Пусто — пока не выключите">
-            <input className="input" type="date" value={form.ends_on} onChange={set("ends_on")} />
+            <input className="input min-w-0" type="date" value={form.ends_on} onChange={set("ends_on")} />
           </Field>
         </div>
         <p className="text-xs text-muted">
@@ -292,6 +293,7 @@ function ProductPicker({
           {selected.map((p) => (
             <span key={p.id} className="chip gap-1">
               {p.brand.name} {p.name}
+              {p.type && <span className="text-muted">· {p.type}</span>}
               <button
                 type="button"
                 className="text-muted hover:text-red-600"
@@ -311,24 +313,57 @@ function ProductPicker({
         onChange={(e) => setSearch(e.target.value)}
       />
       {found.data && (
-        <div className="mt-1 max-h-56 overflow-y-auto">
+        <div className="mt-1 max-h-80 overflow-y-auto">
           {found.data.items.length === 0 && <p className="py-2 text-sm text-muted">Ничего не найдено</p>}
           {found.data.items.map((p) => (
-            <button
+            <ProductOption
               key={p.id}
-              type="button"
-              disabled={ids.has(p.id)}
-              onClick={() => onChange([...selected, { id: p.id, name: p.name, brand: p.brand }])}
-              className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-cream disabled:opacity-50"
-            >
-              <span>
-                <span className="text-muted">{p.brand.name}</span> {p.name}
-              </span>
-              <span className="text-xs text-gold">{ids.has(p.id) ? "добавлен" : "+ добавить"}</span>
-            </button>
+              product={p}
+              added={ids.has(p.id)}
+              onAdd={() =>
+                onChange([...selected, { id: p.id, name: p.name, type: p.type, image_url: p.image_url, brand: p.brand }])
+              }
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A found product as a small card: products of one name (an EDP and an Extrait, a bottle and a
+ * set) differ by their type, volumes and price, so all of them are shown.
+ */
+function ProductOption({ product: p, added, onAdd }: { product: AdminProduct; added: boolean; onAdd: () => void }) {
+  const volumes = [...p.variants].sort((a, b) => a.volume_ml - b.volume_ml || Number(a.is_tester) - Number(b.is_tester));
+  const prices = volumes.map((v) => v.retail_price);
+  const photo = p.image_url ?? volumes.find((v) => v.photo_url)?.photo_url ?? null;
+  return (
+    <button
+      type="button"
+      disabled={added}
+      onClick={onAdd}
+      className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-cream disabled:opacity-50"
+    >
+      <span className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-line bg-white">
+        {photo && <img src={photo} alt="" className="h-full w-full object-contain" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span>
+            <span className="text-muted">{p.brand.name}</span> {p.name}
+          </span>
+          {p.type && <span className="chip px-1.5 py-0 text-[11px]">{p.type}</span>}
+          {!p.is_active && <span className="text-[11px] text-red-600">скрыт</span>}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-muted">
+          {volumes.length
+            ? `${volumes.map((v) => volumeLabel(v.volume_ml, v.is_tester)).join(" · ")} · от ${money(Math.min(...prices))}`
+            : "нет объёмов"}
+        </span>
+      </span>
+      <span className="shrink-0 text-xs text-gold">{added ? "добавлен" : "+ добавить"}</span>
+    </button>
   );
 }

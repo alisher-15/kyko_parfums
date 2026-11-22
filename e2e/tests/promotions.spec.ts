@@ -100,13 +100,15 @@ test("акция: баннер, скидка в карточке и корзин
   }
 });
 
-test("баннеры акций сменяются сами, пока их не держат", async ({ openPage }) => {
+test("баннеры акций — лента карточек вверху главной, видно несколько сразу", async ({ page }) => {
   const admin = await adminToken();
   const ids: number[] = [];
+  const titles: string[] = [];
   try {
     for (const n of [1, 2]) {
+      titles.push(`Баннер E2E ${n} ${Date.now()}`);
       const created = await api("POST", "/admin/promotions", admin, {
-        title: `Баннер E2E ${n} ${Date.now()}`,
+        title: titles[n - 1],
         all_products: true,
         is_active: true,
         // The second one is a finished banner: its text is on the picture.
@@ -114,23 +116,21 @@ test("баннеры акций сменяются сами, пока их не 
       });
       ids.push(created.id);
     }
-    // The tests run with reduced motion (see the config); a visitor without it sees them turn.
-    const guest = await openPage({ reducedMotion: "no-preference" });
-    await guest.goto("/");
-    // A finished banner is the picture alone: its title is the picture's alt text, not written.
-    const finished = guest.locator(`a[href='/catalog?promotion_id=${ids[1]}']`);
-    await expect(finished.getByRole("img")).toBeAttached();
-    await expect(finished).not.toContainText("Смотреть");
-    const dot = (n: number) => guest.getByRole("button", { name: `Баннер ${n}`, exact: true });
-    await expect(dot(1)).toHaveAttribute("aria-current", "true");
-    await expect(dot(2)).toHaveAttribute("aria-current", "true", { timeout: 8000 });
-
-    // Under the pointer it waits: the visitor is reading it.
-    await guest.getByRole("region", { name: "Баннеры акций" }).hover();
-    const current = guest.locator("button[aria-label^='Баннер '][aria-current='true']");
-    const held = await current.getAttribute("aria-label");
-    await guest.waitForTimeout(6500);
-    await expect(current).toHaveAttribute("aria-label", held!);
+    await page.goto("/");
+    const row = page.getByRole("region", { name: "Баннеры акций" });
+    const plain = row.locator(`a[href='/catalog?promotion_id=${ids[0]}']`);
+    const finished = row.locator(`a[href='/catalog?promotion_id=${ids[1]}']`);
+    // The site writes the title over a banner; a finished one is the picture alone, the title
+    // being its alt text.
+    await expect(plain).toContainText(titles[0]);
+    await expect(finished.getByRole("img", { name: titles[1] })).toBeAttached();
+    await expect(finished).not.toContainText(titles[1]);
+    // Several at once, on a phone too: both cards are on the screen side by side.
+    await expect(plain).toBeInViewport();
+    await expect(finished).toBeInViewport();
+    const [a, b] = [await plain.boundingBox(), await finished.boundingBox()];
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+    expect(a!.width / a!.height).toBeCloseTo(1.5, 1);
   } finally {
     for (const id of ids) await api("DELETE", `/admin/promotions/${id}`, admin).catch(() => {});
   }

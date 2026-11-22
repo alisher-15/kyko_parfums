@@ -416,7 +416,14 @@ export interface PromotionBrief {
 export interface Promotion extends PromotionBrief {
   description: string | null;
   brands: BrandBrief[];
-  products: { id: number; name: string; brand: BrandBrief }[];
+  /** type and image_url: two products of one name (EDP, Extrait) differ by them. */
+  products: {
+    id: number;
+    name: string;
+    type?: string | null;
+    image_url?: string | null;
+    brand: BrandBrief;
+  }[];
   created_at: string;
   updated_at: string;
 }

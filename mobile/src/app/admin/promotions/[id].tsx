@@ -12,16 +12,31 @@ import {
   View,
 } from "react-native";
 import { ImageUpload } from "@/components/admin/image-upload";
-import { AdminScreen, Block, SearchBox, Segmented, Toggle, confirm } from "@/components/admin/kit";
+import {
+  AdminScreen,
+  Block,
+  Pill,
+  SearchBox,
+  Segmented,
+  Toggle,
+  confirm,
+} from "@/components/admin/kit";
+import { ProductImage } from "@/components/product";
 import { Button, Chip, ErrorState, Field, Loader, Muted, Notice, Txt } from "@/components/ui";
 import type { AdminProduct, Promotion } from "@/lib/admin-types";
 import { api, errorText } from "@/lib/api";
-import { PROMOTION_STATUS_LABELS } from "@/lib/format";
+import { PROMOTION_STATUS_LABELS, tenge, volumeLabel } from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import type { Brand, BrandBrief, Page } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
 
-type ProductChoice = { id: number; name: string; brand: BrandBrief };
+type ProductChoice = {
+  id: number;
+  name: string;
+  type?: string | null;
+  image_url?: string | null;
+  brand: BrandBrief;
+};
 
 // One of three: a promotion on both brands and products would cover the whole brand,
 // which is rarely what is meant (as on the website).
@@ -172,7 +187,7 @@ function PromotionForm({ promotion }: { promotion?: Promotion }) {
           value={form.image_url}
           seed={promotion?.id ?? 0}
           onChange={(url) => setForm({ ...form, image_url: url })}
-          previewStyle={{ width: "100%", aspectRatio: 8 / 3 }}
+          previewStyle={{ width: "100%", aspectRatio: 3 / 2 }}
         />
         {form.image_url && (
           <Toggle
@@ -184,8 +199,8 @@ function PromotionForm({ promotion }: { promotion?: Promotion }) {
         )}
         <Muted style={{ fontSize: 12 }}>
           {form.image_url && form.image_only
-            ? "Баннер 8:3 на всех экранах: картинка 2400×900 заполнит его целиком. На телефоне баннер небольшой — пишите на картинке главное крупно."
-            : "Баннер 8:3 на всех экранах: лучше всего картинка 2400×900. Сайт пишет поверх неё название, даты и скидку, поэтому оставьте слева внизу место под текст. Без картинки баннер будет тёмным с текстом."}
+            ? "Баннер — карточка 3:2 в ленте акций вверху главной, на телефоне их видно две с небольшим: картинка 1200×800 заполнит её целиком, без обрезки и полос. Карточка небольшая, поэтому пишите на картинке главное и крупно."
+            : "Баннер — карточка 3:2 в ленте акций вверху главной: лучше всего картинка 1200×800, не меньше 600 px в ширину. Поверх неё пишутся скидка, дата окончания и название, поэтому оставьте внизу место под текст. Без картинки карточка будет тёмной с текстом."}
         </Muted>
       </Block>
 
@@ -383,6 +398,7 @@ function ProductPicker({
         <View key={p.id} style={styles.chosen}>
           <Txt style={{ flex: 1, fontSize: 14 }}>
             <Text style={{ color: colors.muted }}>{p.brand.name}</Text> {p.name}
+            {p.type ? <Text style={{ color: colors.muted }}> · {p.type}</Text> : null}
           </Txt>
           <Pressable
             accessibilityLabel={`Убрать ${p.name}`}
@@ -401,27 +417,80 @@ function ProductPicker({
       />
       {found.data?.items.length === 0 && <Muted style={{ fontSize: 13 }}>Ничего не найдено</Muted>}
       {found.data?.items.map((p) => (
-        <Pressable
+        <ProductOption
           key={p.id}
-          accessibilityRole="button"
-          testID={`promotion-add-${p.id}`}
-          disabled={ids.has(p.id)}
-          onPress={() => onChange([...selected, { id: p.id, name: p.name, brand: p.brand }])}
-          style={({ pressed }) => [styles.found, (pressed || ids.has(p.id)) && { opacity: 0.5 }]}
-        >
-          <Txt style={{ flex: 1, fontSize: 14 }}>
-            <Text style={{ color: colors.muted }}>{p.brand.name}</Text> {p.name}
-          </Txt>
-          <Text style={{ color: colors.goldDark, fontFamily: fonts.sansSemi, fontSize: 12 }}>
-            {ids.has(p.id) ? "добавлен" : "+ добавить"}
-          </Text>
-        </Pressable>
+          product={p}
+          added={ids.has(p.id)}
+          onAdd={() =>
+            onChange([
+              ...selected,
+              { id: p.id, name: p.name, type: p.type, image_url: p.image_url, brand: p.brand },
+            ])
+          }
+        />
       ))}
     </View>
   );
 }
 
+/**
+ * A found product as a small card: products of one name (an EDP and an Extrait, a bottle and a
+ * set) differ by their type, volumes and price, so all of them are shown (as on the website).
+ */
+function ProductOption({
+  product: p,
+  added,
+  onAdd,
+}: {
+  product: AdminProduct;
+  added: boolean;
+  onAdd: () => void;
+}) {
+  const volumes = [...p.variants].sort(
+    (a, b) => a.volume_ml - b.volume_ml || Number(a.is_tester) - Number(b.is_tester),
+  );
+  const photo = p.image_url ?? volumes.find((v) => v.photo_url)?.photo_url ?? null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      testID={`promotion-add-${p.id}`}
+      disabled={added}
+      onPress={onAdd}
+      style={({ pressed }) => [styles.found, (pressed || added) && { opacity: 0.5 }]}
+    >
+      <ProductImage uri={photo} seed={p.id} style={styles.thumb} iconSize={16} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+          <Txt style={{ fontSize: 14 }}>
+            <Text style={{ color: colors.muted }}>{p.brand.name}</Text> {p.name}
+          </Txt>
+          {p.type && <Pill label={p.type} />}
+          {!p.is_active && <Text style={{ color: colors.danger, fontSize: 11 }}>скрыт</Text>}
+        </View>
+        <Muted style={{ fontSize: 12 }} numberOfLines={1}>
+          {volumes.length
+            ? `${volumes.map((v) => volumeLabel(v.volume_ml, v.is_tester)).join(" · ")} · от ${tenge(
+                Math.min(...volumes.map((v) => v.retail_price)),
+              )}`
+            : "нет объёмов"}
+        </Muted>
+      </View>
+      <Text style={{ color: colors.goldDark, fontFamily: fonts.sansSemi, fontSize: 12 }}>
+        {added ? "добавлен" : "+ добавить"}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  thumb: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
   chosen: {
     flexDirection: "row",
     alignItems: "center",

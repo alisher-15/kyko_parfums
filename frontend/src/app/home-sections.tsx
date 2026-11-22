@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { RAIL_ITEM, Rail, Slider } from "@/components/Carousel";
+import { RAIL_ITEM, Rail } from "@/components/Carousel";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -61,34 +61,37 @@ export function WholesaleStrip() {
   );
 }
 
-/** Banners of the promotions running today, each opening its products in the catalog. */
+/**
+ * The promotions running today, at the top of the page: a row of cards, several at once, that
+ * scrolls sideways (swipe on phones, arrows on computers). Each opens its products in the catalog.
+ */
 export function HomePromotions() {
   const { data } = useApi<PromotionPublic[]>("/promotions");
   if (!data || data.length === 0) return null;
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
-      <Slider
-        label="Баннеры акций"
-        slides={data.map((p) => (
-          <PromotionSlide key={p.id} promotion={p} />
+    <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 md:pt-6">
+      <Rail label="Баннеры акций">
+        {data.map((p) => (
+          <div key={p.id} className={RAIL_ITEM}>
+            <PromotionCard promotion={p} />
+          </div>
         ))}
-      />
+      </Rail>
     </section>
   );
 }
 
 /**
- * One banner, 8:3 on every screen: one picture of 2400×900 fills it on a phone and on a
- * computer alike, only the size changes. A finished banner (its text is on the picture) is
- * shown whole; a picture of other proportions gets a blurred copy of itself around it. Otherwise
- * the site writes the title, dates and discount over the picture (or a dark background), in
- * short on phones, where the banner is low.
+ * One banner card, 3:2 on every screen (a 1200×800 picture fills it). A finished banner (its
+ * text is on the picture) is shown whole, a picture of other proportions with a blurred copy of
+ * itself around it. Otherwise the picture fills the card and the site writes the discount, the
+ * end date and the title over it (or over a dark background).
  */
-function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
+function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
   const href = `/catalog?promotion_id=${p.id}`;
   if (p.image_only && p.image_url) {
     return (
-      <Link href={href} className="relative block aspect-[8/3] overflow-hidden rounded-2xl bg-ink">
+      <Link href={href} className="relative block aspect-[3/2] overflow-hidden rounded-2xl bg-ink">
         <img
           src={p.image_url}
           alt=""
@@ -102,7 +105,7 @@ function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
   return (
     <Link
       href={href}
-      className="group relative flex aspect-[8/3] flex-col justify-end overflow-hidden rounded-2xl bg-ink p-4 text-white md:px-20 md:py-10"
+      className="group relative flex aspect-[3/2] flex-col justify-end overflow-hidden rounded-2xl bg-ink p-3 text-white md:p-4"
     >
       {p.image_url && (
         <img
@@ -111,24 +114,17 @@ function PromotionSlide({ promotion: p }: { promotion: PromotionPublic }) {
           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
-      {/* On phones only the discount, the dates and the title: the banner is low there. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
       <div className="relative">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
           {p.discount_percent !== null && (
-            <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-bold md:px-3 md:py-1 md:text-sm">
+            <span className="rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold md:text-xs">
               {percentOff(p.discount_percent)}
             </span>
           )}
-          {p.ends_on && <span className="text-xs text-stone-200">до {dayMonth(p.ends_on)}</span>}
+          {p.ends_on && <span className="text-[11px] text-stone-200 md:text-xs">до {dayMonth(p.ends_on)}</span>}
         </div>
-        <div className="mt-1 line-clamp-2 font-serif text-xl leading-tight font-bold md:mt-2 md:text-4xl">
-          {p.title}
-        </div>
-        {p.description && (
-          <p className="mt-1 hidden max-w-xl text-sm text-stone-200 md:block">{p.description}</p>
-        )}
-        <span className="mt-3 hidden text-sm font-semibold text-gold md:inline-block">Смотреть →</span>
+        <div className="mt-1 line-clamp-2 font-serif text-sm leading-tight font-bold md:text-lg">{p.title}</div>
       </div>
     </Link>
   );

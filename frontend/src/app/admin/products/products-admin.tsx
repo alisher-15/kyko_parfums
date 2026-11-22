@@ -139,8 +139,13 @@ export function ProductsAdmin() {
             </option>
           ))}
         </select>
-        <select className="input w-auto" value={active} onChange={(e) => setFilters({ is_active: e.target.value })}>
-          <option value="">Все</option>
+        <select
+          className="input w-auto"
+          value={active}
+          onChange={(e) => setFilters({ is_active: e.target.value })}
+          aria-label="На сайте"
+        >
+          <option value="">На сайте и скрытые</option>
           <option value="true">Опубликованные</option>
           <option value="false">Скрытые</option>
         </select>

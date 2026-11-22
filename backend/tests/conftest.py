@@ -6,6 +6,7 @@ os.environ["DATABASE_URL"] = os.environ.get(
 )
 os.environ["JWT_SECRET"] = "test-secret-with-enough-length-for-hs256"
 os.environ["SMTP_HOST"] = ""
+os.environ["EXPO_PUSH_URL"] = ""  # tests replace push.call; nothing reaches Expo
 
 from decimal import Decimal  # noqa: E402
 from pathlib import Path  # noqa: E402

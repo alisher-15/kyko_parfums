@@ -21,7 +21,7 @@ from app.schemas.admin import (
     ReturnIn,
 )
 from app.schemas.common import Page
-from app.services import email
+from app.services import email, push
 from app.services.invoice import build_invoice, invoice_filename, product_details
 from app.services.orders import (
     ReturnLine,
@@ -171,6 +171,11 @@ def update_order(
     news = email.order_status(updated) if updated.status != was else None
     if to and news and email.enabled():
         background.add_task(email.send_email, to, *news)
+    # And on the phones where the customer has the app (services/push.py).
+    note = push.order_status(updated) if updated.status != was else None
+    tokens = push.tokens_for(db, updated.user_id) if note and push.enabled() else []
+    if note and tokens:
+        background.add_task(push.send, tokens, *note, {"order_id": updated.id})
     return _out(db, updated)
 
 

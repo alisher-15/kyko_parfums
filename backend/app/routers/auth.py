@@ -1,21 +1,27 @@
+import secrets
 from datetime import UTC, datetime, timedelta
 from math import ceil
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy import select, update
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
 from app.deps import get_current_user
-from app.models import PasswordResetToken, User, UserRole
+from app.models import PasswordResetToken, PushToken, User, UserRole
+from app.permissions import STAFF
 from app.pricing import next_role
 from app.schemas.auth import (
     ChangePasswordIn,
+    DeleteAccountIn,
     ForgotPasswordIn,
     LoginIn,
     ProfileUpdate,
+    PushTokenForgetIn,
+    PushTokenIn,
     RefreshIn,
     RegisterIn,
     ResetPasswordIn,
@@ -33,6 +39,7 @@ from app.security import (
     hash_reset_token,
     verify_password,
 )
+from app.services import push
 from app.services.email import send_password_reset
 from app.services.throttle import login_failures, reset_emails
 
@@ -210,3 +217,78 @@ def request_upgrade(
     db.commit()
     db.refresh(user)
     return user
+
+
+@me_router.post("/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(
+    data: DeleteAccountIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Delete the account from the app or the site (App Store rule 5.1.1(v)).
+
+    Orders reference their customer and are the shop's sales records, so the row is anonymized
+    instead of removed: the email, name, phone, company and upgrade request are erased, the
+    password is replaced with a random one, and every session ends. Orders keep the contact
+    details given at checkout. The email can be registered again as a new account.
+    """
+    # Staff accounts belong to the shop: the owner manages them in the admin panel.
+    if user.role in STAFF:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Аккаунт сотрудника магазина нельзя удалить")
+    # The same throttle as logging in: a stolen session must not be a way to guess the password.
+    wait = login_failures.retry_after(user.email)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Слишком много неверных паролей. Попробуйте через {ceil(wait / 60)} мин.",
+            headers={"Retry-After": str(wait)},
+        )
+    if not verify_password(data.password, user.password_hash):
+        login_failures.hit(user.email)
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Пароль указан неверно")
+    login_failures.reset(user.email)
+
+    db.execute(delete(PasswordResetToken).where(PasswordResetToken.user_id == user.id))
+    db.execute(delete(PushToken).where(PushToken.user_id == user.id))
+    user.email = f"deleted-{user.id}@deleted.invalid"
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
+    user.full_name = None
+    user.phone = None
+    user.company_name = None
+    user.wholesale_requested = False
+    user.requested_role = None
+    user.upgrade_request_note = None
+    user.is_active = False
+    user.token_version += 1  # revoke refresh tokens; access tokens fail on is_active
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- Order notifications on phones (services/push.py) ----------
+
+
+@me_router.post("/push-tokens", status_code=status.HTTP_204_NO_CONTENT)
+def register_push_token(
+    data: PushTokenIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """The app's phone, after the customer allowed notifications. A token already registered
+    by someone else on this phone moves to the user signed in now."""
+    if not push.is_token(data.token):
+        raise HTTPException(422, "Это не адрес для уведомлений Expo")
+    db.execute(
+        insert(PushToken)
+        .values(user_id=user.id, token=data.token, platform=data.platform)
+        .on_conflict_do_update(
+            index_elements=[PushToken.token],
+            set_={"user_id": user.id, "platform": data.platform, "updated_at": func.now()},
+        )
+    )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/push-tokens/forget", status_code=status.HTTP_204_NO_CONTENT)
+def forget_push_token(data: PushTokenForgetIn, db: Session = Depends(get_db)):
+    """On logout the app stops this phone's notifications. No session needed: it may already
+    have expired, and the token itself is known only to the phone."""
+    db.execute(delete(PushToken).where(PushToken.token == data.token))
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

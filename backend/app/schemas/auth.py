@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -47,6 +48,21 @@ class ResetPasswordIn(BaseModel):
 class ChangePasswordIn(BaseModel):
     current_password: str
     new_password: str = Password
+
+
+class PushTokenIn(BaseModel):
+    # An Expo push token from the app: "ExponentPushToken[…]".
+    token: str = Field(min_length=10, max_length=255)
+    platform: Literal["ios", "android"] | None = None
+
+
+class PushTokenForgetIn(BaseModel):
+    token: str = Field(max_length=255)
+
+
+class DeleteAccountIn(BaseModel):
+    # The current password: a phone left unlocked must not be enough to delete the account.
+    password: str = Field(max_length=128)
 
 
 class UserOut(ORMModel):

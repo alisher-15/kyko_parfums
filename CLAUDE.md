@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Kyko Parfum is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
+Kyko Parfum is a perfume marketplace for retail and wholesale buyers. The backend is FastAPI + SQLAlchemy 2 + Alembic + PostgreSQL 16 in `backend/`. The frontend is Next.js 16 (App Router) + React 19 + Tailwind 4 in `frontend/`, and the admin panel lives at `/admin` in the same app. The customer mobile app (iOS and Android) is Expo SDK 58 + Expo Router in `mobile/`; it uses the same public API. The README and the UI are in Russian; code and comments are in English. [README.md](README.md) is the detailed product spec (pricing rules, POS, returns, warehouse). Read it before you change business logic.
 
 ## Commands
 
@@ -32,11 +32,22 @@ npm run dev                  # http://localhost:3000; /api and /media are proxie
 npm run lint && npm run typecheck && npm run build   # typecheck = next typegen + tsc (PageProps/LayoutProps are generated)
 ```
 
+Mobile app (run from `mobile/`; see [mobile/README.md](mobile/README.md)):
+
+```bash
+npx expo start                                  # Expo Go on a phone; the live shop by default
+EXPO_PUBLIC_SITE_URL=http://localhost:3000 npx expo start --web   # against a local site
+npm run typecheck && npm run lint && npm run format:check
+npx expo export --platform ios --platform android                # the native bundles build
+```
+
+Add packages with `npx expo install` (SDK-matched versions; `EXPO_OFFLINE=1` when api.expo.dev is unreachable). [mobile/AGENTS.md](mobile/AGENTS.md): Expo changes every SDK, so check the installed package's types and source rather than memory.
+
 Browser tests (run from `e2e/`; Playwright starts the API on a wiped `kyko_e2e` database with demo data and `next start` on the existing frontend build):
 
 ```bash
 npm ci && npx playwright install chromium
-PYTHON=../backend/.venv/bin/python npx playwright test          # all 48 scenarios, ~2.5 min
+PYTHON=../backend/.venv/bin/python npx playwright test          # all 49 scenarios, ~2.5 min
 npx playwright test tests/warehouse.spec.ts                      # one file
 ```
 
@@ -87,13 +98,19 @@ Full stack: `docker compose up -d --build`.
 
 **Legal pages** (`app/offer`, `app/privacy`, `lib/legal.ts`). The offer and the privacy policy are templates: the seller's details and `DATA_STORAGE` come from `lib/legal.ts`, and an empty one shows as a highlighted gap (`components/LegalPage.tsx`). Checkout and registration can't be sent without the `<Consent>` checkbox (personal data law of Kazakhstan); e2e flows tick it with `getByLabel(/согласие на обработку/)`. When the privacy policy's facts change (a new processor, analytics, the hosting), update the page.
 
-**Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are staff only (`permissions.require_staff`), and `routers/admin/__init__.py` says whose each router is: `allow()` alone is the owner's (`admin`), `allow(Area.orders)` adds the roles with that area, `reading=` grants GET only. Roles and areas are in `app/permissions.py` (`cashier`: till + orders; `warehouse`: stock + orders), mirrored for the menu in `frontend/src/lib/staff.ts`; change both together. A route that needs the user takes `Depends(require_staff)`; owner-only data in a shared response (the cost at the till) is blanked for the others. Staff are retail buyers on the storefront. The Pydantic schemas are in `app/schemas/`.
+**Routers.** `routers/{auth,catalog,orders}.py` are public or customer-facing. `routers/admin/*` are staff only (`permissions.require_staff`), and `routers/admin/__init__.py` says whose each router is: `allow()` alone is the owner's (`admin`), `allow(Area.orders)` adds the roles with that area, `reading=` grants GET only. Roles and areas are in `app/permissions.py` (`cashier`: till + orders; `warehouse`: stock + orders), mirrored for the menu in `frontend/src/lib/staff.ts` and `mobile/src/lib/staff.ts`; change all three together. A route that needs the user takes `Depends(require_staff)`; owner-only data in a shared response (the cost at the till) is blanked for the others. Staff are retail buyers on the storefront. The Pydantic schemas are in `app/schemas/`.
+
+**Mobile app** (`mobile/`). A client of the API with no backend code of its own: the shop uses the public routers (`routers/{auth,catalog,orders}.py`), and staff get the whole admin panel too: an «Админка» tab shown to `STAFF` roles only (`src/lib/staff.ts`, the same areas as `frontend/src/lib/staff.ts`; change all three together), with a screen per admin section in `src/app/admin/` calling the same `/admin/*` endpoints as the website (types in `src/lib/admin-types.ts`, mirrored from `frontend/src/lib/types.ts`). Barcodes are scanned with `expo-camera` (`components/admin/scan.tsx`), photos come from `expo-image-picker` and spreadsheets from `expo-document-picker` (`lib/files.ts`, multipart through `api(path, {form})`), and downloaded files go to the share sheet (`saveAndShare`). When an admin endpoint or flow changes on the website, update its screen in the app. The app calls `${EXPO_PUBLIC_SITE_URL}/api` (default: the shop's VPS at its temporary `https://89-126-205-132.sslip.io` until a domain is bought; store builds must set the final domain in `eas.json`) through the Next.js proxy, and resolves relative photo paths (`/bottles/…`, `/media/…`) against the same site (`src/lib/config.ts`). `src/lib/types.ts` and `format.ts` mirror `frontend/src/lib/` for the customer-facing types: when a public schema or a label changes, update both. Tokens live in the Keychain/Keystore (`expo-secure-store`; localStorage in the web build) and refresh like the website's; cart, favorites and the ₸/$ choice are in AsyncStorage. Prices come from the server only (`/cart/quote`, `/products`); `lib/auth.tsx` resets the React Query cache whenever the user or role changes, so no cached price outlives a login. Native apps send no `Origin`, so CORS doesn't apply to them; the web build (`expo start --web`, port 8081) needs its origin in `CORS_ORIGINS`. An API change the app uses (public or admin) must stay backward compatible: installed app versions keep calling the old shape until users update.
+
+**Order notifications** (`services/push.py`, table `push_tokens`, `mobile/src/lib/notifications.ts`). The app registers an Expo push token per phone after the customer allows notifications (`POST /me/push-tokens`; an existing token moves to the user signed in now) and forgets it on logout (`POST /auth/push-tokens/forget`, no session needed). When an admin moves an online order to processing/shipped/delivered/cancelled (`routers/admin/orders.update_order`, next to the email), `push.send` runs as a background task: it posts to `EXPO_PUSH_URL` (Expo's push service, empty = never; tests and the e2e backend), with `channelId: "orders"` and `data.order_id`, which the app opens on tap; tokens Expo reports `DeviceNotRegistered` are deleted. Tests replace `push.call` and `push.enabled`. `expo-notifications` has no web support: guard native-only calls with `Platform.OS !== "web"` (the web build is how the app is tested here).
+
+**Account deletion** (`POST /api/me/delete`, «Удалить аккаунт» on the site's account page and in the app). Orders reference the user (`RESTRICT`), so deletion anonymizes the row instead of removing it: email `deleted-<id>@deleted.invalid`, personal fields and the upgrade request cleared, a random password, `is_active=False`, `token_version` bumped, reset tokens and push tokens dropped. It needs the current password and shares the login throttle. Staff accounts (`permissions.STAFF`) can't be deleted this way. When a new personal field is added to `users`, clear it there too. The privacy policy says how to delete an account; keep it in step.
 
 **Models.** Enums are stored as VARCHAR + CHECK (`_enum()` in `models.py`), not native PG enums, so adding an enum value (e.g. a new `StockReason`) needs a migration that drops and recreates the CHECK constraint (see migrations 0003 and 0006). Money is `Decimal` internally and serialized to JSON as a number (`schemas/common.Money`). After a commit in the same session, reload objects with `.execution_options(populate_existing=True)` (see `order_load_options()`), and lock with `with_for_update(of=Model)` when the query has outer joins.
 
 ## Workflow
 
-Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks and the browser tests on every PR and on `main`; merge only when all three jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
+Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks, the mobile checks and the browser tests on every PR and on `main`; merge only when all four jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
 ## Migrations: required rule
 

@@ -6,8 +6,11 @@ import { GENDER_LABELS, percentOff } from "@/lib/format";
 import type { ProductListItem } from "@/lib/types";
 import { ProductImage } from "./ui";
 
-export function ProductCard({ product }: { product: ProductListItem }) {
+/** `compact`: the smaller card of the home page rails (smaller type, no gender line, volumes
+ *  under the price). */
+export function ProductCard({ product, compact = false }: { product: ProductListItem; compact?: boolean }) {
   const { money } = useCurrency();
+  const badge = compact ? "px-1.5 py-0 text-[10px]" : "px-2.5 py-0.5 text-xs";
   return (
     <Link
       href={`/products/${product.id}`}
@@ -15,39 +18,38 @@ export function ProductCard({ product }: { product: ProductListItem }) {
     >
       {/* The photo is positioned absolutely: a tall portrait photo must not stretch the square. */}
       <div className="relative aspect-square overflow-hidden bg-white">
-        <div className="absolute inset-4">
+        <div className={`absolute ${compact ? "inset-2" : "inset-4"}`}>
           <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
         </div>
-        {product.type && <span className="absolute top-3 right-3 chip">{product.type}</span>}
+        {product.type && (
+          <span className={`absolute chip ${compact ? "top-1.5 right-1.5 px-1.5 py-0 text-[10px]" : "top-3 right-3"}`}>
+            {product.type}
+          </span>
+        )}
         {(product.deal || product.is_new) && (
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1">
+          <div className={`absolute flex flex-col items-start gap-1 ${compact ? "top-1.5 left-1.5" : "top-3 left-3"}`}>
             {product.deal && (
-              <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-white">
+              <span className={`rounded-full bg-gold font-bold text-white ${badge}`}>
                 {percentOff(product.deal.discount_percent)}
               </span>
             )}
             {product.is_new && (
-              <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-semibold text-white">
+              <span className={`rounded-full bg-ink font-semibold text-white ${badge}`}>
                 Новинка
               </span>
             )}
           </div>
         )}
       </div>
-      <div className="flex flex-1 flex-col gap-1 border-t border-line p-4">
-        <div className="text-xs font-semibold tracking-widest text-gold uppercase">
-          {product.brand.name}
-        </div>
-        <div className="font-serif text-xl leading-tight font-semibold group-hover:text-gold-dark">
-          {product.name}
-        </div>
-        <div className="text-xs text-muted">
-          {[product.gender && GENDER_LABELS[product.gender], product.category]
-            .filter(Boolean)
-            .join(" · ")}
-        </div>
-        <div className="mt-auto flex items-end justify-between pt-3">
-          <div className="text-sm">
+      {compact ? (
+        <div className="flex flex-1 flex-col gap-0.5 border-t border-line p-2.5">
+          <div className="truncate text-[10px] font-semibold tracking-wider text-gold uppercase">
+            {product.brand.name}
+          </div>
+          <div className="line-clamp-2 font-serif text-sm leading-tight font-semibold group-hover:text-gold-dark sm:text-base">
+            {product.name}
+          </div>
+          <div className="mt-auto pt-1.5 text-xs">
             {product.min_price !== null ? (
               <>
                 <span className="text-muted">от </span>
@@ -58,10 +60,39 @@ export function ProductCard({ product }: { product: ProductListItem }) {
             )}
           </div>
           {product.volumes.length > 0 && (
-            <div className="text-xs text-muted">{product.volumes.join(" / ")} мл</div>
+            <div className="truncate text-[11px] text-muted">{product.volumes.join(" / ")} мл</div>
           )}
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-1 flex-col gap-1 border-t border-line p-4">
+          <div className="text-xs font-semibold tracking-widest text-gold uppercase">
+            {product.brand.name}
+          </div>
+          <div className="font-serif text-xl leading-tight font-semibold group-hover:text-gold-dark">
+            {product.name}
+          </div>
+          <div className="text-xs text-muted">
+            {[product.gender && GENDER_LABELS[product.gender], product.category]
+              .filter(Boolean)
+              .join(" · ")}
+          </div>
+          <div className="mt-auto flex items-end justify-between pt-3">
+            <div className="text-sm">
+              {product.min_price !== null ? (
+                <>
+                  <span className="text-muted">от </span>
+                  <span className="font-bold">{money(product.min_price)}</span>
+                </>
+              ) : (
+                <span className="text-muted">Цена по запросу</span>
+              )}
+            </div>
+            {product.volumes.length > 0 && (
+              <div className="text-xs text-muted">{product.volumes.join(" / ")} мл</div>
+            )}
+          </div>
+        </div>
+      )}
     </Link>
   );
 }

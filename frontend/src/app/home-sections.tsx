@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { RAIL_ITEM, Rail } from "@/components/Carousel";
+import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -12,9 +12,9 @@ import { useApi } from "@/lib/use-api";
 
 function Section({ title, link, children }: { title: string; link: ReactNode; children: ReactNode }) {
   return (
-    <section className="mx-auto max-w-7xl px-4 pt-14 sm:px-6">
-      <div className="mb-6 flex items-end justify-between gap-4">
-        <h2 className="font-serif text-3xl font-bold">{title}</h2>
+    <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 md:pt-12">
+      <div className="mb-4 flex items-end justify-between gap-4 md:mb-5">
+        <h2 className="font-serif text-2xl font-bold md:text-3xl">{title}</h2>
         {link}
       </div>
       {children}
@@ -27,13 +27,13 @@ function ProductRail({ label, items, more }: { label: string; items: ProductList
   return (
     <Rail label={label}>
       {items.map((p) => (
-        <div key={p.id} className={`${RAIL_ITEM} grid`}>
-          <ProductCard product={p} />
+        <div key={p.id} className={`${PRODUCT_RAIL_ITEM} grid`}>
+          <ProductCard product={p} compact />
         </div>
       ))}
       <Link
         href={more}
-        className={`${RAIL_ITEM} card flex items-center justify-center p-6 text-center font-semibold text-gold hover:border-gold`}
+        className={`${PRODUCT_RAIL_ITEM} card flex items-center justify-center p-3 text-center text-sm font-semibold text-gold hover:border-gold`}
       >
         Смотреть все →
       </Link>

@@ -57,3 +57,6 @@ export function Rail({ label, children }: { label: string; children: ReactNode }
 
 /** Width of one card in a Rail: 2 and a bit on phones, 3 on tablets, 4 on computers. */
 export const RAIL_ITEM = "w-[44%] shrink-0 snap-start sm:w-[31%] md:w-[calc((100%-3rem)/4)]";
+
+/** A product card in a Rail, a third smaller: 3 on phones, 4 and a bit on tablets, 6 on computers. */
+export const PRODUCT_RAIL_ITEM = "w-[29%] shrink-0 snap-start sm:w-[22%] md:w-[calc((100%-5rem)/6)]";

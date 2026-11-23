@@ -1,6 +1,7 @@
 // Admin API types, the same as frontend/src/lib/types.ts (the admin part). Keep them in step.
 import type {
   BrandBrief,
+  Category,
   Gender,
   Order,
   OrderChannel,
@@ -44,12 +45,24 @@ export interface AdminVariant {
   is_active: boolean;
 }
 
+/** `image_url` here is only the picture set in the admin panel (null: a photo of its products). */
+export interface AdminCategory extends Category {
+  position: number;
+  /** All products in this node and below it, hidden ones too. */
+  product_count: number;
+  /** Products placed right in this node. */
+  own_product_count: number;
+}
+
 export interface AdminProduct {
   id: number;
   brand_id: number;
   brand: BrandBrief;
+  /** The catalog section or group (`/admin/categories`). */
+  category_id: number | null;
   name: string;
   type: string | null;
+  /** The olfactory group («Цветочные»). */
   category: string | null;
   gender: Gender | null;
   longevity: string | null;

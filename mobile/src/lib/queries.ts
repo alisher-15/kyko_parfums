@@ -33,6 +33,8 @@ export interface ProductFilters {
   brand_id?: number[];
   gender?: string[];
   category?: string[];
+  /** A catalog section or group: its whole subtree. */
+  category_id?: number;
   type?: string[];
   min_price?: number;
   max_price?: number;

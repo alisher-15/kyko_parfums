@@ -83,11 +83,36 @@ export interface VariantPublic {
   deal: Deal | null;
 }
 
+export type CategoryKind = "perfume" | "cosmetics";
+
+export interface CategoryBrief {
+  id: number;
+  name: string;
+}
+
+/** A node of the catalog tree: a section (parent_id null: a tile on the home screen) or a group.
+ *  The API sends them in tree order, each section followed by its groups. */
+export interface Category {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  /** The section's: perfumes have a concentration, notes and an olfactory group. */
+  kind: CategoryKind;
+  /** The tile's picture: set in the admin panel, else a photo of its products. */
+  image_url: string | null;
+  /** Active products in this node and below it. */
+  product_count: number;
+}
+
 export interface ProductListItem {
   id: number;
   name: string;
   brand: BrandBrief;
+  /** Where the product is in the catalog tree (`/categories`). */
+  category_id: number | null;
+  kind: CategoryKind;
   type: string | null;
+  /** The olfactory group («Цветочные»), not the catalog tree. */
   category: string | null;
   gender: Gender | null;
   longevity: string | null;
@@ -108,6 +133,8 @@ export interface ProductDetail extends ProductListItem {
   base_notes: string | null;
   description: string | null;
   variants: VariantPublic[];
+  /** From the section down to the product's group. */
+  category_path: CategoryBrief[];
 }
 
 export interface PromotionPublic {

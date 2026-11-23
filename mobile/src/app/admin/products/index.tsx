@@ -6,8 +6,9 @@ import { Sheet } from "@/components/catalog";
 import { AdminScreen, Pill, SearchBox } from "@/components/admin/kit";
 import { ProductImage } from "@/components/product";
 import { Button, Chip, EmptyState, ErrorState, Loader, Muted, Notice, Txt } from "@/components/ui";
-import type { AdminProduct } from "@/lib/admin-types";
+import type { AdminCategory, AdminProduct } from "@/lib/admin-types";
 import { errorText } from "@/lib/api";
+import { fullName } from "@/lib/categories";
 import { XLSX, saveAndShare } from "@/lib/files";
 import { tenge, volumeLabel } from "@/lib/format";
 import { useApi, usePages } from "@/lib/queries";
@@ -18,6 +19,8 @@ type PriceCheck = "" | "below_cost" | "markup_down" | "markup_up";
 
 interface Filters {
   brand_id: string;
+  /** A section or group with everything in it; "0" = products not placed anywhere. */
+  category_id: string;
   is_active: "" | "true" | "false";
   price_check: PriceCheck;
   no_variants: boolean;
@@ -29,6 +32,7 @@ interface Filters {
 
 const EMPTY: Filters = {
   brand_id: "",
+  category_id: "",
   is_active: "",
   price_check: "",
   no_variants: false,
@@ -58,12 +62,18 @@ export default function ProductsAdminScreen() {
 }
 
 function Products() {
-  const params = useLocalSearchParams<{ backordered?: string; no_variants?: string }>();
+  const params = useLocalSearchParams<{
+    backordered?: string;
+    no_variants?: string;
+    category_id?: string;
+  }>();
+  const tree = useApi<AdminCategory[]>("/admin/categories");
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<Filters>({
     ...EMPTY,
     backordered: params.backordered === "true",
     no_variants: params.no_variants === "true",
+    category_id: params.category_id ?? "",
   });
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -72,6 +82,7 @@ function Products() {
     () => ({
       q,
       brand_id: filters.brand_id,
+      category_id: filters.category_id,
       is_active: filters.is_active,
       price_check: filters.price_check,
       no_variants: filters.no_variants,
@@ -87,6 +98,7 @@ function Products() {
   const total = products.data?.pages[0]?.total;
   const active =
     (filters.brand_id ? 1 : 0) +
+    (filters.category_id ? 1 : 0) +
     (filters.is_active ? 1 : 0) +
     (filters.price_check ? 1 : 0) +
     TOGGLES.filter((t) => filters[t.key]).length;
@@ -170,7 +182,12 @@ function Products() {
           }
           ListFooterComponent={products.isFetchingNextPage ? <Loader /> : undefined}
           ListEmptyComponent={<EmptyState icon="pricetag-outline" title="Товаров не найдено" />}
-          renderItem={({ item: p }) => <ProductRow product={p} />}
+          renderItem={({ item: p }) => (
+            <ProductRow
+              product={p}
+              section={p.category_id && tree.data ? fullName(tree.data, p.category_id) : null}
+            />
+          )}
         />
       )}
       {open && (
@@ -187,7 +204,7 @@ function Products() {
   );
 }
 
-function ProductRow({ product: p }: { product: AdminProduct }) {
+function ProductRow({ product: p, section }: { product: AdminProduct; section: string | null }) {
   const stock = p.variants.reduce((s, v) => s + v.stock, 0);
   return (
     <Pressable
@@ -203,7 +220,10 @@ function ProductRow({ product: p }: { product: AdminProduct }) {
         iconSize={20}
       />
       <View style={{ flex: 1, gap: 2 }}>
-        <Muted style={{ fontSize: 11 }}>{p.brand.name}</Muted>
+        <Muted style={{ fontSize: 11 }}>
+          {p.brand.name}
+          {section ? ` · ${section}` : ""}
+        </Muted>
         <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 15 }} numberOfLines={2}>
           {p.name}
           {p.type ? ` · ${p.type}` : ""}
@@ -242,6 +262,7 @@ function FiltersSheet({
 }) {
   const [draft, setDraft] = useState(value);
   const { data: brands } = useApi<Brand[]>("/admin/brands");
+  const { data: tree } = useApi<AdminCategory[]>("/admin/categories");
   return (
     <Sheet
       visible
@@ -311,6 +332,31 @@ function FiltersSheet({
             />
           </View>
         ))}
+        {!!tree?.length && (
+          <View style={{ gap: 8 }}>
+            <Txt style={styles.group}>Раздел</Txt>
+            <View style={styles.chips}>
+              <Chip
+                label="Все"
+                active={!draft.category_id}
+                onPress={() => setDraft({ ...draft, category_id: "" })}
+              />
+              {tree.map((c) => (
+                <Chip
+                  key={c.id}
+                  label={fullName(tree, c.id)}
+                  active={draft.category_id === String(c.id)}
+                  onPress={() => setDraft({ ...draft, category_id: String(c.id) })}
+                />
+              ))}
+              <Chip
+                label="Без раздела"
+                active={draft.category_id === "0"}
+                onPress={() => setDraft({ ...draft, category_id: "0" })}
+              />
+            </View>
+          </View>
+        )}
         {!!brands?.length && (
           <View style={{ gap: 8 }}>
             <Txt style={styles.group}>Бренд</Txt>

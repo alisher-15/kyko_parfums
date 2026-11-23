@@ -6,8 +6,15 @@ import { ImageUpload } from "@/components/admin/image-upload";
 import { AdminScreen, Block, ChipPicker, Toggle, confirm } from "@/components/admin/kit";
 import { VariantsEditor } from "@/components/admin/variants";
 import { Button, ErrorState, Field, Loader, Muted, Notice, Txt } from "@/components/ui";
-import type { AdminProduct, PriceChange, PriceField, StockMovement } from "@/lib/admin-types";
+import type {
+  AdminCategory,
+  AdminProduct,
+  PriceChange,
+  PriceField,
+  StockMovement,
+} from "@/lib/admin-types";
 import { api, errorText } from "@/lib/api";
+import { childrenOf, pathOf } from "@/lib/categories";
 import { GENDER_LABELS, STOCK_REASON_LABELS, dateTime, tenge, volumeLabel } from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import type { Brand, Gender } from "@/lib/types";
@@ -119,6 +126,7 @@ function EditProduct({ id }: { id: number }) {
 
 type FormState = {
   brand_id: number | null;
+  category_id: number | null;
   name: string;
   type: string;
   category: string;
@@ -137,6 +145,7 @@ type FormState = {
 function toForm(p?: AdminProduct): FormState {
   return {
     brand_id: p?.brand_id ?? null,
+    category_id: p?.category_id ?? null,
     name: p?.name ?? "",
     type: p?.type ?? "",
     category: p?.category ?? "",
@@ -161,7 +170,13 @@ function ProductForm({
   onSaved: (p: AdminProduct) => void;
 }) {
   const brands = useApi<Brand[]>("/admin/brands");
+  const tree = useApi<AdminCategory[]>("/admin/categories");
   const [form, setForm] = useState<FormState>(() => toForm(product));
+  // A new product starts in the first perfume section, as the shop is mostly perfumes.
+  const defaultSection = tree.data?.find((c) => c.parent_id === null && c.kind === "perfume");
+  const categoryId = form.category_id ?? (!product && defaultSection ? defaultSection.id : null);
+  // Perfume fields (concentration, olfactory group, longevity, notes) only for perfumes.
+  const perfume = (tree.data?.find((c) => c.id === categoryId)?.kind ?? "perfume") === "perfume";
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (key: keyof FormState) => (text: string) => setForm({ ...form, [key]: text });
@@ -172,6 +187,7 @@ function ProductForm({
     const nullIfEmpty = (s: string) => (s.trim() ? s.trim() : null);
     const body = {
       brand_id: form.brand_id,
+      category_id: categoryId,
       name: form.name.trim(),
       type: nullIfEmpty(form.type),
       category: nullIfEmpty(form.category),
@@ -224,23 +240,33 @@ function ProductForm({
         onChangeText={set("name")}
         testID="product-name"
       />
-      <View style={{ gap: 6 }}>
-        <Field label="Тип" value={form.type} onChangeText={set("type")} autoCapitalize="none" />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          {TYPES.map((t) => (
-            <Pressable key={t} onPress={() => setForm({ ...form, type: t })} hitSlop={4}>
-              <Text
-                style={{
-                  color: form.type === t ? colors.ink : colors.goldDark,
-                  fontFamily: fonts.sansSemi,
-                }}
-              >
-                {t}
-              </Text>
-            </Pressable>
-          ))}
+      {tree.error && <Notice tone="error">{tree.error.message}</Notice>}
+      {tree.data && (
+        <SectionPicker
+          all={tree.data}
+          value={categoryId}
+          onChange={(id) => setForm({ ...form, category_id: id })}
+        />
+      )}
+      {perfume && (
+        <View style={{ gap: 6 }}>
+          <Field label="Тип" value={form.type} onChangeText={set("type")} autoCapitalize="none" />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {TYPES.map((t) => (
+              <Pressable key={t} onPress={() => setForm({ ...form, type: t })} hitSlop={4}>
+                <Text
+                  style={{
+                    color: form.type === t ? colors.ink : colors.goldDark,
+                    fontFamily: fonts.sansSemi,
+                  }}
+                >
+                  {t}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
-      </View>
+      )}
       <ChipPicker
         label="Для кого"
         value={form.gender}
@@ -251,26 +277,30 @@ function ProductForm({
         }))}
         onChange={(v) => setForm({ ...form, gender: v })}
       />
-      <Field
-        label="Категория"
-        value={form.category}
-        onChangeText={set("category")}
-        placeholder="Восточные, цветочные…"
-      />
-      <Field
-        label="Стойкость"
-        value={form.longevity}
-        onChangeText={set("longevity")}
-        placeholder="8–10 часов"
-      />
-      <Field
-        label="Верхние ноты"
-        value={form.top_notes}
-        onChangeText={set("top_notes")}
-        hint="Через запятую"
-      />
-      <Field label="Ноты сердца" value={form.mid_notes} onChangeText={set("mid_notes")} />
-      <Field label="Базовые ноты" value={form.base_notes} onChangeText={set("base_notes")} />
+      {perfume && (
+        <>
+          <Field
+            label="Олфактивная группа"
+            value={form.category}
+            onChangeText={set("category")}
+            placeholder="Восточные, цветочные…"
+          />
+          <Field
+            label="Стойкость"
+            value={form.longevity}
+            onChangeText={set("longevity")}
+            placeholder="8–10 часов"
+          />
+          <Field
+            label="Верхние ноты"
+            value={form.top_notes}
+            onChangeText={set("top_notes")}
+            hint="Через запятую"
+          />
+          <Field label="Ноты сердца" value={form.mid_notes} onChangeText={set("mid_notes")} />
+          <Field label="Базовые ноты" value={form.base_notes} onChangeText={set("base_notes")} />
+        </>
+      )}
       <Field
         label="Описание"
         value={form.description}
@@ -299,7 +329,7 @@ function ProductForm({
         title={product ? "Сохранить" : "Создать товар"}
         testID="product-save"
         loading={busy}
-        disabled={!form.brand_id || !form.name.trim()}
+        disabled={!form.brand_id || !form.name.trim() || categoryId === null}
         onPress={() => void submit()}
       />
     </Block>
@@ -335,6 +365,49 @@ function HistoryLine({ left, right, sub }: { left: string; right: ReactNode; sub
 }
 
 /** Stock journal of the product: every sale, return, receipt, count, edit and import. */
+/**
+ * Where the product is in the catalog: the section, then (if it has any) its group and the
+ * group's kind, as chips. The website's form has one indented list; this is the same tree.
+ */
+function SectionPicker({
+  all,
+  value,
+  onChange,
+}: {
+  all: AdminCategory[];
+  value: number | null;
+  onChange: (id: number) => void;
+}) {
+  const path = value === null ? [] : pathOf(all, value);
+  const levels: { label: string; parent: AdminCategory | null; none?: string }[] = [
+    { label: "Раздел *", parent: null },
+  ];
+  if (path[0] && childrenOf(all, path[0].id).length > 0)
+    levels.push({ label: "Группа", parent: path[0], none: "Весь раздел" });
+  if (path[1] && childrenOf(all, path[1].id).length > 0)
+    levels.push({ label: "Вид", parent: path[1], none: "Вся группа" });
+  return (
+    <>
+      {levels.map((level, depth) => (
+        <ChipPicker
+          key={level.parent?.id ?? "root"}
+          label={level.label}
+          value={path[depth]?.id ?? null}
+          allowNone={level.none}
+          options={childrenOf(all, level.parent?.id ?? null).map((c) => ({
+            value: c.id,
+            label: c.name,
+          }))}
+          onChange={(id) => {
+            if (id !== null) onChange(id);
+            else if (level.parent) onChange(level.parent.id);
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 function StockHistory({ productId }: { productId: number }) {
   const { data, error } = useApi<StockMovement[]>(`/admin/products/${productId}/stock-movements`);
   const { shown, more } = useShowAll(data);

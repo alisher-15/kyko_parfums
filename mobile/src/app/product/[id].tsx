@@ -195,6 +195,30 @@ function ProductBody({
           iconSize={56}
         />
         <View style={styles.content}>
+          {(product.category_path ?? []).length > 0 && (
+            // The product's section and group, as the website's breadcrumbs.
+            <View style={styles.path} accessibilityLabel="Разделы">
+              {(product.category_path ?? []).map((c, i) => (
+                <Pressable
+                  key={c.id}
+                  accessibilityRole="link"
+                  hitSlop={6}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/collection",
+                      params: { category_id: c.id, title: c.name },
+                    })
+                  }
+                  style={{ flexDirection: "row" }}
+                >
+                  {i > 0 && <Muted style={styles.pathText}> › </Muted>}
+                  <Muted style={[styles.pathText, { textDecorationLine: "underline" }]}>
+                    {c.name}
+                  </Muted>
+                </Pressable>
+              ))}
+            </View>
+          )}
           <Pressable
             accessibilityRole="link"
             onPress={() =>
@@ -556,6 +580,8 @@ const styles = StyleSheet.create({
   photo: { width: "100%" },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   name: { fontSize: 36, lineHeight: 38, marginTop: 4 },
+  path: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
+  pathText: { fontSize: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   label: {
     fontFamily: fonts.sansBold,

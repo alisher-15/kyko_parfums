@@ -51,6 +51,7 @@ export function Button({
   small,
   style,
   testID,
+  accessibilityLabel,
 }: {
   title: string;
   onPress?: () => void;
@@ -61,6 +62,8 @@ export function Button({
   small?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /** When the title alone («↑») says too little to a screen reader. */
+  accessibilityLabel?: string;
 }) {
   const k = buttonKinds[kind];
   const off = disabled || loading;
@@ -68,6 +71,7 @@ export function Button({
     <Pressable
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled: !!off, busy: !!loading }}
       onPress={off ? undefined : onPress}
       style={({ pressed }) => [

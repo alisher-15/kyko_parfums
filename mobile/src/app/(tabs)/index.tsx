@@ -12,9 +12,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product";
-import { CurrencySwitch, PromotionRail } from "@/components/shop";
+import { CategoryTiles, CurrencySwitch, PromotionRail } from "@/components/shop";
 import { Eyebrow, Loader, Muted, Notice, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { childrenOf, useCategories } from "@/lib/categories";
 import { CONTACTS } from "@/lib/contacts";
 import { useApi } from "@/lib/queries";
 import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
@@ -36,6 +37,8 @@ export default function HomeScreen() {
     page_size: 12,
   });
   const brands = useApi<Brand[]>("/brands");
+  const categories = useCategories();
+  const sections = categories.data ? childrenOf(categories.data, null) : [];
   const fresh = noneMarked ? latest : marked;
 
   const refreshing = promotions.isRefetching || fresh.isRefetching;
@@ -45,6 +48,7 @@ export default function HomeScreen() {
     void marked.refetch();
     if (noneMarked) void latest.refetch();
     void brands.refetch();
+    void categories.refetch();
   };
 
   return (
@@ -74,6 +78,12 @@ export default function HomeScreen() {
       {!!promotions.data?.length && (
         <View style={{ marginTop: 12 }}>
           <PromotionRail promotions={promotions.data} />
+        </View>
+      )}
+
+      {sections.length > 0 && (
+        <View style={{ marginTop: 16 }}>
+          <CategoryTiles sections={sections} />
         </View>
       )}
 

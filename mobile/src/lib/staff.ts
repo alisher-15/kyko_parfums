@@ -33,6 +33,7 @@ export interface AdminSection {
     | "/admin/receipts"
     | "/admin/counts"
     | "/admin/products"
+    | "/admin/categories"
     | "/admin/promotions"
     | "/admin/brands"
     | "/admin/users"
@@ -86,6 +87,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     title: "Товары",
     hint: "Цены, объёмы, фото",
     icon: "pricetag-outline",
+    area: null,
+  },
+  {
+    href: "/admin/categories",
+    title: "Категории",
+    hint: "Разделы и плитки на главной",
+    icon: "grid-outline",
     area: null,
   },
   {

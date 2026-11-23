@@ -15,6 +15,8 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
+import { chipsFor, childrenOf, useCategories } from "@/lib/categories";
 import { useApi, useProducts, type ProductFilters } from "@/lib/queries";
 import { GENDER_LABELS, SORT_LABELS, plural } from "@/lib/format";
 import type { Filters, Gender, ProductSort } from "@/lib/types";
@@ -22,7 +24,7 @@ import { colors, fonts, radius } from "@/theme";
 import { ProductCard } from "./product";
 import { Button, Chip, EmptyState, ErrorState, Field, Loader, Muted, Title, Txt } from "./ui";
 
-type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id">;
+type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id" | "category_id">;
 
 const SORTS = Object.keys(SORT_LABELS) as ProductSort[];
 
@@ -132,6 +134,12 @@ export function CatalogView({
         </View>
       </View>
 
+      <SectionChips
+        categoryId={fixed.category_id}
+        // Only the whole catalog offers the sections; a brand or a promotion keeps its own list.
+        show={fixed.category_id !== undefined || Object.keys(fixed).length === 0}
+      />
+
       {body ?? (
         <FlatList
           key={columns}
@@ -180,6 +188,7 @@ export function CatalogView({
         visible={filtersOpen}
         value={chosen}
         hideBrands={!!fixed.brand_id}
+        categoryId={fixed.category_id}
         onClose={() => setFiltersOpen(false)}
         onApply={(next) => {
           setChosen(next);
@@ -205,6 +214,63 @@ export function CatalogView({
           </Pressable>
         ))}
       </Sheet>
+    </View>
+  );
+}
+
+/**
+ * The catalog tree over the products, as on the website: in the whole catalog its sections; in a
+ * section «Все» and its groups; in a group without groups of its own, its siblings.
+ */
+function SectionChips({ categoryId, show }: { categoryId?: number; show: boolean }) {
+  const tree = useCategories().data;
+  if (!show || !tree) return null;
+  let chips: { key: string; label: string; active: boolean; onPress: () => void }[];
+  if (categoryId === undefined) {
+    chips = childrenOf(tree, null).map((c) => ({
+      key: String(c.id),
+      label: c.name,
+      active: false,
+      onPress: () =>
+        router.push({ pathname: "/collection", params: { category_id: c.id, title: c.name } }),
+    }));
+  } else {
+    const open = (id: number, title: string) =>
+      router.setParams({ category_id: String(id), title });
+    const { parent, chips: nodes } = chipsFor(tree, categoryId);
+    if (nodes.length === 0) return null;
+    chips = [
+      ...(parent
+        ? [
+            {
+              key: "all",
+              label: "Все",
+              active: parent.id === categoryId,
+              onPress: () => open(parent.id, parent.name),
+            },
+          ]
+        : []),
+      ...nodes.map((c) => ({
+        key: String(c.id),
+        label: c.name,
+        active: c.id === categoryId,
+        onPress: () => open(c.id, c.name),
+      })),
+    ];
+  }
+  if (chips.length === 0) return null;
+  return (
+    <View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityLabel="Подразделы"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8, gap: 6 }}
+      >
+        {chips.map((c) => (
+          <Chip key={c.key} label={c.label} active={c.active} onPress={c.onPress} />
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -287,6 +353,8 @@ interface FiltersSheetProps {
   visible: boolean;
   value: UserFilters;
   hideBrands: boolean;
+  /** The section the list is in: its brands, genders and types only. */
+  categoryId?: number;
   onClose: () => void;
   onApply: (filters: UserFilters) => void;
 }
@@ -296,8 +364,8 @@ function FiltersSheet(props: FiltersSheetProps) {
   return props.visible ? <FiltersForm {...props} /> : null;
 }
 
-function FiltersForm({ value, hideBrands, onClose, onApply }: FiltersSheetProps) {
-  const { data } = useApi<Filters>("/filters");
+function FiltersForm({ value, hideBrands, categoryId, onClose, onApply }: FiltersSheetProps) {
+  const { data } = useApi<Filters>("/filters", { category_id: categoryId });
   const [draft, setDraft] = useState<UserFilters>(value);
   const [minText, setMinText] = useState(
     value.min_price !== undefined ? String(value.min_price) : "",

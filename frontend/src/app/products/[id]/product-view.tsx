@@ -45,6 +45,10 @@ export function ProductView({ id }: { id: number }) {
       <Breadcrumbs
         items={[
           { href: "/catalog", label: "Каталог" },
+          ...product.category_path.map((c) => ({
+            href: `/catalog?category_id=${c.id}`,
+            label: c.name,
+          })),
           { href: `/catalog?brand_id=${product.brand.id}`, label: product.brand.name },
           { label: product.name },
         ]}

@@ -105,3 +105,12 @@ export const InstagramIcon = (p: IconProps) => (
     <circle cx="17.2" cy="6.8" r="0.6" fill="currentColor" />
   </Icon>
 );
+
+export const GridIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    <circle cx="16.75" cy="16.75" r="3.25" />
+  </Icon>
+);

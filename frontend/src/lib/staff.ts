@@ -30,6 +30,7 @@ export const ADMIN_NAV: { href: string; label: string; area: Area | null }[] = [
   { href: "/admin/receipts", label: "Приёмка", area: "stock" },
   { href: "/admin/inventory", label: "Инвентаризация", area: "stock" },
   { href: "/admin/products", label: "Товары", area: null },
+  { href: "/admin/categories", label: "Категории", area: null },
   { href: "/admin/promotions", label: "Акции", area: null },
   { href: "/admin/brands", label: "Бренды", area: null },
   { href: "/admin/users", label: "Пользователи", area: null },

@@ -13,6 +13,7 @@ from app.db import get_db
 from app.deps import require_admin
 from app.models import (
     Brand,
+    Category,
     PriceChange,
     Product,
     ProductVariant,
@@ -36,7 +37,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
-from app.services import markups, price_history
+from app.services import categories, markups, price_history
 from app.services.importer import build_export
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
@@ -184,9 +185,16 @@ def product_filters(
     no_photo: bool = False,
     no_barcode: bool = False,
     price_check: PriceCheck | None = None,
+    # A node of the catalog tree with everything under it; 0: products not placed yet.
+    category_id: int | None = None,
+    db: Session = Depends(get_db),
 ) -> ProductFilters:
     """The filters of the products list, shared by the list and its Excel export."""
     conds: list[Any] = []
+    if category_id == 0:
+        conds.append(Product.category_id.is_(None))
+    elif category_id is not None:
+        conds.append(Product.category_id.in_(categories.load_tree(db).subtree_ids(category_id)))
     if q and q.strip():
         conds.append(product_name_match(q))
     if brand_id is not None:
@@ -256,6 +264,12 @@ def create_product(
 ):
     if db.get(Brand, data.brand_id) is None:
         raise HTTPException(422, "Бренд не найден")
+    if data.category_id is None:
+        # Apps from before the catalog tree send no category: their products are perfumes.
+        default = categories.default_perfume_section(db)
+        data.category_id = default.id if default else None
+    elif db.get(Category, data.category_id) is None:
+        raise HTTPException(422, "Категория не найдена")
     kinds = [(v.volume_ml, v.is_tester) for v in data.variants]
     if len(kinds) != len(set(kinds)):
         raise HTTPException(422, "Объёмы вариантов не должны повторяться")
@@ -277,6 +291,11 @@ def update_product(product_id: int, data: ProductUpdate, db: Session = Depends(g
     changes = data.model_dump(exclude_unset=True)
     if "brand_id" in changes and db.get(Brand, changes["brand_id"]) is None:
         raise HTTPException(422, "Бренд не найден")
+    if "category_id" in changes:
+        if changes["category_id"] is None:
+            changes.pop("category_id")  # a product stays placed
+        elif db.get(Category, changes["category_id"]) is None:
+            raise HTTPException(422, "Категория не найдена")
     if "is_new" in changes:
         _mark_new(product, changes.pop("is_new"))
     for k, v in changes.items():

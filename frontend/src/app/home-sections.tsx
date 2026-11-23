@@ -3,9 +3,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
+import { GridIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { childrenOf, useCategories } from "@/lib/categories";
 import { dayMonth, percentOff } from "@/lib/format";
 import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
@@ -127,6 +129,79 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
         <div className="mt-1 line-clamp-2 font-serif text-sm leading-tight font-bold md:text-lg">{p.title}</div>
       </div>
     </Link>
+  );
+}
+
+/** One tile: the picture on a light rounded square, the name under it (as on Kaspi). */
+function CategoryTile({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex w-[4.75rem] snap-start flex-col items-center gap-1.5 md:w-24"
+    >
+      <span
+        aria-hidden
+        className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl bg-stone-100 transition group-hover:bg-stone-200"
+      >
+        {children}
+      </span>
+      <span
+        data-tile-label
+        className="line-clamp-2 text-center text-xs leading-tight text-ink md:text-sm"
+      >
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * The catalog's sections as tiles under the banners, as on Kaspi: two rows on phones that scroll
+ * sideways, one row on computers; «Все категории» first. Sections without products are left out
+ * by the API; each tile has a picture (its own, else a photo of its products).
+ */
+export function HomeCategories() {
+  const tree = useCategories();
+  const sections = tree ? childrenOf(tree, null) : [];
+  if (sections.length === 0) return null;
+  return (
+    <section className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 md:pt-8">
+      <nav
+        aria-label="Категории"
+        className="rail -mx-4 grid snap-x grid-flow-col grid-rows-2 justify-start gap-x-3 gap-y-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 md:grid-rows-1 md:gap-x-5"
+      >
+        <CategoryTile href="/catalog" label="Все категории">
+          <GridIcon width={30} height={30} className="text-gold" />
+        </CategoryTile>
+        {sections.map((c) => (
+          <CategoryTile
+            key={c.id}
+            href={`/catalog?category_id=${c.id}`}
+            label={c.name}
+          >
+            {c.image_url ? (
+              <img
+                src={c.image_url}
+                alt=""
+                className="h-full w-full object-contain p-1.5 mix-blend-multiply"
+              />
+            ) : (
+              <span className="font-serif text-2xl text-gold">
+                {c.name.slice(0, 1)}
+              </span>
+            )}
+          </CategoryTile>
+        ))}
+      </nav>
+    </section>
   );
 }
 

@@ -8,7 +8,8 @@ import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
 import { downloadFile } from "@/lib/api";
 import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
 import { PRODUCTS_LIST, rememberProductsList } from "@/lib/products-list";
-import type { AdminProduct, Brand, Page } from "@/lib/types";
+import { categoryOptions, fullName } from "@/lib/categories";
+import type { AdminCategory, AdminProduct, Brand, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
@@ -16,6 +17,7 @@ const PAGE_SIZE = 50;
 type Filter =
   | "q"
   | "brand_id"
+  | "category_id"
   | "is_active"
   | "no_variants"
   | "backordered"
@@ -38,6 +40,7 @@ export function ProductsAdmin() {
   const router = useRouter();
   const search = params.get("q") ?? "";
   const brandId = params.get("brand_id") ?? "";
+  const categoryId = params.get("category_id") ?? "";
   const active = params.get("is_active") ?? "";
   const noVariants = params.get("no_variants") === "true";
   const backordered = params.get("backordered") === "true";
@@ -89,10 +92,14 @@ export function ProductsAdmin() {
   };
 
   const brands = useApi<Brand[]>("/admin/brands");
+  const tree = useApi<AdminCategory[]>("/admin/categories");
+  const sectionOf = (p: AdminProduct) =>
+    p.category_id && tree.data ? fullName(tree.data, p.category_id) : null;
   const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
     query: {
       q: search,
       brand_id: brandId,
+      category_id: categoryId,
       is_active: active,
       no_variants: noVariants || undefined,
       backordered: backordered || undefined,
@@ -138,6 +145,22 @@ export function ProductsAdmin() {
               {b.name}
             </option>
           ))}
+        </select>
+        <select
+          className="input w-auto"
+          value={categoryId}
+          onChange={(e) => setFilters({ category_id: e.target.value })}
+          aria-label="Раздел"
+        >
+          <option value="">Все разделы</option>
+          {tree.data &&
+            categoryOptions(tree.data).map((c) => (
+              <option key={c.id} value={c.id}>
+                {"\u00a0\u00a0\u00a0".repeat(c.depth)}
+                {c.label.trim()}
+              </option>
+            ))}
+          <option value="0">Без раздела</option>
         </select>
         <select
           className="input w-auto"
@@ -229,6 +252,7 @@ export function ProductsAdmin() {
                     <div className="min-w-0">
                       <div className="text-xs text-muted">{p.brand.name}</div>
                       <div className="font-semibold">{p.name}</div>
+                      {sectionOf(p) && <div className="text-xs text-muted">{sectionOf(p)}</div>}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
@@ -266,7 +290,7 @@ export function ProductsAdmin() {
                 <tr>
                   <th className="w-14"></th>
                   <th>Товар</th>
-                  <th>Тип / пол</th>
+                  <th>Раздел, тип / пол</th>
                   <th>Объёмы и цены (розн. / опт / кр. опт)</th>
                   <th>Остаток</th>
                   <th>Статус</th>
@@ -291,6 +315,9 @@ export function ProductsAdmin() {
                       </Link>
                     </td>
                     <td className="text-xs">
+                      <div className="font-medium">
+                        {sectionOf(p) ?? <span className="text-amber-700">без раздела</span>}
+                      </div>
                       {[p.type, p.gender && GENDER_LABELS[p.gender], p.category].filter(Boolean).join(" · ")}
                     </td>
                     <td className="text-xs">

@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { HomeBrands, HomeNew, HomePromotions, HomeSale, WholesaleStrip } from "./home-sections";
+import {
+  HomeBrands,
+  HomeCategories,
+  HomeNew,
+  HomePromotions,
+  HomeSale,
+  WholesaleStrip,
+} from "./home-sections";
 
 export default function Home() {
   return (
@@ -8,6 +15,7 @@ export default function Home() {
       <h1 className="sr-only">Kyko Parfum — парфюмерия в розницу и оптом</h1>
       <WholesaleStrip />
       <HomePromotions />
+      <HomeCategories />
       <HomeSale />
       <HomeNew />
 

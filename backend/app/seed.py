@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import Brand, Gender, PricingMode, Product, ProductVariant, User, UserRole
 from app.security import hash_password
+from app.services import categories
 from app.services.settings import get_pricing_settings
 
 # (brand, name, type, olfactory group, gender, longevity, top, heart, base, description,
@@ -101,6 +102,8 @@ def _round(v: Decimal) -> Decimal:
 def seed_demo() -> None:
     with SessionLocal() as db:
         brands = {b.name: b for b in db.scalars(select(Brand))}
+        # The demo catalog is perfumes: the first perfume section of the tree (migration 0022).
+        perfume = categories.default_perfume_section(db)
         for i, (
             brand_name,
             name,
@@ -122,7 +125,7 @@ def seed_demo() -> None:
                 select(Product).join(Brand).where(Brand.name == brand_name, Product.name == name)
             )
             if product is None:
-                product = Product(brand=brand, name=name)
+                product = Product(brand=brand, name=name, catalog_category=perfume)
                 db.add(product)
             product.type, product.category, product.gender = ptype, cat, gender
             product.longevity, product.description = longevity, desc

@@ -125,6 +125,8 @@ class AdminVariantOut(ORMModel):
 
 class ProductIn(BaseModel):
     brand_id: int
+    # The node of the catalog tree; left out: the first perfume section («Парфюмерия»).
+    category_id: int | None = None
     name: str = Field(min_length=1, max_length=255)
     type: str | None = Field(default=None, max_length=32)
     category: str | None = Field(default=None, max_length=128)
@@ -145,6 +147,7 @@ class ProductIn(BaseModel):
 
 class ProductUpdate(BaseModel):
     brand_id: int | None = None
+    category_id: int | None = None
     name: str | None = Field(default=None, min_length=1, max_length=255)
     type: str | None = Field(default=None, max_length=32)
     category: str | None = Field(default=None, max_length=128)
@@ -169,6 +172,8 @@ class AdminBrandBrief(ORMModel):
 class AdminProductOut(ORMModel):
     id: int
     brand_id: int
+    # The node of the catalog tree (GET /admin/categories); null: not placed yet.
+    category_id: int | None = None
     brand: AdminBrandBrief
     name: str
     type: str | None

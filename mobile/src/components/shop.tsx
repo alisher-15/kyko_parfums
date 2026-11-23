@@ -2,11 +2,12 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   FlatList,
   Linking,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -25,9 +26,106 @@ import {
   tenge,
   volumeLabel,
 } from "@/lib/format";
-import type { OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
+import type { Category, OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
 import { colors, fonts, radius, statusColors } from "@/theme";
 import { Button, Field, Muted, Notice, Txt } from "./ui";
+
+// ---------- Catalog sections ----------
+
+const TILE = 76;
+/** A little wider than the picture, so «Парфюмерия» fits on one line. */
+const TILE_COLUMN = 88;
+
+/**
+ * The catalog's sections as tiles under the banners, as on Kaspi and the website: two rows that
+ * scroll sideways on phones, one row on tablets; «Все категории» first. The API leaves out sections
+ * without products; each tile has a picture (its own, else a photo of its products).
+ */
+export function CategoryTiles({ sections }: { sections: Category[] }) {
+  const { width } = useWindowDimensions();
+  const rows = width >= 768 ? 1 : 2;
+  const tiles: ReactNode[] = [
+    <Tile
+      key="all"
+      label="Все категории"
+      onPress={() => router.navigate("/catalog")}
+      testID="category-all"
+    >
+      <Ionicons name="grid-outline" size={28} color={colors.gold} />
+    </Tile>,
+    ...sections.map((c) => (
+      <Tile
+        key={c.id}
+        label={c.name}
+        testID={`category-${c.id}`}
+        onPress={() =>
+          router.push({ pathname: "/collection", params: { category_id: c.id, title: c.name } })
+        }
+      >
+        {assetUrl(c.image_url) ? (
+          <Image
+            source={assetUrl(c.image_url)}
+            style={{ width: "86%", height: "86%" }}
+            contentFit="contain"
+            accessibilityIgnoresInvertColors
+          />
+        ) : (
+          <Text style={styles.tileLetter}>{c.name.slice(0, 1)}</Text>
+        )}
+      </Tile>
+    )),
+  ];
+  // Filled column by column, as the website's grid, so the order reads the same while scrolling.
+  const columns: ReactNode[][] = [];
+  tiles.forEach((t, i) => {
+    const col = Math.floor(i / rows);
+    (columns[col] ??= []).push(t);
+  });
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityLabel="Категории"
+      contentContainerStyle={{ paddingHorizontal: 10, gap: 4 }}
+    >
+      {columns.map((col, i) => (
+        <View key={i} style={{ gap: 12 }}>
+          {col}
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+function Tile({
+  label,
+  onPress,
+  testID,
+  children,
+}: {
+  label: string;
+  onPress: () => void;
+  testID?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={label}
+      testID={testID}
+      onPress={onPress}
+      style={({ pressed }) => [
+        { width: TILE_COLUMN, alignItems: "center", gap: 6 },
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <View style={styles.tileBox}>{children}</View>
+      <Text style={styles.tileLabel} numberOfLines={2}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 // ---------- Promotions ----------
 
@@ -294,6 +392,25 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 }
 
 const styles = StyleSheet.create({
+  tileBox: {
+    width: TILE,
+    height: TILE,
+    borderRadius: radius.lg,
+    backgroundColor: "#f5f5f4",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  tileLetter: { fontFamily: fonts.serif, fontSize: 26, color: colors.gold },
+  tileLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    lineHeight: 15,
+    // Two lines always, so the second row of tiles stays level.
+    height: 30,
+    textAlign: "center",
+    color: colors.ink,
+  },
   bold: { fontFamily: fonts.sansBold },
   card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
   cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },

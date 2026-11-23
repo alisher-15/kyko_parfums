@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
-import { Chip, Eyebrow, Loader, Muted, Notice, Title, Txt } from "@/components/ui";
+import { Eyebrow, Loader, Muted, Notice, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { CONTACTS } from "@/lib/contacts";
 import { useApi } from "@/lib/queries";
@@ -111,20 +111,35 @@ export default function HomeScreen() {
 
       {!!brands.data?.length && (
         <Section title="Бренды" more="/brands" moreLabel="Все бренды">
-          <View style={styles.brands}>
-            {brands.data.slice(0, 16).map((b) => (
-              <Chip
-                key={b.id}
-                label={`${b.name} · ${b.product_count}`}
-                onPress={() =>
-                  router.push({
-                    pathname: "/collection",
-                    params: { brand_id: b.id, title: b.name },
-                  })
-                }
-              />
-            ))}
-          </View>
+          {/* One row that scrolls sideways, the brands with the most products first. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.brands}
+          >
+            {[...brands.data]
+              .sort((a, b) => b.product_count - a.product_count)
+              .slice(0, 24)
+              .map((b) => (
+                <Pressable
+                  key={b.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={b.name}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/collection",
+                      params: { brand_id: b.id, title: b.name },
+                    })
+                  }
+                  style={({ pressed }) => [styles.brand, pressed && { opacity: 0.7 }]}
+                >
+                  <Txt style={styles.brandName} numberOfLines={1}>
+                    {b.name}
+                  </Txt>
+                  <Muted style={styles.brandCount}>{b.product_count}</Muted>
+                </Pressable>
+              ))}
+          </ScrollView>
         </Section>
       )}
 
@@ -172,9 +187,9 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <View style={{ marginTop: 28 }}>
+    <View style={{ marginTop: 20 }}>
       <View style={styles.sectionHead}>
-        <Title style={{ fontSize: 26 }}>{title}</Title>
+        <Title style={{ fontSize: 22 }}>{title}</Title>
         <Pressable accessibilityRole="link" onPress={() => router.push(more)} hitSlop={8}>
           <Txt style={styles.more}>{moreLabel} →</Txt>
         </Pressable>
@@ -191,8 +206,8 @@ function ProductRail({ items }: { items: ProductListItem[] }) {
       data={items}
       keyExtractor={(p) => String(p.id)}
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}
-      renderItem={({ item }) => <ProductCard product={item} width={172} />}
+      contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+      renderItem={({ item }) => <ProductCard product={item} width={128} compact />}
     />
   );
 }
@@ -261,10 +276,23 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   more: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.gold },
-  brands: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
+  brands: { gap: 6, paddingHorizontal: 16 },
+  brand: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+    borderRadius: radius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  brandName: { fontFamily: fonts.sansMedium, fontSize: 12 },
+  brandCount: { fontSize: 11 },
   contacts: {
     marginHorizontal: 16,
     marginTop: 32,

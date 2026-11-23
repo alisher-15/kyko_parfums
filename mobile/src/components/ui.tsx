@@ -163,10 +163,24 @@ export function Chip({
   );
 }
 
-export function Badge({ label, tone = "gold" }: { label: string; tone?: "gold" | "ink" }) {
+export function Badge({
+  label,
+  tone = "gold",
+  small = false,
+}: {
+  label: string;
+  tone?: "gold" | "ink";
+  small?: boolean;
+}) {
   return (
-    <View style={[styles.badge, { backgroundColor: tone === "gold" ? colors.gold : colors.ink }]}>
-      <Text style={styles.badgeText}>{label}</Text>
+    <View
+      style={[
+        styles.badge,
+        small && { paddingHorizontal: 6, paddingVertical: 1 },
+        { backgroundColor: tone === "gold" ? colors.gold : colors.ink },
+      ]}
+    >
+      <Text style={[styles.badgeText, small && { fontSize: 10 }]}>{label}</Text>
     </View>
   );
 }

@@ -53,8 +53,19 @@ export function ProductImage({
   );
 }
 
-/** A product in a grid or a sideways row. */
-export function ProductCard({ product, width }: { product: ProductListItem; width?: number }) {
+/**
+ * A product in a grid or a sideways row. `compact`: the home page's rows, a smaller card with
+ * brand, name, price and volumes only.
+ */
+export function ProductCard({
+  product,
+  width,
+  compact = false,
+}: {
+  product: ProductListItem;
+  width?: number;
+  compact?: boolean;
+}) {
   const { money } = useCurrency();
   const favorites = useFavorites();
   const liked = favorites.has(product.id);
@@ -74,48 +85,55 @@ export function ProductCard({ product, width }: { product: ProductListItem; widt
       ]}
     >
       <View style={styles.photoBox}>
-        <ProductImage uri={product.image_url} seed={product.id} style={styles.photo} />
+        <ProductImage
+          uri={product.image_url}
+          seed={product.id}
+          style={[styles.photo, compact && styles.photoCompact]}
+          iconSize={compact ? 22 : undefined}
+        />
         <View style={styles.badges}>
-          {product.deal && <Badge label={percentOff(product.deal.discount_percent)} />}
-          {product.is_new && <Badge label="Новинка" tone="ink" />}
+          {product.deal && (
+            <Badge small={compact} label={percentOff(product.deal.discount_percent)} />
+          )}
+          {product.is_new && <Badge small={compact} label="Новинка" tone="ink" />}
         </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={liked ? "Убрать из избранного" : "В избранное"}
           hitSlop={6}
           onPress={() => favorites.toggle(product.id)}
-          style={styles.heart}
+          style={[styles.heart, compact && styles.heartCompact]}
         >
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
-            size={18}
+            size={compact ? 15 : 18}
             color={liked ? colors.gold : colors.muted}
           />
         </Pressable>
       </View>
-      <View style={styles.body}>
-        <Eyebrow numberOfLines={1} style={{ fontSize: 10 }}>
+      <View style={[styles.body, compact && styles.bodyCompact]}>
+        <Eyebrow numberOfLines={1} style={{ fontSize: compact ? 9 : 10 }}>
           {product.brand.name}
         </Eyebrow>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>
           {product.name}
         </Text>
-        {!!meta && (
+        {!!meta && !compact && (
           <Muted style={styles.meta} numberOfLines={1}>
             {meta}
           </Muted>
         )}
-        <View style={styles.bottom}>
+        <View style={[styles.bottom, compact && { paddingTop: 4 }]}>
           {product.min_price !== null ? (
-            <Txt style={styles.price} numberOfLines={1}>
-              <Text style={styles.from}>от </Text>
+            <Txt style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
+              <Text style={[styles.from, compact && { fontSize: 11 }]}>от </Text>
               {money(product.min_price)}
             </Txt>
           ) : (
             <Muted style={{ fontSize: 13 }}>Цена по запросу</Muted>
           )}
           {product.volumes.length > 0 && (
-            <Muted style={styles.meta} numberOfLines={1}>
+            <Muted style={[styles.meta, compact && styles.metaCompact]} numberOfLines={1}>
               {product.volumes.join(" / ")} мл{product.type ? ` · ${product.type}` : ""}
             </Muted>
           )}
@@ -183,7 +201,8 @@ const styles = StyleSheet.create({
     bottom: 10,
     borderRadius: radius.sm,
   },
-  badges: { position: "absolute", top: 8, left: 8, gap: 4 },
+  photoCompact: { top: 6, left: 6, right: 6, bottom: 6 },
+  badges: { position: "absolute", top: 6, left: 6, gap: 3 },
   heart: {
     position: "absolute",
     top: 6,
@@ -195,6 +214,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  heartCompact: { top: 4, right: 4, width: 26, height: 26, borderRadius: 13 },
   body: {
     padding: 12,
     gap: 2,
@@ -202,10 +222,14 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
   },
+  bodyCompact: { padding: 8, gap: 1 },
   name: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 21, color: colors.ink },
+  nameCompact: { fontSize: 15, lineHeight: 17 },
   meta: { fontSize: 12, lineHeight: 16 },
   bottom: { marginTop: "auto", paddingTop: 8, gap: 2 },
   price: { fontFamily: fonts.sansBold, fontSize: 15 },
+  priceCompact: { fontSize: 13 },
+  metaCompact: { fontSize: 11, lineHeight: 14 },
   from: { fontFamily: fonts.sans, color: colors.muted, fontSize: 13 },
   stepper: {
     flexDirection: "row",

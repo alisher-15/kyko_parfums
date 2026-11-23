@@ -88,6 +88,7 @@ function Navigation() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Главная" }} />
       <Stack.Screen name="product/[id]" options={{ title: "" }} />
       <Stack.Screen name="collection" options={{ title: "Каталог" }} />
+      <Stack.Screen name="categories" options={{ title: "Категории" }} />
       <Stack.Screen name="brands" options={{ title: "Бренды" }} />
       <Stack.Screen name="checkout" options={{ title: "Оформление" }} />
       <Stack.Screen name="orders/index" options={{ title: "Мои заказы" }} />

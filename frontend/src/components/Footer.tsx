@@ -26,6 +26,7 @@ export function Footer() {
         <div className="flex flex-col gap-2">
           <span className="font-semibold text-ink">Покупателям</span>
           <Link href="/catalog">Каталог</Link>
+          <Link href="/categories">Категории</Link>
           <Link href="/brands">Бренды</Link>
           <Link href="/account/orders">Мои заказы</Link>
           <Link href="/offer">Публичная оферта</Link>

@@ -165,8 +165,9 @@ function CategoryTile({
 
 /**
  * The catalog's sections as tiles under the banners, as on Kaspi: two rows on phones that scroll
- * sideways, one row on computers; «Все категории» first. Sections without products are left out
- * by the API; each tile has a picture (its own, else a photo of its products).
+ * sideways, one row on computers; «Все категории» first (it opens /categories, every section as a
+ * card). Sections without products are left out by the API; each tile has a picture (its own,
+ * else a photo of its products).
  */
 export function HomeCategories() {
   const tree = useCategories();
@@ -178,7 +179,7 @@ export function HomeCategories() {
         aria-label="Категории"
         className="rail -mx-4 grid snap-x grid-flow-col grid-rows-2 justify-start gap-x-3 gap-y-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 md:grid-rows-1 md:gap-x-5"
       >
-        <CategoryTile href="/catalog" label="Все категории">
+        <CategoryTile href="/categories" label="Все категории">
           <GridIcon width={30} height={30} className="text-gold" />
         </CategoryTile>
         {sections.map((c) => (

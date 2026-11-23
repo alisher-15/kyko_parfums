@@ -38,7 +38,7 @@ const TILE_COLUMN = 88;
 
 /**
  * The catalog's sections as tiles under the banners, as on Kaspi and the website: two rows that
- * scroll sideways on phones, one row on tablets; «Все категории» first. The API leaves out sections
+ * scroll sideways on phones, one row on tablets; «Все категории» first (it opens /categories). The API leaves out sections
  * without products; each tile has a picture (its own, else a photo of its products).
  */
 export function CategoryTiles({ sections }: { sections: Category[] }) {
@@ -48,7 +48,7 @@ export function CategoryTiles({ sections }: { sections: Category[] }) {
     <Tile
       key="all"
       label="Все категории"
-      onPress={() => router.navigate("/catalog")}
+      onPress={() => router.push("/categories")}
       testID="category-all"
     >
       <Ionicons name="grid-outline" size={28} color={colors.gold} />
@@ -63,12 +63,15 @@ export function CategoryTiles({ sections }: { sections: Category[] }) {
         }
       >
         {assetUrl(c.image_url) ? (
-          <Image
-            source={assetUrl(c.image_url)}
-            style={{ width: "86%", height: "86%" }}
-            contentFit="contain"
-            accessibilityIgnoresInvertColors
-          />
+          // White photo backgrounds melt into the grey tile, as on the website.
+          <View style={{ width: "86%", height: "86%", mixBlendMode: "multiply" }}>
+            <Image
+              source={assetUrl(c.image_url)}
+              style={StyleSheet.absoluteFill}
+              contentFit="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
         ) : (
           <Text style={styles.tileLetter}>{c.name.slice(0, 1)}</Text>
         )}

@@ -12,6 +12,7 @@ import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
 
 const NAV = [
   { href: "/catalog", label: "Каталог" },
+  { href: "/categories", label: "Категории" },
   { href: "/catalog?gender=female", label: "Женские" },
   { href: "/catalog?gender=male", label: "Мужские" },
   { href: "/catalog?gender=unisex", label: "Унисекс" },

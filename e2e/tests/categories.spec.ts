@@ -35,7 +35,13 @@ test.describe("Разделы каталога", () => {
       expect(names.slice(0, 2)).toEqual(["Все категории", "Парфюмерия"]);
       expect(names).toContain("Макияж");
 
-      await tiles.getByRole("link", { name: "Макияж" }).click();
+      // «Все категории» opens every section as a card (as Kaspi's «Категории»).
+      await tiles.getByRole("link", { name: "Все категории" }).click();
+      await expect(page).toHaveURL(/\/categories$/);
+      await expect(page.getByRole("heading", { level: 1, name: "Категории" })).toBeVisible();
+      const cards = page.getByRole("navigation", { name: "Категории" });
+      await expect(cards.getByRole("link", { name: "Парфюмерия" })).toBeVisible();
+      await cards.getByRole("link", { name: "Макияж" }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Макияж" })).toBeVisible();
       const groups = page.getByLabel("Подразделы");
       await expect(groups.getByRole("link", { name: "Губы" })).toBeVisible();

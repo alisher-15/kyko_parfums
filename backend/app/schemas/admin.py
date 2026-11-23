@@ -25,6 +25,8 @@ class BrandIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     logo_url: str | None = Field(default=None, max_length=1024)
     description: str | None = None
+    # None: a top house by its name (app/top_brands.py).
+    is_top: bool | None = None
 
     @field_validator("name")
     @classmethod
@@ -36,6 +38,7 @@ class BrandUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     logo_url: str | None = Field(default=None, max_length=1024)
     description: str | None = None
+    is_top: bool | None = None
 
 
 # ---------- Variants ----------

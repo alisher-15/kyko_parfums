@@ -2,10 +2,14 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
   FlatList,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -26,7 +30,7 @@ import {
   tenge,
   volumeLabel,
 } from "@/lib/format";
-import type { Category, OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
+import type { Brand, Category, OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
 import { colors, fonts, radius, statusColors } from "@/theme";
 import { Button, Field, Muted, Notice, Txt } from "./ui";
 
@@ -127,6 +131,105 @@ function Tile({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+// ---------- Top brands ----------
+
+/** At least this many names in one pass of the running line, so it is wider than a screen. */
+const MARQUEE_MIN = 10;
+/** How fast the line runs, in points a second. */
+const MARQUEE_SPEED = 40;
+
+/**
+ * The top houses (`is_top`, chosen in «Бренды») as a running line, as on the website: logos where
+ * the brand has one, else the name in large letters; a tap opens the brand's products. With
+ * «Reduce motion» on it keeps still and scrolls by hand.
+ */
+export function BrandMarquee({ brands }: { brands: Brand[] }) {
+  const top = brands.filter((b) => b.is_top).sort((a, b) => b.product_count - a.product_count);
+  const [still, setStill] = useState(false);
+  const [passWidth, setPassWidth] = useState(0);
+  const [x] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setStill);
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setStill);
+    return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    if (still || passWidth === 0) return;
+    x.setValue(0);
+    const run = Animated.loop(
+      Animated.timing(x, {
+        toValue: -passWidth,
+        duration: (passWidth / MARQUEE_SPEED) * 1000,
+        easing: Easing.linear,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    );
+    run.start();
+    return () => run.stop();
+  }, [still, passWidth, x]);
+
+  if (top.length === 0) return null;
+  const pass = Array.from({ length: Math.ceil(MARQUEE_MIN / top.length) }, () => top).flat();
+  const names = (copy: number) =>
+    pass.map((b, i) => (
+      <Pressable
+        key={`${copy}-${b.id}-${i}`}
+        accessibilityRole="link"
+        accessibilityLabel={b.name}
+        // The repeats only close the loop for the eye.
+        accessibilityElementsHidden={copy === 1 || i >= top.length}
+        importantForAccessibility={copy === 1 || i >= top.length ? "no-hide-descendants" : "auto"}
+        onPress={() =>
+          router.push({ pathname: "/collection", params: { brand_id: b.id, title: b.name } })
+        }
+        style={styles.marqueeItem}
+      >
+        {assetUrl(b.logo_url) ? (
+          <View style={styles.marqueeLogo}>
+            <Image
+              source={assetUrl(b.logo_url)}
+              style={StyleSheet.absoluteFill}
+              contentFit="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
+        ) : (
+          <Text style={styles.marqueeName} numberOfLines={1}>
+            {b.name.toUpperCase()}
+          </Text>
+        )}
+      </Pressable>
+    ));
+
+  if (still) {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityLabel="Топовые бренды"
+        style={styles.marquee}
+      >
+        {names(0).slice(0, top.length)}
+      </ScrollView>
+    );
+  }
+  return (
+    <View style={[styles.marquee, { overflow: "hidden" }]} accessibilityLabel="Топовые бренды">
+      <Animated.View style={{ flexDirection: "row", transform: [{ translateX: x }] }}>
+        <View
+          style={{ flexDirection: "row" }}
+          onLayout={(e) => setPassWidth(e.nativeEvent.layout.width)}
+        >
+          {names(0)}
+        </View>
+        <View style={{ flexDirection: "row" }}>{names(1)}</View>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -395,6 +498,21 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 }
 
 const styles = StyleSheet.create({
+  marquee: {
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: 18,
+  },
+  marqueeItem: { height: 40, justifyContent: "center", paddingHorizontal: 22 },
+  marqueeLogo: { width: 120, height: 40, opacity: 0.5 },
+  marqueeName: {
+    fontFamily: fonts.serif,
+    fontSize: 26,
+    letterSpacing: 3,
+    color: colors.faint,
+  },
   tileBox: {
     width: TILE,
     height: TILE,

@@ -1,6 +1,6 @@
 import { adminToken, api, createProduct, expect, loginAsAdmin, newCustomer, placeOrder, test } from "./support";
 
-test("новинка: галочка в карточке товара ставит его в «Новые поступления»", async ({ page, openPage }) => {
+test("новинка: галочка в карточке товара ставит его в «Горячие предложения»", async ({ page, openPage }) => {
   const admin = await adminToken();
   const { product } = await createProduct(admin, [{ volume_ml: 50, stock: 5, retail_price: 30000 }]);
   try {
@@ -13,12 +13,12 @@ test("новинка: галочка в карточке товара стави
 
     const guest = await openPage();
     await guest.goto("/");
-    const block = guest.locator("section", { has: guest.getByRole("heading", { name: "Новые поступления" }) });
+    const block = guest.locator("section", { has: guest.getByRole("heading", { name: "Горячие предложения" }) });
     const card = block.locator(`a[href='/products/${product.id}']`);
     await expect(card).toBeVisible();
     await expect(card.getByText("Новинка")).toBeVisible();
-    await block.getByRole("link", { name: "Все новинки →" }).click();
-    await expect(guest.getByRole("heading", { name: "Новинки" })).toBeVisible();
+    await block.getByRole("link", { name: "Все предложения →" }).click();
+    await expect(guest.getByRole("heading", { name: "Горячие предложения" })).toBeVisible();
     await expect(guest.locator(`a[href='/products/${product.id}']`).first()).toBeVisible();
   } finally {
     await api("PATCH", `/admin/products/${product.id}`, admin, { is_new: false });
@@ -95,7 +95,7 @@ test("акция: баннер, скидка в карточке и корзин
       await expect(page.getByText("Выключена").first()).toBeVisible();
       expect((await api("GET", `/products/${product.id}`)).variants[0]).toMatchObject({ price: 30000, deal: null });
       await guest.goto("/");
-      await expect(guest.getByText("Новые поступления")).toBeVisible();
+      await expect(guest.getByText("Горячие предложения").first()).toBeVisible();
       await expect(guest.locator(`a[href='/catalog?promotion_id=${promotionId}']`)).toHaveCount(0);
     });
   } finally {

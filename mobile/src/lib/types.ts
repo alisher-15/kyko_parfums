@@ -46,6 +46,8 @@ export interface Brand extends BrandBrief {
   logo_url: string | null;
   description: string | null;
   product_count: number;
+  /** In the running line of brands on the home screen (top houses by default, the owner's choice). */
+  is_top: boolean;
 }
 
 export interface CurrencyInfo {

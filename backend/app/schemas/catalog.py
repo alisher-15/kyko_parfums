@@ -18,6 +18,19 @@ class BrandOut(ORMModel):
     logo_url: str | None
     description: str | None
     product_count: int = 0
+    # In the running line of brands on the home page.
+    is_top: bool = False
+
+    @classmethod
+    def of(cls, brand, product_count: int) -> "BrandOut":
+        return cls(
+            id=brand.id,
+            name=brand.name,
+            logo_url=brand.logo_url,
+            description=brand.description,
+            product_count=product_count,
+            is_top=brand.is_top,
+        )
 
 
 class DealOut(BaseModel):

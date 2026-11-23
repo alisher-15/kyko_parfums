@@ -320,7 +320,7 @@ function ProductForm({
       />
       <Toggle
         label="Новинка"
-        hint="В «Новых поступлениях» на главной"
+        hint="В «Горячих предложениях» на главной"
         value={form.is_new}
         onChange={(v) => setForm({ ...form, is_new: v })}
       />

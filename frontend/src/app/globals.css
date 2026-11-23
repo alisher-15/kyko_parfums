@@ -67,6 +67,30 @@ body {
   display: none;
 }
 
+/* The running line of brands on the home page (BrandMarquee): the list twice in a row, moved by
+   half its width, so it loops without a seam. It stops under the pointer; with reduced motion it
+   is a row to scroll by hand. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee {
+  animation: marquee var(--marquee-duration, 40s) linear infinite;
+}
+.marquee:hover,
+.marquee:focus-within {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none;
+  }
+}
+
 /* iPhone Safari zooms the page into a text field whose font is under 16px when it is tapped, and
    keeps the zoom afterwards (on this site, where pages change without reloading, on the next pages
    too). On touch screens the fields get 16px; on computers they stay text-sm. Outside the layers,

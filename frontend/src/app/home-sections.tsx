@@ -206,28 +206,12 @@ export function HomeCategories() {
   );
 }
 
-/** Products a running promotion gives a discount on. */
-export function HomeSale() {
-  const { data } = useApi<Page<ProductListItem>>("/products", {
-    query: { on_sale: true, page_size: 12 },
-  });
-  if (!data || data.total === 0) return null;
-  return (
-    <Section
-      title="Акции"
-      link={
-        <Link href="/catalog?on_sale=true" className="text-sm font-semibold text-gold">
-          Все акции →
-        </Link>
-      }
-    >
-      <ProductRail label="Акции" items={data.items} more="/catalog?on_sale=true" />
-    </Section>
-  );
-}
-
-/** Products marked «Новинка» in the admin panel; while none are, the latest added. */
-export function HomeNew() {
+/**
+ * «Горячие предложения»: the products marked «Новинка» in the admin panel; while none are, the
+ * latest added. (Products on promotion are behind the banners at the top, so they have no block
+ * of their own.)
+ */
+export function HomeHot() {
   const marked = useApi<Page<ProductListItem>>("/products", {
     query: { is_new: true, sort: "new", page_size: 12 },
   });
@@ -238,13 +222,13 @@ export function HomeNew() {
   const shown = noneMarked ? latest : marked;
   return (
     <Section
-      title="Новые поступления"
+      title="Горячие предложения"
       link={
         <Link
           href={noneMarked ? "/catalog?sort=new" : "/catalog?is_new=true"}
           className="text-sm font-semibold text-gold"
         >
-          {noneMarked ? "Все товары →" : "Все новинки →"}
+          {noneMarked ? "Все товары →" : "Все предложения →"}
         </Link>
       }
     >
@@ -252,7 +236,7 @@ export function HomeNew() {
       {!shown.data && !shown.error && <Spinner />}
       {shown.data && (
         <ProductRail
-          label="Новые поступления"
+          label="Горячие предложения"
           items={shown.data.items}
           more={noneMarked ? "/catalog?sort=new" : "/catalog?is_new=true"}
         />
@@ -261,20 +245,64 @@ export function HomeNew() {
   );
 }
 
-export function HomeBrands() {
+/** At least this many names in one pass of the running line, so it is wider than a screen. */
+const MARQUEE_MIN = 10;
+
+/**
+ * The top houses (`is_top`, chosen in «Бренды») as a running line: logos where the brand has one,
+ * else the name in large letters, each leading to the brand's products. It stops under the pointer
+ * and keeps still for those who ask for reduced motion (then it scrolls by hand).
+ */
+export function BrandMarquee() {
   const { data } = useApi<Brand[]>("/brands");
-  if (!data) return null;
+  const top = (data ?? []).filter((b) => b.is_top).sort((a, b) => b.product_count - a.product_count);
+  if (top.length === 0) return null;
+  const pass = Array.from({ length: Math.ceil(MARQUEE_MIN / top.length) }, () => top).flat();
   return (
-    <div className="flex flex-wrap gap-2">
-      {data.slice(0, 24).map((b) => (
-        <Link
-          key={b.id}
-          href={`/catalog?brand_id=${b.id}`}
-          className="rounded-full border border-line bg-white px-4 py-2 text-sm hover:border-gold"
+    <section className="pt-10 md:pt-14">
+      <nav
+        aria-label="Топовые бренды"
+        className="rail overflow-x-auto border-y border-line bg-white py-5 md:py-7"
+      >
+        <div
+          className="marquee flex w-max"
+          style={{ ["--marquee-duration" as string]: `${pass.length * 3.5}s` }}
         >
-          {b.name} <span className="text-muted">· {b.product_count}</span>
+          {[0, 1].map((copy) => (
+            // The second copy only closes the loop: hidden from screen readers and the Tab key.
+            <div key={copy} className="flex shrink-0 items-center" aria-hidden={copy === 1 || undefined}>
+              {pass.map((b, i) => (
+                <Link
+                  key={`${b.id}-${i}`}
+                  href={`/catalog?brand_id=${b.id}`}
+                  // Repeats of the list (when it is short) are for the eye only, too.
+                  tabIndex={copy === 1 || i >= top.length ? -1 : undefined}
+                  aria-hidden={(copy === 0 && i >= top.length) || undefined}
+                  className="group flex h-12 shrink-0 items-center px-6 md:h-16 md:px-10"
+                  aria-label={b.name}
+                >
+                  {b.logo_url ? (
+                    <img
+                      src={b.logo_url}
+                      alt=""
+                      className="h-full max-w-40 object-contain opacity-50 mix-blend-multiply grayscale transition group-hover:opacity-100 md:max-w-56"
+                    />
+                  ) : (
+                    <span className="font-serif text-2xl whitespace-nowrap text-stone-400 uppercase tracking-[0.12em] transition group-hover:text-ink md:text-4xl">
+                      {b.name}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          ))}
+        </div>
+      </nav>
+      <div className="mx-auto max-w-7xl px-4 pt-3 text-right sm:px-6">
+        <Link href="/brands" className="text-sm font-semibold text-gold">
+          Все бренды →
         </Link>
-      ))}
-    </div>
+      </div>
+    </section>
   );
 }

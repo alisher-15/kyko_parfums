@@ -134,7 +134,7 @@ export function CatalogView() {
                   : query.on_sale
                     ? "Акции"
                     : query.is_new
-                      ? "Новинки"
+                      ? "Горячие предложения"
                       : "Каталог"}
           </h1>
           {promotion.data && (

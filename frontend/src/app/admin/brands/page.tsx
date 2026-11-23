@@ -13,6 +13,7 @@ export default function AdminBrandsPage() {
   const { data, error, reload } = useApi<Brand[]>("/admin/brands");
   const [name, setName] = useState("");
   const [filter, setFilter] = useState("");
+  const [onlyTop, setOnlyTop] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const create = async (e: FormEvent) => {
@@ -27,7 +28,9 @@ export default function AdminBrandsPage() {
     }
   };
 
-  const brands = (data ?? []).filter((b) => b.name.toLowerCase().includes(filter.toLowerCase()));
+  const brands = (data ?? []).filter(
+    (b) => b.name.toLowerCase().includes(filter.toLowerCase()) && (!onlyTop || b.is_top),
+  );
 
   return (
     <>
@@ -49,7 +52,21 @@ export default function AdminBrandsPage() {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={onlyTop}
+            onChange={(e) => setOnlyTop(e.target.checked)}
+          />
+          Только на главной
+        </label>
       </div>
+      <p className="mb-4 text-sm text-muted">
+        «На главной» — бренд в бегущей строке под разделами. Дорогие дома (Creed, Tom Ford, Amouage,
+        Kilian, Xerjoff…) отмечаются сами, когда бренд появляется; галочку можно снять или поставить
+        любому. С логотипом строка выглядит как витрина, без него — название бренда.
+      </p>
       {(msg || error) && (
         <div className="mb-4">
           <ErrorBox>{msg ?? error?.message}</ErrorBox>
@@ -64,6 +81,7 @@ export default function AdminBrandsPage() {
                 <th>Логотип</th>
                 <th>Название</th>
                 <th>Товаров</th>
+                <th>На главной</th>
                 <th></th>
               </tr>
             </thead>
@@ -90,6 +108,8 @@ function BrandRow({
 }) {
   const [name, setName] = useState(brand.name);
   const [logo, setLogo] = useState(brand.logo_url);
+  // Saved on click; shown at once, put back if the server says no.
+  const [top, setTop] = useState(brand.is_top);
   const dirty = name !== brand.name || logo !== brand.logo_url;
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -114,6 +134,24 @@ function BrandRow({
         <Link href={`/admin/products?brand_id=${brand.id}`} className="hover:text-gold">
           {brand.product_count}
         </Link>
+      </td>
+      <td>
+        <input
+          type="checkbox"
+          className="accent-gold"
+          aria-label={`${brand.name}: в бегущей строке на главной`}
+          checked={top}
+          onChange={(e) => {
+            const next = e.target.checked;
+            setTop(next);
+            void run(() =>
+              api(`/admin/brands/${brand.id}`, { method: "PATCH", body: { is_top: next } }).catch((err) => {
+                setTop(!next);
+                throw err;
+              }),
+            );
+          }}
+        />
       </td>
       <td className="whitespace-nowrap">
         <div className="flex gap-1">

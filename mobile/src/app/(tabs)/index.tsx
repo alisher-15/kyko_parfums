@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "@/components/product";
-import { CategoryTiles, CurrencySwitch, PromotionRail } from "@/components/shop";
+import { BrandMarquee, CategoryTiles, CurrencySwitch, PromotionRail } from "@/components/shop";
 import { Eyebrow, Loader, Muted, Notice, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { childrenOf, useCategories } from "@/lib/categories";
@@ -24,7 +24,6 @@ import { colors, fonts, radius } from "@/theme";
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const promotions = useApi<PromotionPublic[]>("/promotions");
-  const sale = useApi<Page<ProductListItem>>("/products", { on_sale: true, page_size: 12 });
   const marked = useApi<Page<ProductListItem>>("/products", {
     is_new: true,
     sort: "new",
@@ -44,7 +43,6 @@ export default function HomeScreen() {
   const refreshing = promotions.isRefetching || fresh.isRefetching;
   const refresh = () => {
     void promotions.refetch();
-    void sale.refetch();
     void marked.refetch();
     if (noneMarked) void latest.refetch();
     void brands.refetch();
@@ -87,26 +85,33 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <WholesaleStrip />
-
-      {!!sale.data?.total && (
-        <Section
-          title="Акции"
-          more={{ pathname: "/collection", params: { on_sale: "true", title: "Акции" } }}
-          moreLabel="Все акции"
-        >
-          <ProductRail items={sale.data.items} />
-        </Section>
+      {!!brands.data?.length && (
+        <View style={{ marginTop: 20 }}>
+          <BrandMarquee brands={brands.data} />
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => router.push("/brands")}
+            hitSlop={8}
+            style={{ alignSelf: "flex-end", marginRight: 16, marginTop: 8 }}
+          >
+            <Txt style={styles.more}>Все бренды →</Txt>
+          </Pressable>
+        </View>
       )}
 
+      <WholesaleStrip />
+
       <Section
-        title="Новые поступления"
+        title="Горячие предложения"
         more={
           noneMarked
-            ? { pathname: "/collection", params: { sort: "new", title: "Новые поступления" } }
-            : { pathname: "/collection", params: { is_new: "true", sort: "new", title: "Новинки" } }
+            ? { pathname: "/collection", params: { sort: "new", title: "Горячие предложения" } }
+            : {
+                pathname: "/collection",
+                params: { is_new: "true", sort: "new", title: "Горячие предложения" },
+              }
         }
-        moreLabel={noneMarked ? "Все товары" : "Все новинки"}
+        moreLabel={noneMarked ? "Все товары" : "Все предложения"}
       >
         {fresh.error ? (
           <Notice tone="error" style={{ marginHorizontal: 16 }}>
@@ -118,40 +123,6 @@ export default function HomeScreen() {
           <Loader />
         )}
       </Section>
-
-      {!!brands.data?.length && (
-        <Section title="Бренды" more="/brands" moreLabel="Все бренды">
-          {/* One row that scrolls sideways, the brands with the most products first. */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.brands}
-          >
-            {[...brands.data]
-              .sort((a, b) => b.product_count - a.product_count)
-              .slice(0, 24)
-              .map((b) => (
-                <Pressable
-                  key={b.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={b.name}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/collection",
-                      params: { brand_id: b.id, title: b.name },
-                    })
-                  }
-                  style={({ pressed }) => [styles.brand, pressed && { opacity: 0.7 }]}
-                >
-                  <Txt style={styles.brandName} numberOfLines={1}>
-                    {b.name}
-                  </Txt>
-                  <Muted style={styles.brandCount}>{b.product_count}</Muted>
-                </Pressable>
-              ))}
-          </ScrollView>
-        </Section>
-      )}
 
       <View style={styles.contacts}>
         <Eyebrow>Вопросы по аромату или заказу</Eyebrow>

@@ -335,13 +335,7 @@ def list_brands(q: str | None = Query(default=None, max_length=100), db: Session
     stmt = _brand_counts().order_by(Brand.name)
     if q and q.strip():
         stmt = stmt.where(brand_name_match(q))
-    return [
-        BrandOut(
-            id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c
-        )
-        for b, c in db.execute(stmt).all()
-        if c > 0
-    ]
+    return [BrandOut.of(b, c) for b, c in db.execute(stmt).all() if c > 0]
 
 
 @router.get("/brands/{brand_id}", response_model=BrandOut)
@@ -350,9 +344,7 @@ def get_brand(brand_id: int, db: Session = Depends(get_db)):
     if row is None:
         raise HTTPException(404, "Бренд не найден")
     b, c = row
-    return BrandOut(
-        id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c
-    )
+    return BrandOut.of(b, c)
 
 
 def _in_category(db: Session, category_id: int):

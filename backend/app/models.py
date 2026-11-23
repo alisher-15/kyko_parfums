@@ -21,11 +21,13 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    false,
     func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app import top_brands
 from app.db import Base
 
 MONEY = Numeric(12, 2)
@@ -200,6 +202,13 @@ class Brand(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     logo_url: Mapped[str | None] = mapped_column(String(1024))
     description: Mapped[str | None] = mapped_column(Text)
+    # In the running line of brands on the home page. A new brand gets it when its name is a top
+    # house (app/top_brands.py), whichever way it is created (admin panel, import, seed).
+    is_top: Mapped[bool] = mapped_column(
+        Boolean,
+        server_default=false(),
+        default=lambda ctx: top_brands.is_top(ctx.get_current_parameters().get("name")),
+    )
     # The name as it sounds, written by the database (search_fold, migration 0018).
     search_text: Mapped[str | None] = mapped_column(
         Text, Computed("search_fold(name)", persisted=True)

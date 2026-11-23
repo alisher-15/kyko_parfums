@@ -57,6 +57,8 @@ export interface Brand extends BrandBrief {
   logo_url: string | null;
   description: string | null;
   product_count: number;
+  /** In the running line of brands on the home page (top houses by default, the owner's choice). */
+  is_top: boolean;
 }
 
 export interface CurrencyInfo {
@@ -346,7 +348,7 @@ export interface AdminProduct {
   search_names: string | null;
   image_url: string | null;
   is_active: boolean;
-  /** «Новинка»: shown in «Новые поступления» on the home page. */
+  /** «Новинка»: shown in «Горячие предложения» on the home page. */
   is_new: boolean;
   new_at: string | null;
   created_at: string;

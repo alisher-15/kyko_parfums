@@ -42,8 +42,7 @@ export default function AdminCategoriesPage() {
 
   const createSection = async (e: FormEvent) => {
     e.preventDefault();
-    if (await run(() => api("/admin/categories", { body: { name, kind } })))
-      setName("");
+    if (await run(() => api("/admin/categories", { body: { name, kind } }))) setName("");
   };
 
   if (error) return <ErrorBox>{error.message}</ErrorBox>;
@@ -53,20 +52,15 @@ export default function AdminCategoriesPage() {
     <div className="max-w-4xl space-y-4">
       <AdminHeader title="Категории" />
       <p className="text-sm text-muted">
-        Разделы — это плитки вверху главной страницы (как в Kaspi) в этом
-        порядке, группы внутри — подборки на странице раздела. Раздел или группа
-        без товаров на сайте не показываются. У раздела можно задать картинку
-        плитки: квадратную, предмет на белом или прозрачном фоне; без неё на
-        плитке будет фото одного из его товаров. Тип раздела задаёт поля товара:
-        у парфюмерии есть концентрация (EDP, EDT), ноты и олфактивная группа, у
-        косметики их нет. Уровней не больше трёх: раздел → группа → вид (Макияж
-        → Губы → Помада).
+        Разделы — это плитки вверху главной страницы (как в Kaspi) в этом порядке, группы внутри —
+        подборки на странице раздела. Раздел или группа без товаров на сайте не показываются. У
+        раздела можно задать картинку плитки: квадратную, предмет на белом или прозрачном фоне; без
+        неё на плитке будет фото одного из его товаров. Тип раздела задаёт поля товара: у парфюмерии
+        есть концентрация (EDP, EDT), ноты и олфактивная группа, у косметики их нет. Уровней не
+        больше трёх: раздел → группа → вид (Макияж → Губы → Помада).
       </p>
 
-      <form
-        onSubmit={createSection}
-        className="card flex flex-wrap items-end gap-3 p-4"
-      >
+      <form onSubmit={createSection} className="card flex flex-wrap items-end gap-3 p-4">
         <label className="min-w-48 flex-1">
           <span className="label">Новый раздел</span>
           <input
@@ -108,15 +102,7 @@ export default function AdminCategoriesPage() {
   );
 }
 
-function Node({
-  node,
-  all,
-  run,
-}: {
-  node: AdminCategory;
-  all: AdminCategory[];
-  run: Run;
-}) {
+function Node({ node, all, run }: { node: AdminCategory; all: AdminCategory[]; run: Run }) {
   const [mode, setMode] = useState<"view" | "edit" | "add">("view");
   const depth = pathOf(all, node.id).length;
   const children = childrenOf(all, node.id);
@@ -145,31 +131,20 @@ function Node({
         {depth === 1 && (
           <span className="h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-line bg-white">
             {node.image_url && (
-              <img
-                src={node.image_url}
-                alt=""
-                className="h-full w-full object-contain"
-              />
+              <img src={node.image_url} alt="" className="h-full w-full object-contain" />
             )}
           </span>
         )}
         <div className="min-w-40 flex-1">
-          <span
-            className={
-              depth === 1 ? "font-serif text-lg font-semibold" : "font-medium"
-            }
-          >
+          <span className={depth === 1 ? "font-serif text-lg font-semibold" : "font-medium"}>
             {node.name}
           </span>
-          {depth === 1 && (
-            <span className="chip ml-2">{KIND_LABELS[node.kind]}</span>
-          )}
+          {depth === 1 && <span className="chip ml-2">{KIND_LABELS[node.kind]}</span>}
           <Link
             href={`/admin/products?category_id=${node.id}`}
             className="ml-2 text-xs text-muted hover:text-ink"
           >
-            {node.product_count}{" "}
-            {plural(node.product_count, "товар", "товара", "товаров")}
+            {node.product_count} {plural(node.product_count, "товар", "товара", "товаров")}
           </Link>
         </div>
         <div className="flex flex-wrap gap-1">
@@ -192,30 +167,18 @@ function Node({
             ↓
           </button>
           {depth < MAX_DEPTH && (
-            <button
-              type="button"
-              className="btn btn-outline btn-sm"
-              onClick={() => setMode("add")}
-            >
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setMode("add")}>
               + {depth === 1 ? "Группа" : "Вид"}
             </button>
           )}
-          <button
-            type="button"
-            className="btn btn-outline btn-sm"
-            onClick={() => setMode("edit")}
-          >
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setMode("edit")}>
             Изменить
           </button>
           <button
             type="button"
             className="btn btn-danger btn-sm"
             disabled={!empty}
-            title={
-              empty
-                ? undefined
-                : "Сначала перенесите товары и удалите группы внутри"
-            }
+            title={empty ? undefined : "Сначала перенесите товары и удалите группы внутри"}
             onClick={remove}
           >
             Удалить
@@ -224,21 +187,10 @@ function Node({
       </div>
 
       {mode === "add" && (
-        <AddChild
-          parent={node}
-          run={run}
-          onDone={() => setMode("view")}
-          depth={depth}
-        />
+        <AddChild parent={node} run={run} onDone={() => setMode("view")} depth={depth} />
       )}
       {mode === "edit" && (
-        <EditNode
-          node={node}
-          all={all}
-          run={run}
-          onDone={() => setMode("view")}
-          depth={depth}
-        />
+        <EditNode node={node} all={all} run={run} onDone={() => setMode("view")} depth={depth} />
       )}
 
       {children.map((c) => (
@@ -262,9 +214,7 @@ function AddChild({
   const [name, setName] = useState("");
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const ok = await run(() =>
-      api("/admin/categories", { body: { name, parent_id: parent.id } }),
-    );
+    const ok = await run(() => api("/admin/categories", { body: { name, parent_id: parent.id } }));
     if (ok) onDone();
   };
   return (
@@ -305,9 +255,7 @@ function EditNode({
   onDone: () => void;
 }) {
   const [name, setName] = useState(node.name);
-  const [parent, setParent] = useState(
-    node.parent_id === null ? "" : String(node.parent_id),
-  );
+  const [parent, setParent] = useState(node.parent_id === null ? "" : String(node.parent_id));
   const [kind, setKind] = useState<CategoryKind>(node.kind);
   const [image, setImage] = useState<string | null>(node.image_url);
   // Where it can go: not into itself or below itself (the server also checks the depth).
@@ -317,9 +265,7 @@ function EditNode({
     childrenOf(all, id).forEach((c) => collect(c.id));
   };
   collect(node.id);
-  const targets = all.filter(
-    (c) => !below.has(c.id) && pathOf(all, c.id).length < MAX_DEPTH,
-  );
+  const targets = all.filter((c) => !below.has(c.id) && pathOf(all, c.id).length < MAX_DEPTH);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -328,12 +274,7 @@ function EditNode({
     if (parentId !== node.parent_id) body.parent_id = parentId;
     if (parentId === null && kind !== node.kind) body.kind = kind;
     if (image !== node.image_url) body.image_url = image;
-    if (
-      await run(() =>
-        api(`/admin/categories/${node.id}`, { method: "PATCH", body }),
-      )
-    )
-      onDone();
+    if (await run(() => api(`/admin/categories/${node.id}`, { method: "PATCH", body }))) onDone();
   };
 
   return (
@@ -354,11 +295,7 @@ function EditNode({
       </label>
       <label>
         <span className="label">Где</span>
-        <select
-          className="input w-auto"
-          value={parent}
-          onChange={(e) => setParent(e.target.value)}
-        >
+        <select className="input w-auto" value={parent} onChange={(e) => setParent(e.target.value)}>
           <option value="">Отдельный раздел</option>
           {targets.map((c) => (
             <option key={c.id} value={c.id}>
@@ -388,12 +325,7 @@ function EditNode({
         <div className="w-full">
           <span className="label">Картинка плитки на главной</span>
           <div className="max-w-56">
-            <ImageUpload
-              value={image}
-              onChange={setImage}
-              seed={node.id}
-              compact
-            />
+            <ImageUpload value={image} onChange={setImage} seed={node.id} compact />
           </div>
         </div>
       )}

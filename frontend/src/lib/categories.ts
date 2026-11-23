@@ -24,10 +24,7 @@ export function childrenOf<T extends Pick<Category, "id" | "parent_id">>(
 }
 
 /** From the section down to this node. */
-export function pathOf<T extends Pick<Category, "id" | "parent_id">>(
-  all: T[],
-  id: number,
-): T[] {
+export function pathOf<T extends Pick<Category, "id" | "parent_id">>(all: T[], id: number): T[] {
   const byId = new Map(all.map((c) => [c.id, c]));
   const path: T[] = [];
   for (
@@ -41,10 +38,7 @@ export function pathOf<T extends Pick<Category, "id" | "parent_id">>(
 }
 
 /** «Макияж / Губы». */
-export function fullName(
-  all: Pick<Category, "id" | "parent_id" | "name">[],
-  id: number,
-): string {
+export function fullName(all: Pick<Category, "id" | "parent_id" | "name">[], id: number): string {
   return pathOf(all, id)
     .map((c) => c.name)
     .join(" / ");

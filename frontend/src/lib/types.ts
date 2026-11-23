@@ -1,19 +1,8 @@
-export type UserRole =
-  | "retail"
-  | "wholesale"
-  | "bulk_wholesale"
-  | "admin"
-  | "cashier"
-  | "warehouse";
+export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin" | "cashier" | "warehouse";
 export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";
-export type OrderStatus =
-  | "new"
-  | "processing"
-  | "shipped"
-  | "delivered"
-  | "cancelled";
+export type OrderStatus = "new" | "processing" | "shipped" | "delivered" | "cancelled";
 export type OrderChannel = "online" | "store";
 export type PaymentMethod = "cash" | "card" | "transfer" | "other";
 export type StockReason =
@@ -712,13 +701,7 @@ export interface PromotionBrief {
 export interface Promotion extends PromotionBrief {
   description: string | null;
   brands: BrandBrief[];
-  products: {
-    id: number;
-    name: string;
-    type: string | null;
-    image_url: string | null;
-    brand: BrandBrief;
-  }[];
+  products: { id: number; name: string; type: string | null; image_url: string | null; brand: BrandBrief }[];
   created_at: string;
   updated_at: string;
 }

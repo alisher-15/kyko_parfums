@@ -18,10 +18,7 @@ export function isStaff(role: UserRole | null | undefined): boolean {
 }
 
 /** `area` null: the owner's alone (products, prices, suppliers, users, settings, figures). */
-export function may(
-  role: UserRole | null | undefined,
-  area: Area | null,
-): boolean {
+export function may(role: UserRole | null | undefined, area: Area | null): boolean {
   if (role === "admin") return true;
   return area !== null && !!role && (ACCESS[role] ?? []).includes(area);
 }
@@ -45,9 +42,8 @@ export const ADMIN_NAV: { href: string; label: string; area: Area | null }[] = [
 /** The menu item a page belongs to. */
 export function navItemOf(pathname: string) {
   return (
-    ADMIN_NAV.filter((n) =>
-      n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href),
-    ).sort((a, b) => b.href.length - a.href.length)[0] ?? ADMIN_NAV[0]
+    ADMIN_NAV.filter((n) => (n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href)))
+      .sort((a, b) => b.href.length - a.href.length)[0] ?? ADMIN_NAV[0]
   );
 }
 

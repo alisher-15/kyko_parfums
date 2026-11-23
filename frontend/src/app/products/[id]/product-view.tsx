@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { UpgradeRequest } from "@/components/UpgradeRequest";
-import {
-  Breadcrumbs,
-  ErrorBox,
-  ProductImage,
-  QuantityInput,
-  Spinner,
-} from "@/components/ui";
+import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
@@ -26,9 +20,7 @@ import { useApi } from "@/lib/use-api";
 
 export function ProductView({ id }: { id: number }) {
   const valid = Number.isInteger(id) && id > 0;
-  const { data: product, error } = useApi<ProductDetail>(
-    valid ? `/products/${id}` : null,
-  );
+  const { data: product, error } = useApi<ProductDetail>(valid ? `/products/${id}` : null);
   const { data: rules } = useApi<PricingRules>("/pricing/rules");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -42,17 +34,11 @@ export function ProductView({ id }: { id: number }) {
       </div>
     );
   }
-  if (error)
-    return (
-      <div className="mx-auto max-w-3xl p-8">
-        <ErrorBox>{error.message}</ErrorBox>
-      </div>
-    );
+  if (error) return <div className="mx-auto max-w-3xl p-8"><ErrorBox>{error.message}</ErrorBox></div>;
   if (!product) return <Spinner />;
 
   // Bottles come first, testers after them (the API orders them so).
-  const variant =
-    product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
+  const variant = product.variants.find((v) => v.id === selectedId) ?? product.variants[0];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -63,10 +49,7 @@ export function ProductView({ id }: { id: number }) {
             href: `/catalog?category_id=${c.id}`,
             label: c.name,
           })),
-          {
-            href: `/catalog?brand_id=${product.brand.id}`,
-            label: product.brand.name,
-          },
+          { href: `/catalog?brand_id=${product.brand.id}`, label: product.brand.name },
           { label: product.name },
         ]}
       />
@@ -87,34 +70,20 @@ export function ProductView({ id }: { id: number }) {
           >
             {product.brand.name}
           </Link>
-          <h1 className="mt-2 font-serif text-5xl leading-tight font-bold">
-            {product.name}
-          </h1>
+          <h1 className="mt-2 font-serif text-5xl leading-tight font-bold">{product.name}</h1>
           <div className="mt-3 flex flex-wrap gap-2">
             {product.type && <span className="chip">{product.type}</span>}
-            {product.gender && (
-              <span className="chip">{GENDER_LABELS[product.gender]}</span>
-            )}
-            {product.category && (
-              <span className="chip">{product.category}</span>
-            )}
-            {product.longevity && (
-              <span className="chip">Стойкость: {product.longevity}</span>
-            )}
+            {product.gender && <span className="chip">{GENDER_LABELS[product.gender]}</span>}
+            {product.category && <span className="chip">{product.category}</span>}
+            {product.longevity && <span className="chip">Стойкость: {product.longevity}</span>}
           </div>
 
           {product.variants.length === 0 ? (
             <div className="card mt-8 p-6 text-sm text-muted">
-              Цена и наличие уточняются. Оставьте заказ через менеджера или
-              загляните позже.
+              Цена и наличие уточняются. Оставьте заказ через менеджера или загляните позже.
             </div>
           ) : (
-            <Purchase
-              product={product}
-              variant={variant}
-              rules={rules}
-              onSelect={setSelectedId}
-            />
+            <Purchase product={product} variant={variant} rules={rules} onSelect={setSelectedId} />
           )}
 
           <NotesPyramid product={product} />
@@ -202,8 +171,7 @@ function Purchase({
           </div>
           {variant.is_tester && (
             <p className="mt-2 text-sm text-muted">
-              Тестер — тот же аромат, что и в обычном флаконе, но в простой
-              упаковке.
+              Тестер — тот же аромат, что и в обычном флаконе, но в простой упаковке.
             </p>
           )}
         </div>
@@ -217,15 +185,11 @@ function Purchase({
             onClick={() => choose(v)}
             aria-pressed={v.id === variant.id}
             className={`rounded-xl border px-4 py-2 text-left text-sm transition ${
-              v.id === variant.id
-                ? "border-ink bg-ink text-white"
-                : "border-line bg-white hover:border-ink"
+              v.id === variant.id ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
             }`}
           >
             <div className="font-semibold">{v.volume_ml} мл</div>
-            <div
-              className={`text-xs ${v.id === variant.id ? "text-stone-300" : "text-muted"}`}
-            >
+            <div className={`text-xs ${v.id === variant.id ? "text-stone-300" : "text-muted"}`}>
               {money(v.price)}
             </div>
           </button>
@@ -236,9 +200,7 @@ function Purchase({
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-3xl font-bold">{money(variant.price)}</span>
           {discounted && (
-            <span className="text-lg text-muted line-through">
-              {money(variant.retail_price)}
-            </span>
+            <span className="text-lg text-muted line-through">{money(variant.retail_price)}</span>
           )}
           {variant.deal ? (
             <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-white">
@@ -251,8 +213,7 @@ function Purchase({
         </div>
         {variant.deal && (
           <p className="mt-1 text-sm text-muted">
-            «{variant.deal.title}»
-            {variant.deal.ends_on && ` — до ${dayMonth(variant.deal.ends_on)}`}
+            «{variant.deal.title}»{variant.deal.ends_on && ` — до ${dayMonth(variant.deal.ends_on)}`}
           </p>
         )}
 
@@ -267,26 +228,16 @@ function Purchase({
               />
             )}
             {variant.bulk_price !== null && (
-              <PriceCell
-                label="Крупный опт"
-                value={variant.bulk_price}
-                hint={thresholdHint(rules, "bulk")}
-              />
+              <PriceCell label="Крупный опт" value={variant.bulk_price} hint={thresholdHint(rules, "bulk")} />
             )}
           </div>
         )}
 
-        {discounted && !variant.deal && rules && hasThresholds(rules) && (
-          <ThresholdNote rules={rules} />
-        )}
+        {discounted && !variant.deal && rules && hasThresholds(rules) && <ThresholdNote rules={rules} />}
 
         <div className="mt-4 text-sm">
           <StockNote variant={variant} />
-          {variant.sku && (
-            <span className="ml-3 text-xs text-muted">
-              Артикул: {variant.sku}
-            </span>
-          )}
+          {variant.sku && <span className="ml-3 text-xs text-muted">Артикул: {variant.sku}</span>}
         </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -312,18 +263,14 @@ function Purchase({
             Ваша следующая цена
           </div>
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
-            <span className="text-2xl font-bold">
-              {money(variant.next_tier_price)}
-            </span>
+            <span className="text-2xl font-bold">{money(variant.next_tier_price)}</span>
             <span className="text-sm text-muted">
-              на крупном опте · −
-              {Math.round((1 - variant.next_tier_price / variant.price) * 100)}%
-              к вашей цене
+              на крупном опте · −{Math.round((1 - variant.next_tier_price / variant.price) * 100)}% к
+              вашей цене
             </span>
           </div>
           <p className="mt-1 text-sm text-muted">
-            {rules?.next_tier_terms ||
-              "Условия перехода на крупный опт уточнит менеджер."}
+            {rules?.next_tier_terms || "Условия перехода на крупный опт уточнит менеджер."}
           </p>
           <div className="mt-3">
             <UpgradeRequest compact />
@@ -333,12 +280,10 @@ function Purchase({
 
       {(!user || user.role === "retail") && (
         <div className="mt-4 rounded-2xl bg-ink p-5 text-white">
-          <div className="font-serif text-xl font-semibold">
-            Для магазинов и салонов
-          </div>
+          <div className="font-serif text-xl font-semibold">Для магазинов и салонов</div>
           <p className="mt-1 text-sm text-stone-300">
-            Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит
-            статус, и цены в каталоге обновятся.
+            Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит статус, и цены в
+            каталоге обновятся.
           </p>
           <div className="mt-3">
             {user ? (
@@ -346,10 +291,7 @@ function Purchase({
                 Оставить заявку
               </Link>
             ) : (
-              <Link
-                href="/register?next=/account"
-                className="btn btn-gold btn-sm"
-              >
+              <Link href="/register?next=/account" className="btn btn-gold btn-sm">
                 Зарегистрироваться и оставить заявку
               </Link>
             )}
@@ -386,20 +328,10 @@ function KindButton({
 /** The storefront speaks about stock only when few units are left; the rest is admin data. */
 function StockNote({ variant }: { variant: VariantPublic }) {
   if (variant.stock === null) return null;
-  return (
-    <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>
-  );
+  return <span className="text-amber-700">Осталось мало: {variant.stock} шт.</span>;
 }
 
-function PriceCell({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: number;
-  hint?: string | null;
-}) {
+function PriceCell({ label, value, hint }: { label: string; value: number; hint?: string | null }) {
   const { money } = useCurrency();
   return (
     <div className="rounded-lg bg-cream p-2">
@@ -410,30 +342,21 @@ function PriceCell({
   );
 }
 
-function thresholdHint(
-  rules: PricingRules | undefined,
-  tier: "wholesale" | "bulk",
-): string | null {
+function thresholdHint(rules: PricingRules | undefined, tier: "wholesale" | "bulk"): string | null {
   if (!rules) return null;
   if (rules.mode === "order_total") {
     const amount =
-      tier === "wholesale"
-        ? rules.wholesale_min_order_amount
-        : rules.bulk_min_order_amount;
+      tier === "wholesale" ? rules.wholesale_min_order_amount : rules.bulk_min_order_amount;
     return amount ? `от ${tenge(amount)} в заказе` : null;
   }
-  const qty =
-    tier === "wholesale"
-      ? rules.wholesale_min_item_qty
-      : rules.bulk_min_item_qty;
+  const qty = tier === "wholesale" ? rules.wholesale_min_item_qty : rules.bulk_min_item_qty;
   return qty && qty > 1 ? `от ${qty} шт.` : null;
 }
 
 function hasThresholds(rules: PricingRules): boolean {
   return rules.mode === "order_total"
     ? !!(rules.wholesale_min_order_amount || rules.bulk_min_order_amount)
-    : (rules.wholesale_min_item_qty ?? 1) > 1 ||
-        (rules.bulk_min_item_qty ?? 1) > 1;
+    : (rules.wholesale_min_item_qty ?? 1) > 1 || (rules.bulk_min_item_qty ?? 1) > 1;
 }
 
 function ThresholdNote({ rules }: { rules: PricingRules }) {
@@ -456,19 +379,11 @@ function NotesPyramid({ product }: { product: ProductDetail }) {
       <h2 className="label">Пирамида аромата</h2>
       <div className="space-y-3">
         {levels.map((l) => (
-          <div
-            key={l.title}
-            className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-4"
-          >
-            <div className="w-32 shrink-0 pt-1 text-sm font-semibold">
-              {l.title}
-            </div>
+          <div key={l.title} className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-4">
+            <div className="w-32 shrink-0 pt-1 text-sm font-semibold">{l.title}</div>
             <div className="flex flex-wrap gap-1.5">
               {l.notes.map((n) => (
-                <span
-                  key={n}
-                  className="rounded-full bg-white px-3 py-1 text-sm ring-1 ring-line"
-                >
+                <span key={n} className="rounded-full bg-white px-3 py-1 text-sm ring-1 ring-line">
                   {n}
                 </span>
               ))}

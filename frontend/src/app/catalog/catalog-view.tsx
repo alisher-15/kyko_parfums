@@ -8,14 +8,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { childrenOf, pathOf, useCategories } from "@/lib/categories";
-import {
-  CURRENCY,
-  GENDER_LABELS,
-  dayMonth,
-  money,
-  percentOff,
-  plural,
-} from "@/lib/format";
+import { CURRENCY, GENDER_LABELS, dayMonth, money, percentOff, plural } from "@/lib/format";
 import type { Filters, ProductPage, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -74,9 +67,7 @@ export function CatalogView() {
   const chips =
     tree && !query.q && !query.promotion_id ? childrenOf(tree, chipParent) : [];
   const promotion = useApi<PromotionPublic>(
-    query.promotion_id
-      ? `/promotions/${encodeURIComponent(query.promotion_id)}`
-      : null,
+    query.promotion_id ? `/promotions/${encodeURIComponent(query.promotion_id)}` : null,
   );
 
   const update = (mutate: (p: URLSearchParams) => void, resetPage = true) => {
@@ -149,19 +140,14 @@ export function CatalogView() {
           {promotion.data && (
             <p className="mt-1 max-w-2xl text-sm">
               {promotion.data.discount_percent !== null && (
-                <b className="text-gold">
-                  {percentOff(promotion.data.discount_percent)}{" "}
-                </b>
+                <b className="text-gold">{percentOff(promotion.data.discount_percent)} </b>
               )}
-              {promotion.data.ends_on &&
-                `до ${dayMonth(promotion.data.ends_on)}. `}
+              {promotion.data.ends_on && `до ${dayMonth(promotion.data.ends_on)}. `}
               {promotion.data.description}
             </p>
           )}
           {promotion.error && (
-            <p className="mt-1 text-sm text-muted">
-              Эта акция уже закончилась.
-            </p>
+            <p className="mt-1 text-sm text-muted">Эта акция уже закончилась.</p>
           )}
           {products.data && (
             <p className="mt-1 text-sm text-muted">
@@ -174,8 +160,7 @@ export function CatalogView() {
             className="btn btn-outline btn-sm lg:hidden"
             onClick={() => setShowFilters(!showFilters)}
           >
-            <FilterIcon width={16} height={16} /> Фильтры
-            {activeCount ? ` (${activeCount})` : ""}
+            <FilterIcon width={16} height={16} /> Фильтры{activeCount ? ` (${activeCount})` : ""}
           </button>
           <select
             className="input w-auto rounded-full"
@@ -236,12 +221,9 @@ export function CatalogView() {
           {(!user || user.role === "retail") && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-ink px-5 py-4 text-white">
               <div>
-                <div className="font-semibold">
-                  Для магазинов и салонов — оптовые цены
-                </div>
+                <div className="font-semibold">Для магазинов и салонов — оптовые цены</div>
                 <div className="text-sm text-stone-300">
-                  Оставьте заявку: после проверки цены в каталоге станут
-                  оптовыми.
+                  Оставьте заявку: после проверки цены в каталоге станут оптовыми.
                 </div>
               </div>
               <Link
@@ -255,9 +237,7 @@ export function CatalogView() {
           {products.error && <ErrorBox>{products.error.message}</ErrorBox>}
           {products.loading && !products.data && <Spinner />}
           {products.data && products.data.items.length === 0 && (
-            <Empty title="Ничего не найдено">
-              Попробуйте изменить фильтры или запрос.
-            </Empty>
+            <Empty title="Ничего не найдено">Попробуйте изменить фильтры или запрос.</Empty>
           )}
           {products.data?.similar && (
             <p className="mb-4 text-sm text-muted">
@@ -267,9 +247,7 @@ export function CatalogView() {
           <div
             className={`grid grid-cols-2 gap-4 md:grid-cols-3 ${products.loading ? "opacity-60" : ""}`}
           >
-            {products.data?.items.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
+            {products.data?.items.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
           {products.data && (
             <Pagination
@@ -288,13 +266,7 @@ export function CatalogView() {
   );
 }
 
-function FilterGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
+function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="border-b border-line py-4">
       <div className="label mb-2">{title}</div>
@@ -314,12 +286,7 @@ function Check({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 py-1 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="accent-gold"
-      />
+      <input type="checkbox" checked={checked} onChange={onChange} className="accent-gold" />
       <span className="flex-1">{children}</span>
     </label>
   );
@@ -381,11 +348,7 @@ function FilterPanel({
       {filters.genders.length > 0 && (
         <FilterGroup title="Для кого">
           {filters.genders.map((g) => (
-            <Check
-              key={g}
-              checked={query.gender.includes(g)}
-              onChange={() => toggle("gender", g)}
-            >
+            <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
               {GENDER_LABELS[g]}
             </Check>
           ))}
@@ -435,12 +398,12 @@ function FilterPanel({
               checked={query.brand_id.includes(String(b.id))}
               onChange={() => toggle("brand_id", String(b.id))}
             >
-              {b.name}{" "}
-              <span className="text-xs text-muted">{b.product_count}</span>
+              {b.name} <span className="text-xs text-muted">{b.product_count}</span>
             </Check>
           ))}
         </div>
       </FilterGroup>
+
 
       {filters.types.length > 0 && (
         <FilterGroup title="Тип">

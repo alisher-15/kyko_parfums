@@ -60,21 +60,18 @@ export function ProductForm({
   const tree = useApi<AdminCategory[]>("/admin/categories");
   const [form, setForm] = useState<FormState>(() => toForm(product));
   // A new product starts in the first perfume section, as the shop is mostly perfumes.
-  const defaultSection = tree.data?.find(
-    (c) => c.parent_id === null && c.kind === "perfume",
-  );
-  const categoryId =
-    form.category_id ||
-    (!product && defaultSection ? String(defaultSection.id) : "");
+  const defaultSection = tree.data?.find((c) => c.parent_id === null && c.kind === "perfume");
+  const categoryId = form.category_id || (!product && defaultSection ? String(defaultSection.id) : "");
   // Perfume fields (concentration, olfactory group, longevity, notes) only for perfumes.
-  const kind =
-    tree.data?.find((c) => String(c.id) === categoryId)?.kind ?? "perfume";
+  const kind = tree.data?.find((c) => String(c.id) === categoryId)?.kind ?? "perfume";
   const perfume = kind === "perfume";
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const set = (key: keyof FormState) => (e: { target: { value: string } }) =>
-    setForm({ ...form, [key]: e.target.value });
+  const set =
+    (key: keyof FormState) =>
+    (e: { target: { value: string } }) =>
+      setForm({ ...form, [key]: e.target.value });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -100,30 +97,21 @@ export function ProductForm({
     };
     try {
       const saved = product
-        ? await api<AdminProduct>(`/admin/products/${product.id}`, {
-            method: "PATCH",
-            body,
-          })
+        ? await api<AdminProduct>(`/admin/products/${product.id}`, { method: "PATCH", body })
         : await api<AdminProduct>("/admin/products", { body });
       // The form shows what the server keeps (trimmed, normalized).
       setForm(toForm(saved));
       setMsg({ ok: true, text: "Сохранено" });
       onSaved(saved);
     } catch (err) {
-      setMsg({
-        ok: false,
-        text: err instanceof Error ? err.message : String(err),
-      });
+      setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <form
-      onSubmit={submit}
-      className="card grid gap-6 p-6 lg:grid-cols-[240px_1fr]"
-    >
+    <form onSubmit={submit} className="card grid gap-6 p-6 lg:grid-cols-[240px_1fr]">
       <div>
         <span className="label">Главное фото</span>
         <ImageUpload
@@ -135,12 +123,7 @@ export function ProductForm({
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Бренд">
-            <select
-              className="input"
-              required
-              value={form.brand_id}
-              onChange={set("brand_id")}
-            >
+            <select className="input" required value={form.brand_id} onChange={set("brand_id")}>
               <option value="">— выберите —</option>
               {brands.data?.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -150,23 +133,10 @@ export function ProductForm({
             </select>
           </Field>
           <Field label="Название">
-            <input
-              className="input"
-              required
-              value={form.name}
-              onChange={set("name")}
-            />
+            <input className="input" required value={form.name} onChange={set("name")} />
           </Field>
-          <Field
-            label="Раздел"
-            hint="Где товар в каталоге: «Парфюмерия», «Наборы», «Макияж → Губы»…"
-          >
-            <select
-              className="input"
-              required
-              value={categoryId}
-              onChange={set("category_id")}
-            >
+          <Field label="Раздел" hint="Где товар в каталоге: «Парфюмерия», «Наборы», «Макияж → Губы»…">
+            <select className="input" required value={categoryId} onChange={set("category_id")}>
               <option value="">— выберите —</option>
               {tree.data &&
                 categoryOptions(tree.data).map((c) => (
@@ -179,12 +149,7 @@ export function ProductForm({
           </Field>
           {perfume && (
             <Field label="Тип">
-              <input
-                className="input"
-                list="product-types"
-                value={form.type}
-                onChange={set("type")}
-              />
+              <input className="input" list="product-types" value={form.type} onChange={set("type")} />
               <datalist id="product-types">
                 {TYPES.map((t) => (
                   <option key={t} value={t} />
@@ -193,11 +158,7 @@ export function ProductForm({
             </Field>
           )}
           <Field label="Пол">
-            <select
-              className="input"
-              value={form.gender}
-              onChange={set("gender")}
-            >
+            <select className="input" value={form.gender} onChange={set("gender")}>
               <option value="">—</option>
               {(Object.keys(GENDER_LABELS) as Gender[]).map((g) => (
                 <option key={g} value={g}>
@@ -209,18 +170,10 @@ export function ProductForm({
           {perfume && (
             <>
               <Field label="Олфактивная группа">
-                <input
-                  className="input"
-                  value={form.category}
-                  onChange={set("category")}
-                />
+                <input className="input" value={form.category} onChange={set("category")} />
               </Field>
               <Field label="Стойкость">
-                <input
-                  className="input"
-                  value={form.longevity}
-                  onChange={set("longevity")}
-                />
+                <input className="input" value={form.longevity} onChange={set("longevity")} />
               </Field>
             </>
           )}
@@ -228,44 +181,24 @@ export function ProductForm({
         {perfume && (
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Верхние ноты" hint="Через запятую">
-              <textarea
-                className="input min-h-20"
-                value={form.top_notes}
-                onChange={set("top_notes")}
-              />
+              <textarea className="input min-h-20" value={form.top_notes} onChange={set("top_notes")} />
             </Field>
             <Field label="Ноты сердца">
-              <textarea
-                className="input min-h-20"
-                value={form.mid_notes}
-                onChange={set("mid_notes")}
-              />
+              <textarea className="input min-h-20" value={form.mid_notes} onChange={set("mid_notes")} />
             </Field>
             <Field label="Базовые ноты">
-              <textarea
-                className="input min-h-20"
-                value={form.base_notes}
-                onChange={set("base_notes")}
-              />
+              <textarea className="input min-h-20" value={form.base_notes} onChange={set("base_notes")} />
             </Field>
           </div>
         )}
         <Field label="Описание">
-          <textarea
-            className="input min-h-28"
-            value={form.description}
-            onChange={set("description")}
-          />
+          <textarea className="input min-h-28" value={form.description} onChange={set("description")} />
         </Field>
         <Field
           label="Другие названия для поиска"
           hint="Через запятую: «соваж», «баккара». Русское написание и опечатки сайт понимает и без них"
         >
-          <input
-            className="input"
-            value={form.search_names}
-            onChange={set("search_names")}
-          />
+          <input className="input" value={form.search_names} onChange={set("search_names")} />
         </Field>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -285,17 +218,9 @@ export function ProductForm({
           />
           Новинка — показывать в «Новых поступлениях» на главной
         </label>
-        {msg &&
-          (msg.ok ? (
-            <SuccessBox>{msg.text}</SuccessBox>
-          ) : (
-            <ErrorBox>{msg.text}</ErrorBox>
-          ))}
-        {/* Until the brands are loaded the brand list has no choice and the form would not send. */}
-        <button
-          className="btn btn-primary"
-          disabled={busy || !brands.data || !tree.data}
-        >
+        {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
+        {/* Until the brands and sections are loaded their lists have no choice: the form would not send. */}
+        <button className="btn btn-primary" disabled={busy || !brands.data || !tree.data}>
           {product ? "Сохранить изменения" : "Создать товар"}
         </button>
       </div>

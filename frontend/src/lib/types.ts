@@ -1,8 +1,19 @@
-export type UserRole = "retail" | "wholesale" | "bulk_wholesale" | "admin" | "cashier" | "warehouse";
+export type UserRole =
+  | "retail"
+  | "wholesale"
+  | "bulk_wholesale"
+  | "admin"
+  | "cashier"
+  | "warehouse";
 export type Gender = "female" | "male" | "unisex";
 export type PriceTier = "retail" | "wholesale" | "bulk";
 export type PricingMode = "order_total" | "item_quantity";
-export type OrderStatus = "new" | "processing" | "shipped" | "delivered" | "cancelled";
+export type OrderStatus =
+  | "new"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled";
 export type OrderChannel = "online" | "store";
 export type PaymentMethod = "cash" | "card" | "transfer" | "other";
 export type StockReason =
@@ -94,11 +105,41 @@ export interface VariantPublic {
   deal: Deal | null;
 }
 
+export type CategoryKind = "perfume" | "cosmetics";
+
+/** A node of the catalog tree: a section (parent_id null: a tile on the home page) or a group.
+ *  The API sends them in tree order, each section followed by its groups. */
+export interface Category {
+  id: number;
+  parent_id: number | null;
+  name: string;
+  /** The section's: perfumes have a concentration, notes and an olfactory group. */
+  kind: CategoryKind;
+  /** The tile's picture: set in the admin panel, else a photo of its products. */
+  image_url: string | null;
+  /** Active products in this node and below it. */
+  product_count: number;
+}
+
+export interface AdminCategory extends Omit<Category, "image_url"> {
+  position: number;
+  /** The picture set in the admin panel (null: the shop uses a photo of its products). */
+  image_url: string | null;
+  /** All products in this node and below it, hidden ones too. */
+  product_count: number;
+  /** Products placed right in this node. */
+  own_product_count: number;
+}
+
 export interface ProductListItem {
   id: number;
   name: string;
   brand: BrandBrief;
+  /** The node of the catalog tree; null: not placed yet. */
+  category_id: number | null;
+  kind: CategoryKind;
   type: string | null;
+  /** The olfactory group («Цветочные»), not the catalog tree. */
   category: string | null;
   gender: Gender | null;
   longevity: string | null;
@@ -126,6 +167,8 @@ export interface PromotionPublic {
 }
 
 export interface ProductDetail extends ProductListItem {
+  /** From the section down to the product's node, for the breadcrumbs. */
+  category_path: { id: number; name: string }[];
   top_notes: string | null;
   mid_notes: string | null;
   base_notes: string | null;
@@ -298,6 +341,8 @@ export interface AdminVariant {
 export interface AdminProduct {
   id: number;
   brand_id: number;
+  /** The node of the catalog tree; null: not placed yet. */
+  category_id: number | null;
   brand: BrandBrief;
   name: string;
   type: string | null;
@@ -667,7 +712,13 @@ export interface PromotionBrief {
 export interface Promotion extends PromotionBrief {
   description: string | null;
   brands: BrandBrief[];
-  products: { id: number; name: string; type: string | null; image_url: string | null; brand: BrandBrief }[];
+  products: {
+    id: number;
+    name: string;
+    type: string | null;
+    image_url: string | null;
+    brand: BrandBrief;
+  }[];
   created_at: string;
   updated_at: string;
 }

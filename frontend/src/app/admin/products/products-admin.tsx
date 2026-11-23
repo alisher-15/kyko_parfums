@@ -8,7 +8,8 @@ import { ErrorBox, Pagination, ProductImage, Spinner } from "@/components/ui";
 import { downloadFile } from "@/lib/api";
 import { GENDER_LABELS, money, volumeLabel } from "@/lib/format";
 import { PRODUCTS_LIST, rememberProductsList } from "@/lib/products-list";
-import type { AdminProduct, Brand, Page } from "@/lib/types";
+import { categoryOptions, fullName } from "@/lib/categories";
+import type { AdminCategory, AdminProduct, Brand, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
@@ -16,6 +17,7 @@ const PAGE_SIZE = 50;
 type Filter =
   | "q"
   | "brand_id"
+  | "category_id"
   | "is_active"
   | "no_variants"
   | "backordered"
@@ -38,6 +40,7 @@ export function ProductsAdmin() {
   const router = useRouter();
   const search = params.get("q") ?? "";
   const brandId = params.get("brand_id") ?? "";
+  const categoryId = params.get("category_id") ?? "";
   const active = params.get("is_active") ?? "";
   const noVariants = params.get("no_variants") === "true";
   const backordered = params.get("backordered") === "true";
@@ -48,11 +51,15 @@ export function ProductsAdmin() {
   const page = Math.max(1, Math.floor(Number(params.get("page"))) || 1);
 
   useEffect(() => {
-    rememberProductsList(committed ? `${PRODUCTS_LIST}?${committed}` : PRODUCTS_LIST);
+    rememberProductsList(
+      committed ? `${PRODUCTS_LIST}?${committed}` : PRODUCTS_LIST,
+    );
   }, [committed]);
 
   /** Changes the list's URL; any change but the page itself starts from page 1. */
-  const setFilters = (changes: Partial<Record<Filter, string | number | boolean>>) => {
+  const setFilters = (
+    changes: Partial<Record<Filter, string | number | boolean>>,
+  ) => {
     const next = new URLSearchParams(query);
     for (const [key, value] of Object.entries(changes)) {
       if (value === "" || value === false) next.delete(key);
@@ -62,7 +69,9 @@ export function ProductsAdmin() {
     const qs = next.toString();
     startTransition(() => {
       setOptimisticQuery(qs);
-      router.replace(qs ? `${PRODUCTS_LIST}?${qs}` : PRODUCTS_LIST, { scroll: false });
+      router.replace(qs ? `${PRODUCTS_LIST}?${qs}` : PRODUCTS_LIST, {
+        scroll: false,
+      });
     });
   };
 
@@ -89,21 +98,28 @@ export function ProductsAdmin() {
   };
 
   const brands = useApi<Brand[]>("/admin/brands");
-  const { data, error, loading } = useApi<Page<AdminProduct>>("/admin/products", {
-    query: {
-      q: search,
-      brand_id: brandId,
-      is_active: active,
-      no_variants: noVariants || undefined,
-      backordered: backordered || undefined,
-      is_new: onlyNew || undefined,
-      no_photo: noPhoto || undefined,
-      no_barcode: noBarcode || undefined,
-      price_check: priceCheck,
-      page,
-      page_size: PAGE_SIZE,
+  const tree = useApi<AdminCategory[]>("/admin/categories");
+  const sectionOf = (p: AdminProduct) =>
+    p.category_id && tree.data ? fullName(tree.data, p.category_id) : null;
+  const { data, error, loading } = useApi<Page<AdminProduct>>(
+    "/admin/products",
+    {
+      query: {
+        q: search,
+        brand_id: brandId,
+        category_id: categoryId,
+        is_active: active,
+        no_variants: noVariants || undefined,
+        backordered: backordered || undefined,
+        is_new: onlyNew || undefined,
+        no_photo: noPhoto || undefined,
+        no_barcode: noBarcode || undefined,
+        price_check: priceCheck,
+        page,
+        page_size: PAGE_SIZE,
+      },
     },
-  });
+  );
 
   return (
     <>
@@ -130,14 +146,38 @@ export function ProductsAdmin() {
         }
       />
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-3">
-        <SearchForm key={search} search={search} onSearch={(q) => setFilters({ q })} />
-        <select className="input w-auto" value={brandId} onChange={(e) => setFilters({ brand_id: e.target.value })}>
+        <SearchForm
+          key={search}
+          search={search}
+          onSearch={(q) => setFilters({ q })}
+        />
+        <select
+          className="input w-auto"
+          value={brandId}
+          onChange={(e) => setFilters({ brand_id: e.target.value })}
+        >
           <option value="">Все бренды</option>
           {brands.data?.map((b) => (
             <option key={b.id} value={b.id}>
               {b.name}
             </option>
           ))}
+        </select>
+        <select
+          className="input w-auto"
+          value={categoryId}
+          onChange={(e) => setFilters({ category_id: e.target.value })}
+          aria-label="Раздел"
+        >
+          <option value="">Все разделы</option>
+          {tree.data &&
+            categoryOptions(tree.data).map((c) => (
+              <option key={c.id} value={c.id}>
+                {"\u00a0\u00a0\u00a0".repeat(c.depth)}
+                {c.label.trim()}
+              </option>
+            ))}
+          <option value="0">Без раздела</option>
         </select>
         <select
           className="input w-auto"
@@ -222,19 +262,30 @@ export function ProductsAdmin() {
                 className="card flex gap-3 p-3 active:bg-cream"
               >
                 <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white">
-                  <ProductImage src={p.image_url ?? p.variants[0]?.photo_url} alt={p.name} seed={p.id} />
+                  <ProductImage
+                    src={p.image_url ?? p.variants[0]?.photo_url}
+                    alt={p.name}
+                    seed={p.id}
+                  />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-xs text-muted">{p.brand.name}</div>
                       <div className="font-semibold">{p.name}</div>
+                      {sectionOf(p) && (
+                        <div className="text-xs text-muted">{sectionOf(p)}</div>
+                      )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                      <span
+                        className={`chip ${p.is_active ? "text-emerald-700" : ""}`}
+                      >
                         {p.is_active ? "На сайте" : "Скрыт"}
                       </span>
-                      {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                      {p.is_new && (
+                        <span className="chip text-gold-dark">Новинка</span>
+                      )}
                     </div>
                   </div>
                   <div className="mt-1 space-y-0.5 text-xs">
@@ -242,9 +293,19 @@ export function ProductsAdmin() {
                       <span className="text-amber-700">нет объёмов и цен</span>
                     ) : (
                       p.variants.map((v) => (
-                        <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
-                          <b>{volumeLabel(v.volume_ml, v.is_tester)}</b> · {money(v.retail_price)} ·{" "}
-                          <span className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
+                        <div
+                          key={v.id}
+                          className={
+                            v.is_active ? "" : "text-muted line-through"
+                          }
+                        >
+                          <b>{volumeLabel(v.volume_ml, v.is_tester)}</b> ·{" "}
+                          {money(v.retail_price)} ·{" "}
+                          <span
+                            className={
+                              v.stock <= 3 ? "font-semibold text-red-600" : ""
+                            }
+                          >
                             {v.stock} шт.
                           </span>
                         </div>
@@ -266,7 +327,7 @@ export function ProductsAdmin() {
                 <tr>
                   <th className="w-14"></th>
                   <th>Товар</th>
-                  <th>Тип / пол</th>
+                  <th>Раздел, тип / пол</th>
                   <th>Объёмы и цены (розн. / опт / кр. опт)</th>
                   <th>Остаток</th>
                   <th>Статус</th>
@@ -281,44 +342,72 @@ export function ProductsAdmin() {
                   >
                     <td>
                       <div className="h-10 w-10 overflow-hidden rounded-lg bg-white">
-                        <ProductImage src={p.image_url ?? p.variants[0]?.photo_url} alt={p.name} seed={p.id} />
+                        <ProductImage
+                          src={p.image_url ?? p.variants[0]?.photo_url}
+                          alt={p.name}
+                          seed={p.id}
+                        />
                       </div>
                     </td>
                     <td>
                       <div className="text-xs text-muted">{p.brand.name}</div>
-                      <Link href={`/admin/products/${p.id}`} className="font-semibold text-ink hover:text-gold">
+                      <Link
+                        href={`/admin/products/${p.id}`}
+                        className="font-semibold text-ink hover:text-gold"
+                      >
                         {p.name}
                       </Link>
                     </td>
                     <td className="text-xs">
-                      {[p.type, p.gender && GENDER_LABELS[p.gender], p.category].filter(Boolean).join(" · ")}
+                      <div className="font-medium">
+                        {sectionOf(p) ?? (
+                          <span className="text-amber-700">без раздела</span>
+                        )}
+                      </div>
+                      {[p.type, p.gender && GENDER_LABELS[p.gender], p.category]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </td>
                     <td className="text-xs">
                       {p.variants.length === 0 ? (
                         <span className="text-amber-700">нет вариантов</span>
                       ) : (
                         p.variants.map((v) => (
-                          <div key={v.id} className={v.is_active ? "" : "text-muted line-through"}>
-                            <b>{volumeLabel(v.volume_ml, v.is_tester)}</b>: {money(v.retail_price)} /{" "}
-                            {money(v.wholesale_price)} /{" "}
-                            {money(v.bulk_price)}
+                          <div
+                            key={v.id}
+                            className={
+                              v.is_active ? "" : "text-muted line-through"
+                            }
+                          >
+                            <b>{volumeLabel(v.volume_ml, v.is_tester)}</b>:{" "}
+                            {money(v.retail_price)} / {money(v.wholesale_price)}{" "}
+                            / {money(v.bulk_price)}
                           </div>
                         ))
                       )}
                     </td>
                     <td className="text-xs">
                       {p.variants.map((v) => (
-                        <div key={v.id} className={v.stock <= 3 ? "font-semibold text-red-600" : ""}>
+                        <div
+                          key={v.id}
+                          className={
+                            v.stock <= 3 ? "font-semibold text-red-600" : ""
+                          }
+                        >
                           {v.stock} шт.
                         </div>
                       ))}
                     </td>
                     <td>
                       <div className="flex flex-col items-start gap-1">
-                        <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                        <span
+                          className={`chip ${p.is_active ? "text-emerald-700" : ""}`}
+                        >
                           {p.is_active ? "На сайте" : "Скрыт"}
                         </span>
-                        {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                        {p.is_new && (
+                          <span className="chip text-gold-dark">Новинка</span>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -328,18 +417,26 @@ export function ProductsAdmin() {
           </div>
         </div>
       )}
-      {data && <Pagination
+      {data && (
+        <Pagination
           page={page}
           total={data.total}
           pageSize={PAGE_SIZE}
           onChange={(p) => setFilters({ page: p })}
-        />}
+        />
+      )}
     </>
   );
 }
 
 /** The search box: typed text is only applied on «Найти». Keyed by the applied search. */
-function SearchForm({ search, onSearch }: { search: string; onSearch: (q: string) => void }) {
+function SearchForm({
+  search,
+  onSearch,
+}: {
+  search: string;
+  onSearch: (q: string) => void;
+}) {
   const [q, setQ] = useState(search);
   return (
     <form

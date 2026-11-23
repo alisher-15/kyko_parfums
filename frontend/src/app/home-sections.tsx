@@ -3,14 +3,29 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
+import { GridIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { childrenOf, useCategories } from "@/lib/categories";
 import { dayMonth, percentOff } from "@/lib/format";
-import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
+import type {
+  Brand,
+  Page,
+  ProductListItem,
+  PromotionPublic,
+} from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
-function Section({ title, link, children }: { title: string; link: ReactNode; children: ReactNode }) {
+function Section({
+  title,
+  link,
+  children,
+}: {
+  title: string;
+  link: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section className="mx-auto max-w-7xl px-4 pt-10 sm:px-6 md:pt-12">
       <div className="mb-4 flex items-end justify-between gap-4 md:mb-5">
@@ -23,7 +38,15 @@ function Section({ title, link, children }: { title: string; link: ReactNode; ch
 }
 
 /** One sideways row of products, ending with a link to all of them. */
-function ProductRail({ label, items, more }: { label: string; items: ProductListItem[]; more: string }) {
+function ProductRail({
+  label,
+  items,
+  more,
+}: {
+  label: string;
+  items: ProductListItem[];
+  more: string;
+}) {
   return (
     <Rail label={label}>
       {items.map((p) => (
@@ -52,8 +75,13 @@ export function WholesaleStrip() {
   return (
     <div className="border-b border-line bg-cream">
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2.5 text-center text-sm sm:px-6">
-        <span className="text-muted">Для магазинов и перепродажи — оптовые цены</span>
-        <Link href={user ? "/account#upgrade" : "/register"} className="font-semibold text-gold hover:text-ink">
+        <span className="text-muted">
+          Для магазинов и перепродажи — оптовые цены
+        </span>
+        <Link
+          href={user ? "/account#upgrade" : "/register"}
+          className="font-semibold text-gold hover:text-ink"
+        >
           Стать оптовым клиентом →
         </Link>
       </div>
@@ -91,14 +119,21 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
   const href = `/catalog?promotion_id=${p.id}`;
   if (p.image_only && p.image_url) {
     return (
-      <Link href={href} className="relative block aspect-[3/2] overflow-hidden rounded-2xl bg-ink">
+      <Link
+        href={href}
+        className="relative block aspect-[3/2] overflow-hidden rounded-2xl bg-ink"
+      >
         <img
           src={p.image_url}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
         />
-        <img src={p.image_url} alt={p.title} className="absolute inset-0 h-full w-full object-contain" />
+        <img
+          src={p.image_url}
+          alt={p.title}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
       </Link>
     );
   }
@@ -122,11 +157,90 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
               {percentOff(p.discount_percent)}
             </span>
           )}
-          {p.ends_on && <span className="text-[11px] text-stone-200 md:text-xs">до {dayMonth(p.ends_on)}</span>}
+          {p.ends_on && (
+            <span className="text-[11px] text-stone-200 md:text-xs">
+              до {dayMonth(p.ends_on)}
+            </span>
+          )}
         </div>
-        <div className="mt-1 line-clamp-2 font-serif text-sm leading-tight font-bold md:text-lg">{p.title}</div>
+        <div className="mt-1 line-clamp-2 font-serif text-sm leading-tight font-bold md:text-lg">
+          {p.title}
+        </div>
       </div>
     </Link>
+  );
+}
+
+/** One tile: the picture on a light rounded square, the name under it (as on Kaspi). */
+function CategoryTile({
+  href,
+  label,
+  children,
+}: {
+  href: string;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex w-[4.75rem] snap-start flex-col items-center gap-1.5 md:w-24"
+    >
+      <span
+        aria-hidden
+        className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl bg-stone-100 transition group-hover:bg-stone-200"
+      >
+        {children}
+      </span>
+      <span
+        data-tile-label
+        className="line-clamp-2 text-center text-xs leading-tight text-ink md:text-sm"
+      >
+        {label}
+      </span>
+    </Link>
+  );
+}
+
+/**
+ * The catalog's sections as tiles under the banners, as on Kaspi: two rows on phones that scroll
+ * sideways, one row on computers; «Все категории» first. Sections without products are left out
+ * by the API; each tile has a picture (its own, else a photo of its products).
+ */
+export function HomeCategories() {
+  const tree = useCategories();
+  const sections = tree ? childrenOf(tree, null) : [];
+  if (sections.length === 0) return null;
+  return (
+    <section className="mx-auto max-w-7xl px-4 pt-5 sm:px-6 md:pt-8">
+      <nav
+        aria-label="Категории"
+        className="rail -mx-4 grid snap-x grid-flow-col grid-rows-2 justify-start gap-x-3 gap-y-3 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 md:grid-rows-1 md:gap-x-5"
+      >
+        <CategoryTile href="/catalog" label="Все категории">
+          <GridIcon width={30} height={30} className="text-gold" />
+        </CategoryTile>
+        {sections.map((c) => (
+          <CategoryTile
+            key={c.id}
+            href={`/catalog?category_id=${c.id}`}
+            label={c.name}
+          >
+            {c.image_url ? (
+              <img
+                src={c.image_url}
+                alt=""
+                className="h-full w-full object-contain p-1.5 mix-blend-multiply"
+              />
+            ) : (
+              <span className="font-serif text-2xl text-gold">
+                {c.name.slice(0, 1)}
+              </span>
+            )}
+          </CategoryTile>
+        ))}
+      </nav>
+    </section>
   );
 }
 
@@ -140,12 +254,19 @@ export function HomeSale() {
     <Section
       title="Акции"
       link={
-        <Link href="/catalog?on_sale=true" className="text-sm font-semibold text-gold">
+        <Link
+          href="/catalog?on_sale=true"
+          className="text-sm font-semibold text-gold"
+        >
           Все акции →
         </Link>
       }
     >
-      <ProductRail label="Акции" items={data.items} more="/catalog?on_sale=true" />
+      <ProductRail
+        label="Акции"
+        items={data.items}
+        more="/catalog?on_sale=true"
+      />
     </Section>
   );
 }
@@ -156,9 +277,12 @@ export function HomeNew() {
     query: { is_new: true, sort: "new", page_size: 12 },
   });
   const noneMarked = marked.data?.total === 0;
-  const latest = useApi<Page<ProductListItem>>(noneMarked ? "/products" : null, {
-    query: { sort: "new", page_size: 12 },
-  });
+  const latest = useApi<Page<ProductListItem>>(
+    noneMarked ? "/products" : null,
+    {
+      query: { sort: "new", page_size: 12 },
+    },
+  );
   const shown = noneMarked ? latest : marked;
   return (
     <Section
@@ -172,7 +296,9 @@ export function HomeNew() {
         </Link>
       }
     >
-      {shown.error && <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>}
+      {shown.error && (
+        <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>
+      )}
       {!shown.data && !shown.error && <Spinner />}
       {shown.data && (
         <ProductRail

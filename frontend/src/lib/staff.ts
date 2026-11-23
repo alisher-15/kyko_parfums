@@ -18,7 +18,10 @@ export function isStaff(role: UserRole | null | undefined): boolean {
 }
 
 /** `area` null: the owner's alone (products, prices, suppliers, users, settings, figures). */
-export function may(role: UserRole | null | undefined, area: Area | null): boolean {
+export function may(
+  role: UserRole | null | undefined,
+  area: Area | null,
+): boolean {
   if (role === "admin") return true;
   return area !== null && !!role && (ACCESS[role] ?? []).includes(area);
 }
@@ -30,6 +33,7 @@ export const ADMIN_NAV: { href: string; label: string; area: Area | null }[] = [
   { href: "/admin/receipts", label: "Приёмка", area: "stock" },
   { href: "/admin/inventory", label: "Инвентаризация", area: "stock" },
   { href: "/admin/products", label: "Товары", area: null },
+  { href: "/admin/categories", label: "Категории", area: null },
   { href: "/admin/promotions", label: "Акции", area: null },
   { href: "/admin/brands", label: "Бренды", area: null },
   { href: "/admin/users", label: "Пользователи", area: null },
@@ -41,8 +45,9 @@ export const ADMIN_NAV: { href: string; label: string; area: Area | null }[] = [
 /** The menu item a page belongs to. */
 export function navItemOf(pathname: string) {
   return (
-    ADMIN_NAV.filter((n) => (n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href)))
-      .sort((a, b) => b.href.length - a.href.length)[0] ?? ADMIN_NAV[0]
+    ADMIN_NAV.filter((n) =>
+      n.href === "/admin" ? pathname === n.href : pathname.startsWith(n.href),
+    ).sort((a, b) => b.href.length - a.href.length)[0] ?? ADMIN_NAV[0]
   );
 }
 

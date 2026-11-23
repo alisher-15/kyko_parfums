@@ -7,7 +7,15 @@ import { FilterIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { Empty, ErrorBox, Pagination, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { CURRENCY, GENDER_LABELS, dayMonth, money, percentOff, plural } from "@/lib/format";
+import { childrenOf, pathOf, useCategories } from "@/lib/categories";
+import {
+  CURRENCY,
+  GENDER_LABELS,
+  dayMonth,
+  money,
+  percentOff,
+  plural,
+} from "@/lib/format";
 import type { Filters, ProductPage, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -39,6 +47,7 @@ export function CatalogView() {
       is_new: params.get("is_new") === "true" || undefined,
       on_sale: params.get("on_sale") === "true" || undefined,
       promotion_id: params.get("promotion_id") ?? undefined,
+      category_id: params.get("category_id") ?? undefined,
       sort: params.get("sort") ?? undefined,
       page: Number(params.get("page") ?? 1),
       page_size: PAGE_SIZE,
@@ -47,9 +56,27 @@ export function CatalogView() {
   );
 
   const products = useApi<ProductPage>("/products", { query });
-  const filters = useApi<Filters>("/filters");
+  // Within a section the filters offer only what it has (no «Для кого» for most cosmetics).
+  const filters = useApi<Filters>("/filters", {
+    query: { category_id: query.category_id },
+  });
+  const tree = useCategories();
+  const node = query.category_id
+    ? tree?.find((c) => String(c.id) === query.category_id)
+    : undefined;
+  const path = node && tree ? pathOf(tree, node.id) : [];
+  // Chips under the title: a section's groups; on a group, its own groups or its siblings.
+  const chipParent = node
+    ? childrenOf(tree ?? [], node.id).length
+      ? node.id
+      : node.parent_id
+    : null;
+  const chips =
+    tree && !query.q && !query.promotion_id ? childrenOf(tree, chipParent) : [];
   const promotion = useApi<PromotionPublic>(
-    query.promotion_id ? `/promotions/${encodeURIComponent(query.promotion_id)}` : null,
+    query.promotion_id
+      ? `/promotions/${encodeURIComponent(query.promotion_id)}`
+      : null,
   );
 
   const update = (mutate: (p: URLSearchParams) => void, resetPage = true) => {
@@ -85,28 +112,56 @@ export function CatalogView() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
+          {path.length > 0 && (
+            <nav
+              aria-label="Разделы"
+              className="mb-1 flex flex-wrap items-center gap-1 text-sm text-muted"
+            >
+              <Link href="/catalog" className="hover:text-ink">
+                Каталог
+              </Link>
+              {path.slice(0, -1).map((c) => (
+                <span key={c.id}>
+                  {" / "}
+                  <Link
+                    href={`/catalog?category_id=${c.id}`}
+                    className="hover:text-ink"
+                  >
+                    {c.name}
+                  </Link>
+                </span>
+              ))}
+            </nav>
+          )}
           <h1 className="font-serif text-4xl font-bold">
             {query.q
               ? `«${query.q}»`
               : query.promotion_id
                 ? (promotion.data?.title ?? "Акция")
-                : query.on_sale
-                  ? "Акции"
-                  : query.is_new
-                    ? "Новинки"
-                    : "Каталог ароматов"}
+                : node
+                  ? node.name
+                  : query.on_sale
+                    ? "Акции"
+                    : query.is_new
+                      ? "Новинки"
+                      : "Каталог"}
           </h1>
           {promotion.data && (
             <p className="mt-1 max-w-2xl text-sm">
               {promotion.data.discount_percent !== null && (
-                <b className="text-gold">{percentOff(promotion.data.discount_percent)} </b>
+                <b className="text-gold">
+                  {percentOff(promotion.data.discount_percent)}{" "}
+                </b>
               )}
-              {promotion.data.ends_on && `до ${dayMonth(promotion.data.ends_on)}. `}
+              {promotion.data.ends_on &&
+                `до ${dayMonth(promotion.data.ends_on)}. `}
               {promotion.data.description}
             </p>
           )}
           {promotion.error && (
-            <p className="mt-1 text-sm text-muted">Эта акция уже закончилась.</p>
+            <p className="mt-1 text-sm text-muted">
+              Эта акция уже закончилась.
+            </p>
           )}
           {products.data && (
             <p className="mt-1 text-sm text-muted">
@@ -119,7 +174,8 @@ export function CatalogView() {
             className="btn btn-outline btn-sm lg:hidden"
             onClick={() => setShowFilters(!showFilters)}
           >
-            <FilterIcon width={16} height={16} /> Фильтры{activeCount ? ` (${activeCount})` : ""}
+            <FilterIcon width={16} height={16} /> Фильтры
+            {activeCount ? ` (${activeCount})` : ""}
           </button>
           <select
             className="input w-auto rounded-full"
@@ -135,6 +191,33 @@ export function CatalogView() {
           </select>
         </div>
       </div>
+
+      {chips.length > 0 && (
+        <div
+          className="rail -mx-4 mb-6 flex gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6"
+          aria-label="Подразделы"
+        >
+          {node && chipParent === node.id && (
+            <span className="shrink-0 rounded-full bg-ink px-4 py-1.5 text-sm text-white">
+              Все
+            </span>
+          )}
+          {chips.map((c) => (
+            <Link
+              key={c.id}
+              href={`/catalog?category_id=${c.id}`}
+              aria-current={node?.id === c.id ? "page" : undefined}
+              className={`shrink-0 rounded-full border px-4 py-1.5 text-sm ${
+                node?.id === c.id
+                  ? "border-ink bg-ink text-white"
+                  : "border-line bg-white hover:border-gold"
+              }`}
+            >
+              {c.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[260px_1fr]">
         <aside className={`${showFilters ? "block" : "hidden"} lg:block`}>
@@ -153,9 +236,12 @@ export function CatalogView() {
           {(!user || user.role === "retail") && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-ink px-5 py-4 text-white">
               <div>
-                <div className="font-semibold">Для магазинов и салонов — оптовые цены</div>
+                <div className="font-semibold">
+                  Для магазинов и салонов — оптовые цены
+                </div>
                 <div className="text-sm text-stone-300">
-                  Оставьте заявку: после проверки цены в каталоге станут оптовыми.
+                  Оставьте заявку: после проверки цены в каталоге станут
+                  оптовыми.
                 </div>
               </div>
               <Link
@@ -169,7 +255,9 @@ export function CatalogView() {
           {products.error && <ErrorBox>{products.error.message}</ErrorBox>}
           {products.loading && !products.data && <Spinner />}
           {products.data && products.data.items.length === 0 && (
-            <Empty title="Ничего не найдено">Попробуйте изменить фильтры или запрос.</Empty>
+            <Empty title="Ничего не найдено">
+              Попробуйте изменить фильтры или запрос.
+            </Empty>
           )}
           {products.data?.similar && (
             <p className="mb-4 text-sm text-muted">
@@ -179,7 +267,9 @@ export function CatalogView() {
           <div
             className={`grid grid-cols-2 gap-4 md:grid-cols-3 ${products.loading ? "opacity-60" : ""}`}
           >
-            {products.data?.items.map((p) => <ProductCard key={p.id} product={p} />)}
+            {products.data?.items.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </div>
           {products.data && (
             <Pagination
@@ -198,7 +288,13 @@ export function CatalogView() {
   );
 }
 
-function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
+function FilterGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <div className="border-b border-line py-4">
       <div className="label mb-2">{title}</div>
@@ -218,7 +314,12 @@ function Check({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-2 py-1 text-sm">
-      <input type="checkbox" checked={checked} onChange={onChange} className="accent-gold" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="accent-gold"
+      />
       <span className="flex-1">{children}</span>
     </label>
   );
@@ -277,13 +378,19 @@ function FilterPanel({
         </Check>
       </FilterGroup>
 
-      <FilterGroup title="Для кого">
-        {filters.genders.map((g) => (
-          <Check key={g} checked={query.gender.includes(g)} onChange={() => toggle("gender", g)}>
-            {GENDER_LABELS[g]}
-          </Check>
-        ))}
-      </FilterGroup>
+      {filters.genders.length > 0 && (
+        <FilterGroup title="Для кого">
+          {filters.genders.map((g) => (
+            <Check
+              key={g}
+              checked={query.gender.includes(g)}
+              onChange={() => toggle("gender", g)}
+            >
+              {GENDER_LABELS[g]}
+            </Check>
+          ))}
+        </FilterGroup>
+      )}
 
       <FilterGroup title={`Цена, ${CURRENCY}`}>
         <form onSubmit={applyPrice} className="flex items-center gap-2">
@@ -328,12 +435,12 @@ function FilterPanel({
               checked={query.brand_id.includes(String(b.id))}
               onChange={() => toggle("brand_id", String(b.id))}
             >
-              {b.name} <span className="text-xs text-muted">{b.product_count}</span>
+              {b.name}{" "}
+              <span className="text-xs text-muted">{b.product_count}</span>
             </Check>
           ))}
         </div>
       </FilterGroup>
-
 
       {filters.types.length > 0 && (
         <FilterGroup title="Тип">

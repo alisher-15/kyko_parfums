@@ -2,7 +2,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import and_, exists, false, func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.availability import low_stock
@@ -33,8 +33,9 @@ from app.schemas.catalog import (
     SitemapProduct,
     VariantPublic,
 )
+from app.schemas.categories import CategoryBrief, CategoryPublic
 from app.schemas.currency import CurrencyOut
-from app.services import promotions, rates
+from app.services import categories, promotions, rates
 from app.services.search import (
     SIMILAR,
     brand_name_match,
@@ -112,6 +113,8 @@ def _list_item_fields(
         id=product.id,
         name=product.name,
         brand=BrandBrief.model_validate(product.brand),
+        category_id=product.category_id,
+        kind=categories.kind_of(product),
         type=product.type,
         category=product.category,
         gender=product.gender,
@@ -133,6 +136,8 @@ def list_products(
     type: list[str] = Query(default=[]),
     min_price: Decimal | None = Query(default=None, ge=0),
     max_price: Decimal | None = Query(default=None, ge=0),
+    # A node of the catalog tree: its products and those of all its groups.
+    category_id: int | None = None,
     is_new: bool = False,
     on_sale: bool = False,
     promotion_id: int | None = None,
@@ -159,6 +164,8 @@ def list_products(
     )
 
     conditions = [Product.is_active]
+    if category_id is not None:
+        conditions.append(_in_category(db, category_id))
     if brand_id:
         conditions.append(Product.brand_id.in_(brand_id))
     if gender:
@@ -231,7 +238,9 @@ def list_products(
     products = {
         p.id: p
         for p in db.scalars(
-            select(Product).where(Product.id.in_(ids)).options(joinedload(Product.brand))
+            select(Product)
+            .where(Product.id.in_(ids))
+            .options(joinedload(Product.brand), joinedload(Product.catalog_category))
         )
     }
     variants_by_product: dict[int, list[ProductVariant]] = {pid: [] for pid in ids}
@@ -269,7 +278,11 @@ def get_product(
     product = db.scalar(
         select(Product)
         .where(Product.id == product_id, Product.is_active)
-        .options(joinedload(Product.brand), selectinload(Product.variants))
+        .options(
+            joinedload(Product.brand),
+            joinedload(Product.catalog_category),
+            selectinload(Product.variants),
+        )
     )
     if product is None:
         raise HTTPException(404, "Товар не найден")
@@ -280,6 +293,12 @@ def get_product(
     min_price = min((v.price for v in public_variants), default=None)
     return ProductDetail(
         **_list_item_fields(product, variants, min_price, user, deal),
+        category_path=[
+            CategoryBrief(id=c.id, name=c.name)
+            for c in (
+                categories.load_tree(db).path(product.category_id) if product.category_id else []
+            )
+        ],
         top_notes=product.top_notes,
         mid_notes=product.mid_notes,
         base_notes=product.base_notes,
@@ -336,13 +355,59 @@ def get_brand(brand_id: int, db: Session = Depends(get_db)):
     )
 
 
-@router.get("/filters", response_model=FiltersOut)
-def filters(user: User | None = Depends(get_current_user_optional), db: Session = Depends(get_db)):
-    active = Product.is_active
+def _in_category(db: Session, category_id: int):
+    """The product is in this node of the catalog tree or under it."""
+    ids = categories.load_tree(db).subtree_ids(category_id)
+    return Product.category_id.in_(ids) if ids else false()
 
+
+@router.get("/categories", response_model=list[CategoryPublic])
+def list_categories(db: Session = Depends(get_db)):
+    """The catalog tree with active products: the sections (parent_id null, the home page's
+    tiles) in their order, each followed by its groups. Each has a picture."""
+    tree = categories.load_tree(db)
+    counts = categories.product_counts(db, tree, active_only=True)
+    images = categories.tile_images(db, tree)
+    out: list[CategoryPublic] = []
+    stack = list(reversed(tree.children.get(None, [])))
+    while stack:
+        c = stack.pop()
+        if counts[c.id] == 0:
+            continue
+        out.append(
+            CategoryPublic(
+                id=c.id,
+                parent_id=c.parent_id,
+                name=c.name,
+                kind=c.kind,
+                image_url=images.get(c.id),
+                product_count=counts[c.id],
+            )
+        )
+        stack.extend(reversed(tree.children.get(c.id, [])))
+    return out
+
+
+@router.get("/filters", response_model=FiltersOut)
+def filters(
+    category_id: int | None = None,
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    """What the catalog can be filtered by: across the shop, or within one section."""
+    active = Product.is_active
+    if category_id is not None:
+        active = and_(active, _in_category(db, category_id))
+
+    brand_counts = (
+        select(Brand, func.count(Product.id).label("cnt"))
+        .join(Product, and_(Product.brand_id == Brand.id, active))
+        .group_by(Brand.id)
+        .order_by(Brand.name)
+    )
     brands = [
         FilterBrand(id=b.id, name=b.name, product_count=c)
-        for b, c in db.execute(_brand_counts().order_by(Brand.name)).all()
+        for b, c in db.execute(brand_counts).all()
         if c > 0
     ]
 

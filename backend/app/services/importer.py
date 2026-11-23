@@ -9,6 +9,8 @@ The importer is tolerant to the layout of the source file:
 * a tester is a row marked in a "Тестер" column, or with "tester" / "тестер" written in the
   name, volume or type ("Coco Mademoiselle Tester", "100 мл тестер"). The word is removed from
   the name, so the tester becomes a variant of the same product, next to the bottle;
+* a "Раздел" column places the product in the catalog tree ("Макияж / Губы", or a name only
+  one node has); new products without it go to the first perfume section;
 * re-importing the same file is idempotent: products are matched by (brand, name, type) and
   only non-empty cells overwrite existing values.
 """
@@ -40,7 +42,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
-from app.services import bottles, markups, price_history
+from app.services import bottles, categories, markups, price_history
 from app.services.stock import set_stock
 
 # fmt: off
@@ -48,6 +50,8 @@ COLUMN_ALIASES: dict[str, list[str]] = {
     "brand": ["brand", "бренд", "марка", "производитель", "торговая марка"],
     "name": ["name", "название", "наименование", "аромат", "товар", "product", "название аромата"],
     "type": ["type", "тип", "концентрация", "вид", "тип аромата"],
+    # The catalog tree: «Макияж / Губы» or a name only one node has («Губы»).
+    "section": ["section", "раздел", "раздел каталога", "категория каталога", "catalog category"],
     "category": [
         "category", "категория", "олфактивная группа", "группа", "семейство",
         "группа ароматов", "olfactory group", "family",
@@ -95,6 +99,7 @@ COLUMN_ALIASES: dict[str, list[str]] = {
 TEMPLATE_COLUMNS = [
     ("brand", "Бренд"),
     ("name", "Название"),
+    ("section", "Раздел"),
     ("type", "Тип"),
     ("category", "Олфактивная группа"),
     ("gender", "Пол"),
@@ -358,6 +363,9 @@ def import_catalog(
             unmapped.append(str(cell).strip())
 
     brands = {(_text(b.name) or "").lower(): b for b in db.scalars(select(Brand))}
+    tree = categories.load_tree(db)
+    # New products of rows without a section: the file is a perfume list, as it used to be.
+    default_section = categories.default_perfume_section(db)
     products = products_by_key(db)
     sku_owner: dict[str, ProductVariant] = {
         v.sku: v for v in db.scalars(select(ProductVariant).where(ProductVariant.sku.is_not(None)))
@@ -393,6 +401,13 @@ def import_catalog(
 
             ptype = normalize_type(raw_type)
             values = {f: _text(cell(cells, f)) for f in PRODUCT_TEXT_FIELDS}
+            section_name = _text(cell(cells, "section"))
+            section = categories.find(tree, section_name) if section_name else None
+            if section_name and section is None:
+                raise ValueError(
+                    f"раздел «{section_name}» не найден: создайте его в админке («Категории») "
+                    f"или укажите путь, например «Макияж / Губы»"
+                )
             # A photo that came with the code is in the bucket now (services/bottles.py).
             values["image_url"] = bottles.bucket_url(values["image_url"])
             if values["category"]:
@@ -431,7 +446,15 @@ def import_catalog(
         key = (brand_name.lower(), name.lower(), (ptype or "").lower())
         product = products.get(key)
         if product is None:
-            product = Product(brand=brand, name=name, type=ptype, gender=gender, **values)
+            placed = section or default_section
+            product = Product(
+                brand=brand,
+                name=name,
+                type=ptype,
+                gender=gender,
+                category_id=placed.id if placed else None,
+                **values,
+            )
             if is_active is not None:
                 product.is_active = is_active
             db.add(product)
@@ -440,7 +463,9 @@ def import_catalog(
             st.products_created += 1
         else:
             changed = False
-            for f, v in {**values, "gender": gender, "is_active": is_active}.items():
+            section_id = section.id if section else None
+            fields = {**values, "gender": gender, "is_active": is_active, "category_id": section_id}
+            for f, v in fields.items():
                 if v is not None and getattr(product, f) != v:
                     setattr(product, f, v)
                     changed = True
@@ -555,7 +580,8 @@ def import_catalog(
 # fmt: off
 TEMPLATE_ROWS: list[dict[str, Any]] = [
     {
-        "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "category": "Шипровые",
+        "brand": "Chanel", "name": "Coco Mademoiselle", "section": "Парфюмерия", "type": "EDP",
+        "category": "Шипровые",
         "gender": "Женский", "longevity": "Стойкий", "top_notes": "Апельсин, бергамот",
         "mid_notes": "Роза, жасмин", "base_notes": "Пачули, ветивер",
         "description": "Описание аромата", "volume_ml": 50, "is_tester": "нет",
@@ -571,6 +597,12 @@ TEMPLATE_ROWS: list[dict[str, Any]] = [
         "brand": "Chanel", "name": "Coco Mademoiselle", "type": "EDP", "volume_ml": 100,
         "is_tester": "да", "retail_price": 80000, "wholesale_price": 70000,
         "bulk_price": 65000, "stock": 3, "sku": "CH-CM-100-T",
+    },
+    {
+        "brand": "Clinique", "name": "Moisture Surge 100H", "section": "Уход за лицом / Кремы",
+        "description": "Увлажняющий гель-крем", "volume_ml": 50, "is_tester": "нет",
+        "retail_price": 24000, "wholesale_price": 20000, "bulk_price": 18000, "stock": 6,
+        "sku": "CL-MS-50",
     },
 ]
 # fmt: on
@@ -646,11 +678,13 @@ def export_rows(
         select(SupplierPrice.variant_id, SupplierPrice.supplier_id, SupplierPrice.price)
     ):
         supplier_prices.setdefault(variant_id, {})[f"supplier_{supplier_id}"] = price
+    tree = categories.load_tree(db)
     rows: list[dict[str, Any]] = []
     for p in products:
         base = {
             "brand": p.brand.name,
             "name": p.name,
+            "section": tree.full_name(p.category_id) if p.category_id else None,
             "type": p.type,
             "gender": GENDER_TITLES.get(p.gender) if p.gender else None,
             "is_active": "да" if p.is_active else "нет",

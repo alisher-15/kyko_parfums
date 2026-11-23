@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends
 from app.permissions import Area, allow, require_staff
 from app.routers.admin import (
     catalog,
+    categories,
     currency,
     orders,
     promotions,
@@ -17,6 +18,7 @@ from app.routers.admin import (
 # Staff only; each part says whose it is (app/permissions.py). allow() alone: the owner's.
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_staff)])
 router.include_router(catalog.router, dependencies=[Depends(allow())])
+router.include_router(categories.router, dependencies=[Depends(allow())])
 # The till looks up the customer of a receipt.
 router.include_router(users.router, dependencies=[Depends(allow(reading=(Area.till,)))])
 router.include_router(orders.router, dependencies=[Depends(allow(Area.orders))])

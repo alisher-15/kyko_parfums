@@ -5,6 +5,7 @@ from openpyxl import Workbook, load_workbook
 from sqlalchemy import select
 
 from app.models import Product, ProductVariant, User, UserRole
+from app.services import categories
 from tests.conftest import login, make_user
 from tests.test_orders import CHECKOUT
 
@@ -315,12 +316,19 @@ def test_import_template_roundtrip(client, auth, db):
         headers=h,
     ).json()
     assert report["errors"] == []
-    assert (report["products_created"], report["variants_created"]) == (1, 3)
+    assert (report["products_created"], report["variants_created"]) == (2, 4)
     # The template shows how to mark a tester: the 100 ml bottle and the 100 ml tester.
     assert report["tester_rows"] == 1
     variants = db.scalars(select(ProductVariant).order_by(ProductVariant.id)).all()
     kinds = [(v.volume_ml, v.is_tester) for v in variants]
-    assert kinds == [(50, False), (100, False), (100, True)]
+    assert kinds == [(50, False), (100, False), (100, True), (50, False)]
+    # And how to place a product in the catalog tree: «Уход за лицом / Кремы».
+    tree = categories.load_tree(db)
+    placed = {p.name: tree.full_name(p.category_id) for p in db.scalars(select(Product))}
+    assert placed == {
+        "Coco Mademoiselle": "Парфюмерия",
+        "Moisture Surge 100H": "Уход за лицом / Кремы",
+    }
 
 
 def test_export_imports_back_unchanged(client, auth, db):
@@ -344,7 +352,7 @@ def test_export_imports_back_unchanged(client, auth, db):
     assert r.headers["content-type"].startswith("application/vnd.openxmlformats")
     sheet = load_workbook(io.BytesIO(r.content)).active
     header, *cells = [list(row) for row in sheet.iter_rows(values_only=True)]
-    assert header[:3] == ["Бренд", "Название", "Тип"]
+    assert header[:4] == ["Бренд", "Название", "Раздел", "Тип"]
     assert "Остаток" not in header
     got = [dict(zip(header, row, strict=True)) for row in cells]
     assert [(g["Название"], g["Объём, мл"], g["Тестер"]) for g in got] == [
@@ -355,6 +363,8 @@ def test_export_imports_back_unchanged(client, auth, db):
     assert got[0]["Штрихкод"] == "0012345678905, 3145891253317"
     assert (got[0]["Пол"], got[0]["Активен"], got[2]["Активен"]) == ("Женский", "да", "нет")
     assert got[1]["Розничная цена"] == 60000.5
+    # Rows without a section went to the first perfume section, and say so.
+    assert {g["Раздел"] for g in got} == {"Парфюмерия"}
     assert (got[0]["Себестоимость"], got[1]["Себестоимость"]) == (28125.5, None)
 
     # Imported back as is, it changes nothing.

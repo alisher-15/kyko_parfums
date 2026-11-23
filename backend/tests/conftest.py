@@ -22,6 +22,7 @@ from app.main import app  # noqa: E402
 from app.models import Brand, Product, ProductVariant, User, UserRole  # noqa: E402
 from app.routers.meta import client_errors  # noqa: E402
 from app.security import hash_password  # noqa: E402
+from app.services import categories  # noqa: E402
 from app.services.throttle import (  # noqa: E402
     guest_orders,
     guest_orders_per_phone,
@@ -50,6 +51,9 @@ def _clean_db():
     with engine.begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
         conn.execute(text("INSERT INTO pricing_settings (id) VALUES (1)"))
+    # Migration 0022 builds the catalog tree; truncating drops it, so each test starts with it.
+    with SessionLocal() as db:
+        categories.create_default(db)
     login_failures.clear()
     reset_emails.clear()
     client_errors.clear()

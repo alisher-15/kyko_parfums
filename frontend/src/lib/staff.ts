@@ -32,6 +32,7 @@ export const ADMIN_NAV: { href: string; label: string; area: Area | null }[] = [
   { href: "/admin/products", label: "Товары", area: null },
   { href: "/admin/categories", label: "Категории", area: null },
   { href: "/admin/promotions", label: "Акции", area: null },
+  { href: "/admin/creatives", label: "Баннеры и сторис", area: null },
   { href: "/admin/brands", label: "Бренды", area: null },
   { href: "/admin/users", label: "Пользователи", area: null },
   { href: "/admin/import", label: "Импорт Excel", area: null },

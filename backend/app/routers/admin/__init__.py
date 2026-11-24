@@ -4,6 +4,7 @@ from app.permissions import Area, allow, require_staff
 from app.routers.admin import (
     catalog,
     categories,
+    creatives,
     currency,
     orders,
     promotions,
@@ -27,6 +28,7 @@ router.include_router(system.router, dependencies=[Depends(allow())])
 router.include_router(store.router, dependencies=[Depends(allow(Area.till, reading=(Area.stock,)))])
 router.include_router(warehouse.router, dependencies=[Depends(allow(Area.stock))])
 router.include_router(promotions.router, dependencies=[Depends(allow())])
+router.include_router(creatives.router, dependencies=[Depends(allow())])
 router.include_router(currency.router, dependencies=[Depends(allow())])
 router.include_router(telegram.router, dependencies=[Depends(allow())])
 router.include_router(suppliers.router, dependencies=[Depends(allow())])

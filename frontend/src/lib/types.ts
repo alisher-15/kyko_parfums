@@ -765,3 +765,17 @@ export interface TelegramTest {
   /** Names of the chats the message didn't reach. */
   failed: string[];
 }
+
+// ---------- Banners and stories from templates (admin) ----------
+
+export interface CreativeOut {
+  width: number;
+  height: number;
+  /** save=false: the picture as a data URL, to look at or download. */
+  preview: string | null;
+  /** save=true: where it is kept. */
+  url: string | null;
+  /** Products whose photo couldn't be read: their place stays empty. */
+  missing_photos: number[];
+}
+

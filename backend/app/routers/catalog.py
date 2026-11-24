@@ -196,17 +196,22 @@ def list_products(
     db: Session = Depends(get_db),
 ):
     tier = max_tier_for_role(user.role if user else None)
-    # The price this viewer pays, promotions included (pricing.deal_price).
-    price = promotions.price_expr(tier)
+    # The price this viewer pays, promotions included (pricing.deal_price); the discounts are
+    # worked out once for the whole catalog and joined to the volumes.
+    disc = promotions.discounts()
+    price = promotions.price_expr(tier, disc.c.discount)
+
+    def priced(stmt):
+        return stmt.outerjoin(disc, disc.c.product_id == ProductVariant.product_id)
 
     agg = (
-        select(
-            ProductVariant.product_id.label("product_id"),
-            func.min(price).label("min_price"),
-            func.sum(ProductVariant.stock).label("stock"),
+        priced(
+            select(
+                ProductVariant.product_id.label("product_id"),
+                func.min(price).label("min_price"),
+                func.sum(ProductVariant.stock).label("stock"),
+            ).where(ProductVariant.is_active)
         )
-        .join(Product, Product.id == ProductVariant.product_id)
-        .where(ProductVariant.is_active)
         .group_by(ProductVariant.product_id)
         .subquery()
     )
@@ -225,7 +230,7 @@ def list_products(
     if is_new:
         conditions.append(Product.new_at.is_not(None))
     if on_sale:
-        conditions.append(promotions.on_sale())
+        conditions.append(Product.id.in_(select(disc.c.product_id)))
     if promotion_id is not None:
         conditions.append(promotions.in_promotion(promotion_id))
     if id:
@@ -248,12 +253,15 @@ def list_products(
             )
         )
     if min_price is not None or max_price is not None:
-        variant_conds = [ProductVariant.product_id == Product.id, ProductVariant.is_active]
+        # A volume in the range: the products are found once, not looked up per product.
+        in_range = [ProductVariant.is_active]
         if min_price is not None:
-            variant_conds.append(price >= min_price)
+            in_range.append(price >= min_price)
         if max_price is not None:
-            variant_conds.append(price <= max_price)
-        conditions.append(exists().where(*variant_conds))
+            in_range.append(price <= max_price)
+        conditions.append(
+            Product.id.in_(priced(select(ProductVariant.product_id).where(*in_range)))
+        )
 
     sold = (
         select(OrderItem.product_id.label("product_id"), func.sum(OrderItem.quantity).label("sold"))
@@ -266,19 +274,25 @@ def list_products(
         .subquery()
     )
 
+    # The viewer's price of every volume (promotions included) is costly over the whole catalog:
+    # it is joined only when the order needs it; otherwise it is computed for the page alone.
+    search = q.strip() if q else ""
+    by_price = sort in (ProductSort.default, ProductSort.price_asc, ProductSort.price_desc)
+
     def matching(*more):
-        return (
-            select(Product.id, agg.c.min_price, sold.c.sold)
+        stmt = (
+            select(Product.id, sold.c.sold)
             .join(Brand, Brand.id == Product.brand_id)
-            .outerjoin(agg, agg.c.product_id == Product.id)
             .outerjoin(sold, sold.c.product_id == Product.id)
             .where(*conditions, *more)
         )
+        if by_price:
+            stmt = stmt.add_columns(agg.c.min_price).outerjoin(agg, agg.c.product_id == Product.id)
+        return stmt
 
     def count(stmt) -> int:
         return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
-    search = q.strip() if q else ""
     base = matching(product_name_match(search)) if search else matching()
     total = count(base)
     # Nothing has these words: the closest products instead (a typo, an odd spelling).
@@ -319,7 +333,18 @@ def list_products(
         base.order_by(*order_by, Product.id).offset((page - 1) * page_size).limit(page_size)
     ).all()
     ids = [r.id for r in rows]
-    min_prices = {r.id: r.min_price for r in rows}
+    if by_price:
+        min_prices = {r.id: r.min_price for r in rows}
+    else:
+        min_prices = dict.fromkeys(ids)
+        if ids:
+            min_prices.update(
+                db.execute(
+                    priced(select(ProductVariant.product_id, func.min(price)))
+                    .where(ProductVariant.product_id.in_(ids), ProductVariant.is_active)
+                    .group_by(ProductVariant.product_id)
+                ).all()
+            )
     sold_counts = {r.id: int(r.sold or 0) for r in rows}
 
     products = {
@@ -499,10 +524,12 @@ def filters(
         db.scalars(select(Product.gender).where(active, Product.gender.is_not(None)).distinct())
     )
 
-    price = promotions.price_expr(max_tier_for_role(user.role if user else None))
+    disc = promotions.discounts()
+    price = promotions.price_expr(max_tier_for_role(user.role if user else None), disc.c.discount)
     pmin, pmax = db.execute(
         select(func.min(price), func.max(price))
         .join(Product, Product.id == ProductVariant.product_id)
+        .outerjoin(disc, disc.c.product_id == ProductVariant.product_id)
         .where(active, ProductVariant.is_active)
     ).one()
 

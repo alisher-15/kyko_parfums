@@ -153,7 +153,9 @@ function EntryTile({
     sort: "popular",
     page_size: 1,
   } as ProductFilters & Params);
-  if (!data || data.total === 0) return null;
+  // A grey tile while it loads, so the grid doesn't jump.
+  if (!data) return <View style={[styles.entry, styles.placeholder]} />;
+  if (data.total === 0) return null;
   const image = assetUrl(data.items[0]?.image_url);
   return (
     <Pressable
@@ -330,7 +332,8 @@ function BudgetTile({ label, value, params, dark }: (typeof BUDGETS)[number]) {
     sort: "popular",
     page_size: 1,
   } as ProductFilters & Params);
-  if (!data || data.total === 0) return null;
+  if (!data) return <View style={[styles.budget, styles.placeholder]} />;
+  if (data.total === 0) return null;
   const image = assetUrl(data.items[0]?.image_url);
   return (
     <Pressable
@@ -498,6 +501,7 @@ export function Wholesale() {
 }
 
 const styles = StyleSheet.create({
+  placeholder: { backgroundColor: "#f0efed", borderColor: "#f0efed" },
   sectionHead: {
     flexDirection: "row",
     alignItems: "flex-end",

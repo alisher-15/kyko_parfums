@@ -6,7 +6,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
 import { SearchIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
-import { ErrorBox, Spinner } from "@/components/ui";
+import { ErrorBox } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
 import { CONTACTS, whatsappLink } from "@/lib/contacts";
@@ -49,6 +49,24 @@ function More({ href, children = "Все →" }: { href: string; children?: Reac
     <Link href={href} className="shrink-0 text-sm font-semibold text-gold hover:text-ink">
       {children}
     </Link>
+  );
+}
+
+/** Grey cards in place of a row of products while it loads, so the page doesn't jump. */
+function RailSkeleton() {
+  return (
+    <div aria-hidden className="flex gap-3 overflow-hidden">
+      {Array.from({ length: 6 }, (_, i) => (
+        <div key={i} className={`${PRODUCT_RAIL_ITEM} card overflow-hidden`}>
+          <div className="aspect-square animate-pulse bg-stone-100" />
+          <div className="space-y-1.5 p-2.5">
+            <div className="h-2 w-1/2 animate-pulse rounded bg-stone-100" />
+            <div className="h-3 w-4/5 animate-pulse rounded bg-stone-100" />
+            <div className="h-3 w-2/5 animate-pulse rounded bg-stone-100" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -267,7 +285,8 @@ function EntryTile({
   const { data } = useApi<Page<ProductListItem>>("/products", {
     query: { ...query, sort: "popular", page_size: 1 },
   });
-  if (!data || data.total === 0) return null;
+  if (!data) return <div aria-hidden className="aspect-square animate-pulse rounded-2xl bg-stone-100" />;
+  if (data.total === 0) return null;
   const image = data.items[0]?.image_url;
   return (
     <Link
@@ -342,7 +361,13 @@ export function HomeHits() {
   const { data } = useApi<Page<ProductListItem>>("/products", {
     query: { sort: "popular", page_size: 12 },
   });
-  if (!data || data.total === 0) return null;
+  if (!data)
+    return (
+      <Section title="Хиты продаж">
+        <RailSkeleton />
+      </Section>
+    );
+  if (data.total === 0) return null;
   const sales = data.items.some((p) => (p.sold ?? 0) > 0);
   return (
     <Section
@@ -417,7 +442,7 @@ export function HomeChoice() {
       link={<More href={more} />}
     >
       {shown.error && <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>}
-      {!shown.data && !shown.error && <Spinner />}
+      {!shown.data && !shown.error && <RailSkeleton />}
       {shown.data && <ProductRail label="Выбор Kyko" items={shown.data.items} more={more} />}
     </Section>
   );
@@ -434,7 +459,8 @@ function BudgetTile({ label, value, query, dark }: (typeof BUDGETS)[number]) {
   const { data } = useApi<Page<ProductListItem>>("/products", {
     query: { ...query, sort: "popular", page_size: 1 },
   });
-  if (!data || data.total === 0) return null;
+  if (!data) return <div aria-hidden className="min-h-28 animate-pulse rounded-2xl bg-stone-100 md:min-h-32" />;
+  if (data.total === 0) return null;
   const href = `/catalog?${new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)]))}`;
   const image = data.items[0]?.image_url;
   return (

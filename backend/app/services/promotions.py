@@ -65,23 +65,36 @@ def covers(product_id, brand_id):
     )
 
 
-def best_discount():
-    """Scalar subquery correlated to Product: the best running discount, or NULL."""
+def discounts():
+    """Subquery (product_id, discount): the best running discount of each product that has one.
+
+    Worked out once per query for the whole catalog, so a list doesn't look up the promotions
+    again for every volume (see price_expr).
+    """
     return (
-        select(func.max(Promotion.discount_percent))
-        .where(
-            running(),
-            Promotion.discount_percent.is_not(None),
-            covers(Product.id, Product.brand_id),
+        select(
+            Product.id.label("product_id"),
+            func.max(Promotion.discount_percent).label("discount"),
         )
-        .correlate(Product)
-        .scalar_subquery()
+        .join(
+            Promotion,
+            and_(
+                running(),
+                Promotion.discount_percent.is_not(None),
+                covers(Product.id, Product.brand_id),
+            ),
+        )
+        .group_by(Product.id)
+        .subquery("discounts")
     )
 
 
-def price_expr(tier: PriceTier):
+def price_expr(tier: PriceTier, discount):
     """SQL counterpart of the price a customer of this tier pays: the tier price, or the
-    promotion price when it is lower (see pricing.deal_price). Needs Product in the query."""
+    promotion price when it is lower (see pricing.deal_price).
+
+    `discount`: the `discount` column of discounts(), which the caller outer-joins to the
+    variants by product."""
     if tier == PriceTier.bulk:
         tier_price = func.coalesce(
             ProductVariant.bulk_price, ProductVariant.wholesale_price, ProductVariant.retail_price
@@ -90,14 +103,9 @@ def price_expr(tier: PriceTier):
         tier_price = func.coalesce(ProductVariant.wholesale_price, ProductVariant.retail_price)
     else:
         tier_price = ProductVariant.retail_price
-    promo = func.round(ProductVariant.retail_price * (100 - best_discount()) / 100)
+    promo = func.round(ProductVariant.retail_price * (100 - discount) / 100)
     # LEAST ignores NULL: without a discount it is the tier price.
     return func.least(tier_price, promo)
-
-
-def on_sale():
-    """SQL condition on Product: a running promotion gives it a discount."""
-    return best_discount().is_not(None)
 
 
 def in_promotion(promotion_id: int):

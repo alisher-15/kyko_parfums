@@ -2,7 +2,16 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import type { ReactNode } from "react";
-import { FlatList, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  FlatList,
+  Linking,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useAuth } from "@/lib/auth";
 import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { assetUrl } from "@/lib/config";
@@ -137,12 +146,15 @@ export function TrustRow() {
 function EntryTile({
   title,
   params,
+  size,
   note,
   dark = false,
   onPress,
 }: {
   title: string;
   params: Params;
+  /** The tile's side in points: the grid works it out from the screen's width. */
+  size: number;
   note?: (total: number) => string;
   dark?: boolean;
   /** Instead of opening the collection with `params`. */
@@ -154,7 +166,8 @@ function EntryTile({
     page_size: 1,
   } as ProductFilters & Params);
   // A grey tile while it loads, so the grid doesn't jump.
-  if (!data) return <View style={[styles.entry, styles.placeholder]} />;
+  const box = { width: size, height: size };
+  if (!data) return <View style={[styles.entry, box, styles.placeholder]} />;
   if (data.total === 0) return null;
   const image = assetUrl(data.items[0]?.image_url);
   return (
@@ -164,6 +177,7 @@ function EntryTile({
       onPress={onPress ?? (() => openCollection(title, params))}
       style={({ pressed }) => [
         styles.entry,
+        box,
         dark && { backgroundColor: colors.ink },
         pressed && { opacity: 0.8 },
       ]}
@@ -194,30 +208,42 @@ function EntryTile({
  * (sets, make-up…) as they appear. Three in a row.
  */
 export function StartGrid() {
+  const { width } = useWindowDimensions();
   const tree = useCategories().data;
   const sections = tree ? childrenOf(tree, null) : [];
   const perfume = sections.find((c) => c.kind === "perfume");
   const others = sections.filter((c) => c !== perfume);
+  // Three tiles in a row on phones, more on tablets. The side is worked out here, not as a
+  // percentage: a percentage of a wrapping row left a third of the row empty on Android.
+  const cols = width >= 700 ? 6 : width >= 520 ? 4 : 3;
+  // The screen less the panel's margins, padding and 1 pt border on each side.
+  const inner = Math.min(width, 1100) - 2 * 16 - 2 * 12 - 2;
+  // Rounded down, and a point spare, so the last tile of a row never wraps.
+  const size = Math.floor((inner - (cols - 1) * TILE_GAP - 1) / cols);
   return (
-    <Section
-      title="С чего начнём?"
-      more={() => router.push("/categories")}
-      moreLabel="Все категории"
-    >
+    <View style={styles.start} testID="start-grid">
+      <View style={styles.startHead}>
+        <Title style={{ fontSize: 22, flex: 1 }}>С чего начнём?</Title>
+        <Pressable accessibilityRole="link" onPress={() => router.push("/categories")} hitSlop={8}>
+          <Txt style={styles.more}>Все категории →</Txt>
+        </Pressable>
+      </View>
       <View style={styles.grid}>
-        <EntryTile title="Для неё" params={{ gender: "female" }} />
-        <EntryTile title="Для него" params={{ gender: "male" }} />
-        <EntryTile title="Унисекс" params={{ gender: "unisex" }} />
+        <EntryTile size={size} title="Для неё" params={{ gender: "female" }} />
+        <EntryTile size={size} title="Для него" params={{ gender: "male" }} />
+        <EntryTile size={size} title="Унисекс" params={{ gender: "unisex" }} />
         <EntryTile
+          size={size}
           title="Тестеры"
           params={{ tester: "true" }}
           note={() => "дешевле флакона"}
           dark
         />
-        <EntryTile title="Ниша и люкс" params={{ top: "true" }} />
+        <EntryTile size={size} title="Ниша и люкс" params={{ top: "true" }} />
         {others.map((c) => (
           <EntryTile
             key={c.id}
+            size={size}
             title={c.name}
             params={{ category_id: c.id }}
             note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
@@ -225,7 +251,7 @@ export function StartGrid() {
           />
         ))}
       </View>
-    </Section>
+    </View>
   );
 }
 
@@ -494,6 +520,8 @@ export function Wholesale() {
   );
 }
 
+const TILE_GAP = 8;
+
 const styles = StyleSheet.create({
   placeholder: { backgroundColor: "#f0efed", borderColor: "#f0efed" },
   sectionHead: {
@@ -516,12 +544,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 8, paddingHorizontal: 16 },
-  entry: {
-    width: "31.6%",
-    aspectRatio: 1,
+  // «С чего начнём?» stands out as a panel of its own, with white tiles on it.
+  start: {
+    marginHorizontal: 16,
+    marginTop: 22,
+    padding: 12,
+    paddingTop: 14,
     borderRadius: radius.lg,
-    backgroundColor: "#f5f5f4",
+    backgroundColor: colors.goldSoft,
+    borderWidth: 1,
+    borderColor: "#ead9c4",
+  },
+  startHead: { flexDirection: "row", alignItems: "flex-end", gap: 12, marginBottom: 10 },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: TILE_GAP },
+  entry: {
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
     padding: 10,
     overflow: "hidden",
   },
@@ -531,8 +569,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     bottom: 0,
-    width: "70%",
-    height: "62%",
+    width: "58%",
+    height: "50%",
     mixBlendMode: "multiply",
   },
   entryPicDark: {

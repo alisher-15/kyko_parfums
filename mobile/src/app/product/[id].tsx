@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductImage, QuantityStepper } from "@/components/product";
+import { CartButton } from "@/components/shop";
 import {
   Badge,
   Button,
@@ -90,6 +91,7 @@ export default function ProductScreen() {
                 label={favorites.has(productId) ? "Убрать из избранного" : "В избранное"}
                 onPress={() => favorites.toggle(productId)}
               />
+              <CartButton />
             </View>
           ) : null,
       }}
@@ -154,7 +156,7 @@ function ProductBody({
   // The photo leaves room for the name and the price on the first screen.
   const photoHeight = Math.min(width, Math.round(height * 0.42));
   const { user } = useAuth();
-  const { add } = useCart();
+  const { add, count } = useCart();
   const { money } = useCurrency();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
@@ -357,10 +359,15 @@ function ProductBody({
             <QuantityStepper value={qty} onChange={setQty} />
             <Button
               testID="add-to-cart"
-              title={`В корзину · ${money(variant.price * qty)}`}
+              // With the cart's bag next to it, a narrow phone has no room for the sum.
+              title={
+                count > 0 && width < 400 ? "В корзину" : `В корзину · ${money(variant.price * qty)}`
+              }
               style={{ flex: 1 }}
               onPress={addToCart}
             />
+            {/* Once something is in the cart, the way to it is right here. */}
+            {count > 0 && <CartButton boxed />}
           </View>
         </View>
       )}

@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useCart } from "@/lib/cart";
 import { OFFER_URL, PRIVACY_URL, assetUrl } from "@/lib/config";
 import { useCurrency } from "@/lib/currency";
 import {
@@ -28,6 +29,36 @@ import {
 import type { OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
 import { colors, fonts, radius, statusColors } from "@/theme";
 import { Button, Field, Muted, Notice, Txt } from "./ui";
+
+// ---------- Cart ----------
+
+/**
+ * The cart's bag with how many items are in it, to go to the cart from a product: in the
+ * product screen's header and next to «В корзину» once something is added.
+ */
+export function CartButton({ boxed = false }: { boxed?: boolean }) {
+  const { count } = useCart();
+  return (
+    <Pressable
+      testID={boxed ? "product-cart-box" : "product-cart"}
+      accessibilityRole="link"
+      accessibilityLabel={count ? `Корзина, товаров: ${count}` : "Корзина"}
+      hitSlop={8}
+      onPress={() => router.navigate("/cart")}
+      style={({ pressed }) => [
+        boxed ? styles.cartBox : styles.cartIcon,
+        pressed && { opacity: 0.6 },
+      ]}
+    >
+      <Ionicons name={count ? "bag" : "bag-outline"} size={22} color={colors.ink} />
+      {count > 0 && (
+        <View style={styles.cartBadge}>
+          <Text style={styles.cartBadgeText}>{count > 99 ? "99+" : count}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
 
 // ---------- Promotions ----------
 
@@ -294,6 +325,30 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 }
 
 const styles = StyleSheet.create({
+  cartIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  cartBox: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: 2,
+    right: 0,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: colors.gold,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.white },
   bold: { fontFamily: fonts.sansBold },
   card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
   cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },

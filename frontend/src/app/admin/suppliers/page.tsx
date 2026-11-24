@@ -339,6 +339,7 @@ function ReportView({
           основного поставщика.
         </ErrorBox>
       )}
+      <PriceListWarnings report={report} />
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn btn-gold" disabled={busy} onClick={onApply}>
           Применить
@@ -485,5 +486,56 @@ function Cell({ from, to }: { from: number | null; to: number | null }) {
       <span className="text-muted">{money(from)} → </span>
       <b className={from !== null && to !== null && to < from ? "text-emerald-700" : ""}>{money(to)}</b>
     </td>
+  );
+}
+
+/** What the list could not do on its own: odd costs held back, prices not read or not raised. */
+function PriceListWarnings({ report }: { report: PriceListReport }) {
+  const { suspicious, unreadable, prices_not_raised } = report;
+  if (!suspicious.length && !unreadable.length && !prices_not_raised) return null;
+  return (
+    <div className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+      {suspicious.length > 0 && (
+        <div>
+          <div className="font-semibold">
+            Не применится — проверьте: {suspicious.length}
+            <span className="font-normal text-muted">
+              {" "}
+              — цена поставщика запомнится, а себестоимость и цены продажи останутся прежними
+            </span>
+          </div>
+          <ul className="mt-1 space-y-1">
+            {suspicious.map((x) => (
+              <li key={x.variant_id}>
+                <Link href={`/admin/products/${x.product_id}`} className="font-medium hover:text-gold">
+                  {x.label}
+                </Link>
+                <span className="text-muted"> · «{x.line}»</span>: {x.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {unreadable.length > 0 && (
+        <div>
+          <div className="font-semibold">
+            Цена не прочитана: {unreadable.length} {plural(unreadable.length, "строка", "строки", "строк")}
+          </div>
+          <ul className="mt-1 space-y-1">
+            {unreadable.map((u) => (
+              <li key={u.row}>
+                Строка {u.row}: «{u.line}» — <span className="text-muted">«{u.value}»</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {prices_not_raised > 0 && (
+        <div>
+          У {volumes(prices_not_raised)} себестоимость вырастет, а цены продажи — нет: по наценкам оптовая цена стала бы
+          выше розничной. Поправьте их цены вручную.
+        </div>
+      )}
+    </div>
   );
 }

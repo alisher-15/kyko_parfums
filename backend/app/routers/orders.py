@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -45,6 +46,7 @@ from app.services.orders import (
     guest_key_is_good,
     load_sellable_variants,
     order_load_options,
+    placed_before,
 )
 from app.services.promotions import deals_for_variants
 from app.services.settings import get_pricing_settings
@@ -148,6 +150,11 @@ def create_order(
     user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
+    buyer_id = user.id if user else None
+    # A retry of a checkout that went through (the answer was lost): the same order, once.
+    again = placed_before(db, data.request_key, OrderChannel.online, buyer_id)
+    if again is not None:
+        return _placed_out(db, again, user)
     # Without an account: retail prices, a whole phone number, and a limit on such orders.
     phone = _guest_checks(data.contact_phone) if user is None else None
     role = user.role if user else UserRole.retail
@@ -183,6 +190,7 @@ def create_order(
         delivery_city=data.delivery_city.strip(),
         delivery_address=data.delivery_address.strip(),
         comment=data.comment,
+        request_key=data.request_key,
     )
     for line in quote.lines:
         v = line.variant
@@ -221,7 +229,15 @@ def create_order(
     created = "Заказ оформлен на сайте" if user else "Заказ оформлен на сайте без регистрации"
     add_event(order, OrderEventKind.created, created, user)
     db.add(order)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same checkout sent twice at once: the other request placed it.
+        db.rollback()
+        again = placed_before(db, data.request_key, OrderChannel.online, buyer_id)
+        if again is None:
+            raise
+        return _placed_out(db, again, user)
     if phone is not None:
         guest_orders.hit("all")
         guest_orders_per_phone.hit(phone)
@@ -235,9 +251,13 @@ def create_order(
     to = email.recipient(placed)
     if to and email.enabled():
         background.add_task(email.send_email, to, *email.order_placed(placed))
-    out = PlacedOrderOut.model_validate(placed)
+    return _placed_out(db, placed.id, user)
+
+
+def _placed_out(db: Session, order_id: int, user: User | None) -> PlacedOrderOut:
+    out = PlacedOrderOut.model_validate(_load_order(db, order_id))
     if user is None:
-        out.guest_key = guest_key(placed.id)
+        out.guest_key = guest_key(order_id)
     return out
 
 

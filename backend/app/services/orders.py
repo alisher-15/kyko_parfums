@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from app.config import get_settings
 from app.models import (
     Order,
+    OrderChannel,
     OrderEvent,
     OrderEventKind,
     OrderItem,
@@ -193,6 +194,8 @@ def edit_items(
             else f"{item.label}: {item.quantity} → {new_qty}"
         )
         item.quantity = new_qty
+        # The units taken off are the missing ones first: the order is owed no more than it has.
+        item.backordered = min(item.backordered, new_qty)
     order.total_amount = sum((i.price_applied * i.quantity for i in order.items), Decimal(0))
     message = (
         "Менеджер изменил состав: "
@@ -279,3 +282,26 @@ def create_return(
         message += f". Причина: {reason}"
     add_event(order, OrderEventKind.returned, message, user)
     return ret
+
+
+def placed_before(
+    db: Session, request_key: str | None, channel: OrderChannel, user_id: int | None
+) -> int | None:
+    """The order a retried request already placed (same key), or None.
+
+    A key belongs to the one checkout or till sale that made it; it never opens someone else's
+    order, so a key sent by another account (or a guest for an account's order) is refused.
+    """
+    if not request_key:
+        return None
+    found = db.execute(
+        select(Order.id, Order.channel, Order.user_id, Order.created_by_id).where(
+            Order.request_key == request_key
+        )
+    ).first()
+    if found is None:
+        return None
+    owner = found.created_by_id if channel == OrderChannel.store else found.user_id
+    if found.channel != channel or owner != user_id:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Повторите оформление ещё раз")
+    return found.id

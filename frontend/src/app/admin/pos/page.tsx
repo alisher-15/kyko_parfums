@@ -7,7 +7,7 @@ import { CameraScanner } from "@/components/admin/CameraScanner";
 import { ScanResultCard, type ScanResult } from "@/components/admin/ScanResultCard";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, newNonce, requestKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money, volumeLabel } from "@/lib/format";
 import { hasCyrillic, fromRussianLayout } from "@/lib/scan-code";
@@ -79,7 +79,10 @@ export default function PosPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [comment, setComment] = useState("");
-  const [quote, setQuote] = useState<StoreQuote | null>(null);
+  // The quote with the receipt it was made for: until the quote of the receipt as it is now
+  // comes back, the totals are dimmed and the sale can't be recorded.
+  const [quoted, setQuoted] = useState<{ key: string; quote: StoreQuote } | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<AdminOrder | null>(null);
@@ -104,6 +107,10 @@ export default function PosPage() {
     comment,
   };
   const quoteKey = JSON.stringify([payload.items, payload.price_tier, payload.customer_id]);
+  const quote = quoted?.quote ?? null;
+  const fresh = quoted?.key === quoteKey;
+  // One sale's key, made on its first «Провести» and renewed once it is recorded.
+  const nonce = useRef<string | null>(null);
 
   // Server-side pricing of the draft receipt (debounced).
   useEffect(() => {
@@ -111,8 +118,12 @@ export default function PosPage() {
     const timer = setTimeout(() => {
       const [items, price_tier, customer_id] = JSON.parse(quoteKey);
       api<StoreQuote>("/admin/store/quote", { body: { items, price_tier, customer_id } })
-        .then((q) => !cancelled && setQuote(q))
-        .catch((e: unknown) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
+        .then((q) => {
+          if (cancelled) return;
+          setQuoted({ key: quoteKey, quote: q });
+          setQuoteError(null);
+        })
+        .catch((e: unknown) => !cancelled && setQuoteError(e instanceof Error ? e.message : String(e)));
     }, 200);
     return () => {
       cancelled = true;
@@ -194,10 +205,20 @@ export default function PosPage() {
   };
 
   const submit = async () => {
+    if (!quote || !fresh) return;
     setBusy(true);
     setError(null);
+    nonce.current ??= newNonce();
     try {
-      const order = await api<AdminOrder>("/admin/store/sales", { body: payload });
+      const order = await api<AdminOrder>("/admin/store/sales", {
+        body: {
+          ...payload,
+          // The sum on the button: a receipt that came to another total is refused, not recorded.
+          expected_total: quote.total,
+          request_key: requestKey(nonce.current, quoteKey),
+        },
+      });
+      nonce.current = null;
       setDone(order);
       reset();
     } catch (e) {
@@ -418,7 +439,7 @@ export default function PosPage() {
             </label>
           </div>
 
-          <div className="card p-4">
+          <div className={`card p-4 transition-opacity ${fresh || lines.length === 0 ? "" : "opacity-60"}`}>
             <div className="flex justify-between text-sm">
               <span className="text-muted">По прайсу</span>
               <span>{money(quote?.subtotal ?? 0)}</span>
@@ -446,14 +467,15 @@ export default function PosPage() {
                 ))}
               </ul>
             )}
-            {error && (
-              <div className="mt-3">
-                <ErrorBox>{error}</ErrorBox>
+            {(error || quoteError) && (
+              <div className="mt-3 space-y-2">
+                {error && <ErrorBox>{error}</ErrorBox>}
+                {quoteError && <ErrorBox>Не удалось посчитать чек: {quoteError}</ErrorBox>}
               </div>
             )}
             <button
               className="btn btn-primary mt-4 w-full py-3 text-base"
-              disabled={busy || !quote?.can_submit || lines.length === 0}
+              disabled={busy || !fresh || !quote?.can_submit || lines.length === 0}
               onClick={submit}
             >
               {busy ? "Проводим…" : `Провести продажу${quote?.total ? ` · ${money(quote.total)}` : ""}`}

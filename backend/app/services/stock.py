@@ -33,12 +33,13 @@ def move_stock(
     Every stock change goes through here. The caller is responsible for locking the variant row
     (SELECT ... FOR UPDATE) when concurrent changes are possible, and for committing.
     Stock goes below zero only with ``allow_backorder``: online orders may take more than the
-    shop has, and the minus is what customers are owed.
+    shop has, and the minus is what customers are owed. Adding stock never fails, even when it
+    leaves a minus (a cancelled backorder, a receipt smaller than what is owed).
     """
     if delta == 0:
         return
     new_stock = (variant.stock or 0) + delta
-    if new_stock < 0 and not allow_backorder:
+    if delta < 0 and new_stock < 0 and not allow_backorder:
         raise HTTPException(
             status.HTTP_409_CONFLICT,
             f"Недостаточно товара на складе: в наличии {max(variant.stock or 0, 0)} шт.",

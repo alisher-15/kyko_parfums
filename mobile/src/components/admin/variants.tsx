@@ -67,6 +67,17 @@ function toBody(r: Row) {
   };
 }
 
+/**
+ * A saved volume sends its stock only when the owner changed it, with the stock the form was
+ * opened with: an order placed meanwhile keeps its deduction (the server answers 409 instead of
+ * overwriting it), and a volume in the minus (owed to customers) can be repriced.
+ */
+function editBody(r: Row, openedStock: number, stockNote: string) {
+  const { stock, ...rest } = toBody(r);
+  if (stock === openedStock) return rest;
+  return { ...rest, stock, stock_expected: openedStock, stock_note: stockNote || null };
+}
+
 const percent = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 1 });
 
 /** «Наценка: розница 60% · опт 30% · кр. опт 20%»: what the volume remembers on saving. */
@@ -230,10 +241,10 @@ export function VariantsEditor({
               <Barcodes variantId={v.id} codes={v.barcodes} onChanged={onChanged} />
             </>
           }
-          onSave={async (row, stockNote) => {
+          onSave={async (row, stockNote, openedStock) => {
             await api(`/admin/variants/${v.id}`, {
               method: "PATCH",
-              body: { ...toBody(row), stock_note: stockNote || null },
+              body: editBody(row, Number(openedStock || 0), stockNote),
             });
             onChanged();
           }}
@@ -274,14 +285,21 @@ function VariantCard({
   title: string;
   isNew?: boolean;
   extra?: ReactNode;
-  onSave: (row: Row, stockNote: string) => Promise<void>;
+  onSave: (row: Row, stockNote: string, openedStock: string) => Promise<void>;
   onDelete?: () => Promise<void>;
 }) {
   const [row, setRow] = useState<Row>(initial);
+  // The stock the field was last in step with the server at. While the owner hasn't touched the
+  // field, it follows the server (an order or a receipt moved the stock after a reload).
+  const [opened, setOpened] = useState(initial.stock);
+  if (initial.stock !== opened && row.stock === opened) {
+    setOpened(initial.stock);
+    setRow({ ...row, stock: initial.stock });
+  }
   const [stockNote, setStockNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const stockChanged = !isNew && row.stock !== initial.stock;
+  const stockChanged = !isNew && row.stock !== opened;
   const markup = markupText(row);
   const dirty = JSON.stringify(row) !== JSON.stringify(initial);
   const set = (key: keyof Row) => (text: string) => setRow({ ...row, [key]: text });
@@ -339,7 +357,7 @@ function VariantCard({
       {markup && <Muted style={{ fontSize: 12 }}>{markup}</Muted>}
       {stockChanged && (
         <Field
-          label={`Остаток ${initial.stock} → ${row.stock || 0}: причина`}
+          label={`Остаток ${opened} → ${row.stock || 0}: причина`}
           hint="Попадёт в журнал склада. Приход от поставщика удобнее оформлять «Приёмкой»."
           placeholder="Списание брака, пересчёт…"
           value={stockNote}
@@ -366,7 +384,7 @@ function VariantCard({
             style={{ flex: 1 }}
             loading={busy}
             disabled={!row.volume_ml || !row.retail_price}
-            onPress={() => void run(() => onSave(row, ""))}
+            onPress={() => void run(() => onSave(row, "", opened))}
           />
         ) : (
           <>
@@ -377,7 +395,7 @@ function VariantCard({
               disabled={!dirty}
               onPress={() =>
                 void run(async () => {
-                  await onSave(row, stockNote);
+                  await onSave(row, stockNote, opened);
                   setStockNote("");
                 })
               }

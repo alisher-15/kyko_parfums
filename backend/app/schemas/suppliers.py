@@ -35,6 +35,23 @@ class UnmatchedLine(BaseModel):
     barcode: str | None = None
 
 
+class UnreadableLine(BaseModel):
+    row: int
+    line: str
+    # What the price cell said.
+    value: str
+
+
+class SuspiciousLine(BaseModel):
+    variant_id: int
+    product_id: int
+    label: str
+    line: str
+    cost_old: Money | None
+    cost_new: Money
+    reason: str
+
+
 class PriceChangeLine(BaseModel):
     variant_id: int
     product_id: int
@@ -78,6 +95,13 @@ class PriceListReport(BaseModel):
     waiting_for_main: bool = False
     # Price changes first, then the largest cost changes; at most CHANGES_LIMIT.
     changes: list[PriceChangeLine]
+    # Lines whose price cell has something that is not a price: left out.
+    unreadable: list[UnreadableLine] = []
+    # Lines whose cost looks wrong (more than doubled or halved, or a first cost far from the
+    # retail price): the supplier's price is stored, the cost and prices are not changed.
+    suspicious: list[SuspiciousLine] = []
+    # Volumes whose cost went up while their prices could not follow by the markups.
+    prices_not_raised: int = 0
 
 
 class LinkIn(BaseModel):

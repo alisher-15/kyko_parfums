@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Consent } from "@/components/Consent";
 import { QuoteHints } from "@/components/QuoteHints";
 import { Empty, ErrorBox, Field, Spinner } from "@/components/ui";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, newNonce, requestKey, sessionWasEnded } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { TengeNote, useCurrency } from "@/lib/currency";
@@ -25,22 +25,73 @@ export default function CheckoutPage() {
   return <Checkout key={user?.id ?? "guest"} user={user} />;
 }
 
+type Form = {
+  contact_name: string;
+  contact_phone: string;
+  contact_email: string;
+  delivery_city: string;
+  delivery_address: string;
+  comment: string;
+};
+
+// What was typed survives a remount: logging in from here, or a session that ended meanwhile.
+const DRAFT_KEY = "kyko.checkout";
+
+function storage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function loadDraft(): Partial<Form> {
+  try {
+    return JSON.parse(storage()?.getItem(DRAFT_KEY) ?? "{}") as Partial<Form>;
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(form: Form | null): void {
+  try {
+    if (form) storage()?.setItem(DRAFT_KEY, JSON.stringify(form));
+    else storage()?.removeItem(DRAFT_KEY);
+  } catch {
+    // storage unavailable (private mode): the form simply isn't kept
+  }
+}
+
 function Checkout({ user }: { user: User | null }) {
   const { items, clear, ready } = useCart();
   const { quote, loading } = useQuote();
   const { money } = useCurrency();
   const router = useRouter();
-  const [form, setForm] = useState({
-    contact_name: user?.full_name ?? "",
-    contact_phone: user?.phone ?? "",
-    // A login like "admin" is not a deliverable address — don't prefill it into an email field.
-    contact_email: user?.email.includes("@") ? user.email : "",
-    delivery_city: "",
-    delivery_address: "",
-    comment: "",
+  const [form, setFormState] = useState<Form>(() => {
+    const draft = loadDraft();
+    const typed = Object.fromEntries(Object.entries(draft).filter(([, v]) => v));
+    return {
+      contact_name: user?.full_name ?? "",
+      contact_phone: user?.phone ?? "",
+      // A login like "admin" is not a deliverable address — don't prefill it into an email field.
+      contact_email: user?.email.includes("@") ? user.email : "",
+      delivery_city: "",
+      delivery_address: "",
+      comment: "",
+      ...typed,
+    };
   });
+  const setForm = (next: Form) => {
+    setFormState(next);
+    saveDraft(next);
+  };
+  // The server ended the session (before or on sending): the form comes back as a guest's, with
+  // what was typed and a note — never quietly a guest order at retail prices.
+  const [sessionEnded] = useState(() => !user && sessionWasEnded());
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // This checkout's key: pressing again after a lost answer returns the order already placed.
+  const nonce = useRef<string | null>(null);
 
   if (!ready) return <Spinner />;
   if (items.length === 0) {
@@ -62,16 +113,20 @@ function Checkout({ user }: { user: User | null }) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    nonce.current ??= newNonce();
     try {
+      const lines = items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity }));
       const order = await api<PlacedOrder>("/orders", {
         body: {
           ...form,
           contact_email: form.contact_email || null,
           comment: form.comment || null,
-          items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
+          items: lines,
+          request_key: requestKey(nonce.current, lines),
         },
       });
       clear();
+      saveDraft(null);
       router.push(
         order.guest_key
           ? `/orders/${order.id}?key=${encodeURIComponent(order.guest_key)}&created=1`
@@ -94,7 +149,16 @@ function Checkout({ user }: { user: User | null }) {
       <h1 className="mb-6 font-serif text-4xl font-bold">Оформление заказа</h1>
       <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
         <form onSubmit={submit} className="card space-y-4 p-6">
-          {!user && (
+          {!user && sessionEnded && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm">
+              Вход истёк, заказ не отправлен.{" "}
+              <Link href="/login?next=/checkout" className="font-semibold text-gold hover:underline">
+                Войдите снова
+              </Link>
+              , чтобы оформить его по вашим ценам — введённые данные сохранены.
+            </div>
+          )}
+          {!user && !sessionEnded && (
             <div className="rounded-xl bg-cream px-4 py-3 text-sm">
               Можно без регистрации — по розничным ценам.{" "}
               <Link href="/login?next=/checkout" className="font-semibold text-gold hover:underline">

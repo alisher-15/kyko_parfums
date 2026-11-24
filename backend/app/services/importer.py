@@ -366,6 +366,10 @@ def import_catalog(
     tree = categories.load_tree(db)
     # New products of rows without a section: the file is a perfume list, as it used to be.
     default_section = categories.default_perfume_section(db)
+    if "stock" in columns and not dry_run:
+        # The file's stock is absolute: lock every volume (in id order, as checkout does) before
+        # reading them, so an order placed during the import is not overwritten by the file.
+        db.execute(select(ProductVariant.id).order_by(ProductVariant.id).with_for_update())
     products = products_by_key(db)
     sku_owner: dict[str, ProductVariant] = {
         v.sku: v for v in db.scalars(select(ProductVariant).where(ProductVariant.sku.is_not(None)))
@@ -529,6 +533,16 @@ def import_catalog(
             except ValueError as e:
                 st.errors.append(ImportRowError(row=row_no, error=f"{what}: {e}"))
                 continue
+            if "stock" in new and new["stock"] != variant.stock and variant.stock < 0:
+                # A minus is what customers are owed by their orders: a file doesn't know them.
+                st.errors.append(
+                    ImportRowError(
+                        row=row_no,
+                        error=f"{what}: остаток не изменён — {-variant.stock} шт. ждут клиенты "
+                        "по заказам; пришедший товар оформите «Приёмкой»",
+                    )
+                )
+                del new["stock"]
             changed = {k for k, v in new.items() if getattr(variant, k) != v}
             if changed:
                 new_stock = new.pop("stock", None)

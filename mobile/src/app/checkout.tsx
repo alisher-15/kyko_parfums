@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { Consent, QuoteHints, TengeNote } from "@/components/shop";
 import {
@@ -14,7 +14,7 @@ import {
   Title,
   Txt,
 } from "@/components/ui";
-import { ApiError, api, errorText } from "@/lib/api";
+import { ApiError, api, errorText, newNonce, onSignedOut, requestKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
@@ -23,13 +23,32 @@ import { useQuote } from "@/lib/queries";
 import type { Order } from "@/lib/types";
 import { colors, fonts } from "@/theme";
 
+type Form = {
+  contact_name: string;
+  contact_phone: string;
+  contact_email: string;
+  delivery_city: string;
+  delivery_address: string;
+  comment: string;
+};
+
+// What was typed outlives the screen while the app runs: a session that ends sends the customer
+// to log in, and the form comes back as it was. Cleared once the order is placed.
+let draft: Partial<Form> = {};
+// The server ended the session (a password change, expiry), not a logout: the login prompt says
+// that nothing was sent.
+let sessionEnded = false;
+onSignedOut(() => {
+  sessionEnded = true;
+});
+
 export default function CheckoutScreen() {
   const { user } = useAuth();
   const { items, clear, ready } = useCart();
   const quote = useQuote(items);
   const { money } = useCurrency();
   const queryClient = useQueryClient();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<Form>(() => ({
     contact_name: user?.full_name ?? "",
     contact_phone: user?.phone ?? "",
     // A login like "admin" is not a deliverable address: don't prefill it into the email field.
@@ -37,16 +56,26 @@ export default function CheckoutScreen() {
     delivery_city: "",
     delivery_address: "",
     comment: "",
-  });
+    ...Object.fromEntries(Object.entries(draft).filter(([, v]) => v)),
+  }));
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [consent, setConsent] = useState(false);
+  // This checkout's key: pressing again after a lost answer returns the order already placed.
+  const nonce = useRef<string | null>(null);
+  useEffect(() => {
+    if (user) sessionEnded = false;
+  }, [user]);
 
   if (!user) {
     return (
       <EmptyState
         icon="person-outline"
-        title="Войдите, чтобы оформить заказ"
+        title={
+          sessionEnded
+            ? "Вход истёк, заказ не отправлен. Войдите снова — данные формы сохранены"
+            : "Войдите, чтобы оформить заказ"
+        }
         action={
           <Button
             title="Войти"
@@ -67,8 +96,12 @@ export default function CheckoutScreen() {
     );
   }
 
-  const set = (key: keyof typeof form) => (value: string) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const set = (key: keyof Form) => (value: string) =>
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      draft = next;
+      return next;
+    });
   const missing =
     !form.contact_name.trim() ||
     form.contact_phone.trim().length < 3 ||
@@ -79,6 +112,8 @@ export default function CheckoutScreen() {
   const submit = async () => {
     setError(null);
     setSubmitting(true);
+    nonce.current ??= newNonce();
+    const lines = items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity }));
     try {
       const order = await api<Order>("/orders", {
         body: {
@@ -88,10 +123,12 @@ export default function CheckoutScreen() {
           delivery_city: form.delivery_city.trim(),
           delivery_address: form.delivery_address.trim(),
           comment: form.comment.trim() || null,
-          items: items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
+          items: lines,
+          request_key: requestKey(nonce.current, lines),
         },
       });
       clear();
+      draft = {};
       void queryClient.invalidateQueries({ queryKey: ["/orders"] });
       router.dismissAll();
       router.push({ pathname: "/orders/[id]", params: { id: order.id, created: "1" } });

@@ -476,6 +476,22 @@ export interface PriceListReport {
   /** Another supplier's list before the main supplier's first one: costs stay as they are. */
   waiting_for_main: boolean;
   changes: PriceChangeLine[];
+  /** Lines whose price cell has something that is not a price: left out. */
+  unreadable: { row: number; line: string; value: string }[];
+  /** Lines whose cost looks wrong: the supplier's price is kept, cost and prices are not changed. */
+  suspicious: SuspiciousLine[];
+  /** Volumes whose cost went up while their prices could not follow by the markups. */
+  prices_not_raised: number;
+}
+
+export interface SuspiciousLine {
+  variant_id: number;
+  product_id: number;
+  label: string;
+  line: string;
+  cost_old: number | null;
+  cost_new: number;
+  reason: string;
 }
 
 export interface LinksReport {

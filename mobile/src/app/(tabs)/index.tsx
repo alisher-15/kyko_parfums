@@ -44,46 +44,54 @@ export default function HomeScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.cream }}
-      contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 96 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />
-      }
-    >
-      <View style={styles.header}>
-        <Txt style={styles.logo} accessibilityRole="header">
-          Kyko
-        </Txt>
-        <CurrencySwitch />
-      </View>
-
-      <Pressable
-        accessibilityRole="search"
-        onPress={() => router.navigate("/catalog")}
-        style={styles.search}
+    // The status bar's room is outside the scroll, so the search sticks just below it.
+    <View style={{ flex: 1, backgroundColor: colors.cream, paddingTop: insets.top }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
+        // The search (the second child) stays at the top while the page scrolls under it.
+        stickyHeaderIndices={[1]}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />
+        }
       >
-        <Ionicons name="search" size={18} color={colors.muted} />
-        <Muted>Поиск по аромату или бренду</Muted>
-      </Pressable>
-
-      {!!promotions.data?.length && (
-        <View style={{ marginTop: 12 }}>
-          <PromotionRail promotions={promotions.data} />
+        <View style={styles.header}>
+          <Txt style={styles.logo} accessibilityRole="header">
+            Kyko
+          </Txt>
+          <CurrencySwitch />
         </View>
-      )}
 
-      <TrustRow />
-      <StartGrid />
-      <Hits />
-      <Testers />
-      <Choice />
-      <Budget />
-      <Consult />
-      <Recent />
-      {!!brands.data?.length && <BrandsLine brands={brands.data} />}
-      <Wholesale />
-    </ScrollView>
+        <View style={styles.searchBar}>
+          <Pressable
+            accessibilityRole="search"
+            testID="home-search"
+            onPress={() => router.navigate("/catalog")}
+            style={styles.search}
+          >
+            <Ionicons name="search" size={18} color={colors.muted} />
+            <Muted>Поиск по аромату или бренду</Muted>
+          </Pressable>
+        </View>
+
+        {!!promotions.data?.length && (
+          <View style={{ marginTop: 4 }}>
+            <PromotionRail promotions={promotions.data} />
+          </View>
+        )}
+
+        <TrustRow />
+        <StartGrid />
+        <Hits />
+        <Testers />
+        <Choice />
+        <Budget />
+        <Consult />
+        <Recent />
+        {!!brands.data?.length && <BrandsLine brands={brands.data} />}
+        <Wholesale />
+      </ScrollView>
+    </View>
   );
 }
 
@@ -95,9 +103,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   logo: { fontFamily: fonts.serifBold, fontSize: 30, lineHeight: 36 },
+  searchBar: { backgroundColor: colors.cream, paddingTop: 12, paddingBottom: 8 },
   search: {
     marginHorizontal: 16,
-    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,

@@ -487,7 +487,8 @@ export function BrandsLine({ brands }: { brands: Brand[] }) {
         accessibilityRole="link"
         hitSlop={8}
         onPress={() => router.push("/brands" as Href)}
-        style={{ paddingRight: 16 }}
+        // Room between the line's last chip, cut at the edge, and the link.
+        style={{ paddingLeft: 10, paddingRight: 16 }}
       >
         <Txt style={styles.more}>Все →</Txt>
       </Pressable>

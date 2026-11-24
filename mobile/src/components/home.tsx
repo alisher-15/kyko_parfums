@@ -140,19 +140,23 @@ export function TrustRow() {
 }
 
 /**
- * A way into the catalog with its count and a photo of its most popular product (a query of one
- * product, sorted by sales). Hidden while it has no products.
+ * A way into the catalog with its count and a picture: a section's own (`image`, set in
+ * «Категории»), else a photo of its most popular product (a query of one product, sorted by
+ * sales). Hidden while it has no products.
  */
 function EntryTile({
   title,
   params,
   size,
   note,
+  image: ownImage,
   dark = false,
   onPress,
 }: {
   title: string;
   params: Params;
+  /** A section's own picture (set in «Категории»), instead of its most popular product's. */
+  image?: string | null;
   /** The tile's side in points: the grid works it out from the screen's width. */
   size: number;
   note?: (total: number) => string;
@@ -169,7 +173,7 @@ function EntryTile({
   const box = { width: size, height: size };
   if (!data) return <View style={[styles.entry, box, styles.placeholder]} />;
   if (data.total === 0) return null;
-  const image = assetUrl(data.items[0]?.image_url);
+  const image = assetUrl(ownImage || data.items[0]?.image_url);
   return (
     <Pressable
       accessibilityRole="link"
@@ -247,6 +251,7 @@ export function StartGrid() {
             title={c.name}
             params={{ category_id: c.id }}
             note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
+            image={c.image_url}
             onPress={() => openCategory(tree ?? [], c)}
           />
         ))}

@@ -5,7 +5,7 @@ import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Публичная оферта",
-  description: "Условия продажи товаров в интернет-магазине Kyko Parfum: заказ, цены, оплата, доставка, возврат.",
+  description: "Условия продажи товаров в интернет-магазине Kyko: заказ, цены, оплата, доставка, возврат.",
 };
 
 export default function OfferPage() {

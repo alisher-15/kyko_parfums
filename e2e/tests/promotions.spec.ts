@@ -1,24 +1,24 @@
 import { adminToken, api, createProduct, expect, loginAsAdmin, newCustomer, placeOrder, test } from "./support";
 
-test("новинка: галочка в карточке товара ставит его в «Новые поступления»", async ({ page, openPage }) => {
+test("новинка: галочка в карточке товара ставит его в «Выбор Kyko»", async ({ page, openPage }) => {
   const admin = await adminToken();
   const { product } = await createProduct(admin, [{ volume_ml: 50, stock: 5, retail_price: 30000 }]);
   try {
     await loginAsAdmin(page);
     await page.goto(`/admin/products/${product.id}`);
-    await page.getByLabel(/^Новинка/).check();
+    await page.getByLabel(/^Выбор Kyko/).check();
     await page.getByRole("button", { name: "Сохранить изменения" }).click();
     await expect.poll(async () => (await api("GET", `/admin/products/${product.id}`, admin)).is_new).toBe(true);
-    await expect(page.getByLabel(/^Новинка/)).toBeChecked();
+    await expect(page.getByLabel(/^Выбор Kyko/)).toBeChecked();
 
     const guest = await openPage();
     await guest.goto("/");
-    const block = guest.locator("section", { has: guest.getByRole("heading", { name: "Новые поступления" }) });
+    const block = guest.locator("section", { has: guest.getByRole("heading", { name: "Выбор Kyko" }) });
     const card = block.locator(`a[href='/products/${product.id}']`);
     await expect(card).toBeVisible();
-    await expect(card.getByText("Новинка")).toBeVisible();
-    await block.getByRole("link", { name: "Все новинки →" }).click();
-    await expect(guest.getByRole("heading", { name: "Новинки" })).toBeVisible();
+    await expect(card.getByText("Выбор Kyko")).toBeVisible();
+    await block.getByRole("link", { name: "Все →", exact: true }).click();
+    await expect(guest.getByRole("heading", { name: "Выбор Kyko", level: 1 })).toBeVisible();
     await expect(guest.locator(`a[href='/products/${product.id}']`).first()).toBeVisible();
   } finally {
     await api("PATCH", `/admin/products/${product.id}`, admin, { is_new: false });
@@ -95,7 +95,7 @@ test("акция: баннер, скидка в карточке и корзин
       await expect(page.getByText("Выключена").first()).toBeVisible();
       expect((await api("GET", `/products/${product.id}`)).variants[0]).toMatchObject({ price: 30000, deal: null });
       await guest.goto("/");
-      await expect(guest.getByText("Новые поступления")).toBeVisible();
+      await expect(guest.getByRole("heading", { name: "С чего начнём?" })).toBeVisible();
       await expect(guest.locator(`a[href='/catalog?promotion_id=${promotionId}']`)).toHaveCount(0);
     });
   } finally {

@@ -4,3 +4,10 @@ export const CONTACTS = [
   { kind: "telegram", label: "@KYK0_parfum", href: "https://t.me/KYK0_parfum" },
   { kind: "instagram", label: "@kyk0_parfum", href: "https://www.instagram.com/kyk0_parfum" },
 ] as const;
+
+const WHATSAPP = CONTACTS[0].href;
+
+/** A WhatsApp chat with the shop, with the first message typed in when `text` is given. */
+export function whatsappLink(text?: string): string {
+  return text ? `${WHATSAPP}?text=${encodeURIComponent(text)}` : WHATSAPP;
+}

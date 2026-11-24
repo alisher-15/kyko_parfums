@@ -15,6 +15,8 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
+import { View } from "react-native";
+import { WhatsAppButton } from "@/components/whatsapp-button";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
@@ -75,33 +77,37 @@ function Navigation() {
   if (!ready) return null;
 
   return (
-    <Stack
-      screenOptions={{
-        headerStyle: { backgroundColor: colors.cream },
-        headerShadowVisible: false,
-        headerTintColor: colors.ink,
-        headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 22 },
-        headerBackButtonDisplayMode: "minimal",
-        contentStyle: { backgroundColor: colors.cream },
-      }}
-    >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Главная" }} />
-      <Stack.Screen name="product/[id]" options={{ title: "" }} />
-      <Stack.Screen name="collection" options={{ title: "Каталог" }} />
-      <Stack.Screen name="brands" options={{ title: "Бренды" }} />
-      <Stack.Screen name="checkout" options={{ title: "Оформление" }} />
-      <Stack.Screen name="orders/index" options={{ title: "Мои заказы" }} />
-      <Stack.Screen name="orders/[id]" options={{ title: "Заказ" }} />
-      <Stack.Screen name="profile" options={{ title: "Профиль" }} />
-      <Stack.Screen name="change-password" options={{ title: "Смена пароля" }} />
-      <Stack.Screen name="wholesale" options={{ title: "Оптовые цены" }} />
-      <Stack.Screen name="delete-account" options={{ title: "Удаление аккаунта" }} />
-      <Stack.Screen name="login" options={{ title: "Вход", presentation: "modal" }} />
-      <Stack.Screen name="register" options={{ title: "Регистрация", presentation: "modal" }} />
-      <Stack.Screen
-        name="forgot-password"
-        options={{ title: "Восстановление", presentation: "modal" }}
-      />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.cream },
+          headerShadowVisible: false,
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 22 },
+          headerBackButtonDisplayMode: "minimal",
+          contentStyle: { backgroundColor: colors.cream },
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Главная" }} />
+        <Stack.Screen name="product/[id]" options={{ title: "" }} />
+        <Stack.Screen name="collection" options={{ title: "Каталог" }} />
+        <Stack.Screen name="categories" options={{ title: "Категории" }} />
+        <Stack.Screen name="brands" options={{ title: "Бренды" }} />
+        <Stack.Screen name="checkout" options={{ title: "Оформление" }} />
+        <Stack.Screen name="orders/index" options={{ title: "Мои заказы" }} />
+        <Stack.Screen name="orders/[id]" options={{ title: "Заказ" }} />
+        <Stack.Screen name="profile" options={{ title: "Профиль" }} />
+        <Stack.Screen name="change-password" options={{ title: "Смена пароля" }} />
+        <Stack.Screen name="wholesale" options={{ title: "Оптовые цены" }} />
+        <Stack.Screen name="delete-account" options={{ title: "Удаление аккаунта" }} />
+        <Stack.Screen name="login" options={{ title: "Вход", presentation: "modal" }} />
+        <Stack.Screen name="register" options={{ title: "Регистрация", presentation: "modal" }} />
+        <Stack.Screen
+          name="forgot-password"
+          options={{ title: "Восстановление", presentation: "modal" }}
+        />
+      </Stack>
+      <WhatsAppButton />
+    </View>
   );
 }

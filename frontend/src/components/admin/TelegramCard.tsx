@@ -62,7 +62,7 @@ function Setup() {
       <ol className="list-decimal space-y-2 pl-5">
         <li>
           В Telegram откройте <b>@BotFather</b>, отправьте <code>/newbot</code>, задайте имя
-          (например, «Kyko Parfum заказы») и адрес бота, который кончается на bot. В ответ придёт
+          (например, «Kyko заказы») и адрес бота, который кончается на bot. В ответ придёт
           токен: длинная строка с двоеточием.
         </li>
         <li>

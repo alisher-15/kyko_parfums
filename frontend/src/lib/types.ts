@@ -57,6 +57,8 @@ export interface Brand extends BrandBrief {
   logo_url: string | null;
   description: string | null;
   product_count: number;
+  /** In the running line of brands on the home page (top houses by default, the owner's choice). */
+  is_top: boolean;
 }
 
 export interface CurrencyInfo {
@@ -137,10 +139,20 @@ export interface ProductListItem {
   min_price: number | null;
   /** Distinct volumes: a bottle and a tester of one size count once. */
   volumes: number[];
-  /** Marked «Новинка» by an admin. */
+  /** Marked «Выбор Kyko» by an admin (products.new_at). */
   is_new: boolean;
   /** A running promotion lowers a price the viewer pays (the "−15%" badge). */
   deal: Deal | null;
+  /** The tester that saves the most against the bottle of its volume, at this viewer's prices. */
+  tester?: TesterOffer | null;
+  /** Units sold lately, only with sort=popular («Купили 41 раз»). */
+  sold?: number | null;
+}
+
+export interface TesterOffer {
+  volume_ml: number;
+  price: number;
+  bottle_price: number;
 }
 
 export interface PromotionPublic {
@@ -346,7 +358,7 @@ export interface AdminProduct {
   search_names: string | null;
   image_url: string | null;
   is_active: boolean;
-  /** «Новинка»: shown in «Новые поступления» on the home page. */
+  /** «Выбор Kyko»: shown in its block on the home page. */
   is_new: boolean;
   new_at: string | null;
   created_at: string;

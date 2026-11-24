@@ -56,7 +56,7 @@ def send_password_reset(to: str, raw_token: str) -> None:
         f"перейдите по ссылке (действует {s.password_reset_ttl_minutes} мин.):\n\n{link}\n\n"
         "Если вы не запрашивали восстановление, просто проигнорируйте это письмо."
     )
-    send_email(to, "Восстановление пароля — Kyko Parfum", body)
+    send_email(to, "Восстановление пароля — Kyko", body)
 
 
 # ---------- Orders ----------
@@ -104,7 +104,7 @@ def order_placed(order: Order) -> tuple[str, str]:
             _order_link(order),
         ]
     )
-    return f"Заказ №{order.id} принят — Kyko Parfum", body
+    return f"Заказ №{order.id} принят — Kyko", body
 
 
 def order_status(order: Order) -> tuple[str, str] | None:
@@ -122,4 +122,4 @@ def order_status(order: Order) -> tuple[str, str] | None:
             _order_link(order),
         ]
     )
-    return f"Заказ №{order.id} {word} — Kyko Parfum", body
+    return f"Заказ №{order.id} {word} — Kyko", body

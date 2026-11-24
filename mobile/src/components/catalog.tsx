@@ -24,7 +24,7 @@ import { colors, fonts, radius } from "@/theme";
 import { ProductCard } from "./product";
 import { Button, Chip, EmptyState, ErrorState, Field, Loader, Muted, Title, Txt } from "./ui";
 
-type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id" | "category_id">;
+type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id" | "category_id" | "id">;
 
 const SORTS = Object.keys(SORT_LABELS) as ProductSort[];
 
@@ -36,7 +36,9 @@ function countFilters(f: UserFilters): number {
     (f.type?.length ?? 0) +
     (f.min_price !== undefined || f.max_price !== undefined ? 1 : 0) +
     (f.on_sale ? 1 : 0) +
-    (f.is_new ? 1 : 0)
+    (f.is_new ? 1 : 0) +
+    (f.tester ? 1 : 0) +
+    (f.top ? 1 : 0)
   );
 }
 
@@ -415,9 +417,19 @@ function FiltersForm({ value, hideBrands, categoryId, onClose, onApply }: Filter
               onChange={(v) => setDraft((d) => ({ ...d, on_sale: v || undefined }))}
             />
             <ToggleRow
-              label="Новинки"
+              label="Выбор Kyko"
               value={!!draft.is_new}
               onChange={(v) => setDraft((d) => ({ ...d, is_new: v || undefined }))}
+            />
+            <ToggleRow
+              label="Тестеры"
+              value={!!draft.tester}
+              onChange={(v) => setDraft((d) => ({ ...d, tester: v || undefined }))}
+            />
+            <ToggleRow
+              label="Ниша и люкс"
+              value={!!draft.top}
+              onChange={(v) => setDraft((d) => ({ ...d, top: v || undefined }))}
             />
           </View>
           {data.genders.length > 0 && (
@@ -433,16 +445,11 @@ function FiltersForm({ value, hideBrands, categoryId, onClose, onApply }: Filter
             </Group>
           )}
           {!hideBrands && data.brands.length > 0 && (
-            <Group title="Бренд">
-              {data.brands.map((b) => (
-                <Chip
-                  key={b.id}
-                  label={`${b.name} · ${b.product_count}`}
-                  active={draft.brand_id?.includes(b.id)}
-                  onPress={() => toggle("brand_id", b.id)}
-                />
-              ))}
-            </Group>
+            <BrandFilter
+              brands={data.brands}
+              selected={draft.brand_id ?? []}
+              onToggle={(id) => toggle("brand_id", id)}
+            />
           )}
           {data.categories.length > 0 && (
             <Group title="Группа ароматов">
@@ -492,6 +499,108 @@ function FiltersForm({ value, hideBrands, categoryId, onClose, onApply }: Filter
         </View>
       )}
     </Sheet>
+  );
+}
+
+/** The brands with the most products shown at first; the rest behind «Все бренды». */
+const BRANDS_SHOWN = 10;
+
+/**
+ * The brand filter: a search field, the biggest brands (and the chosen ones) as chips, and every
+ * brand as a list with check marks after «Все бренды» or while searching, so hundreds of brands
+ * never pour out at once.
+ */
+function BrandFilter({
+  brands,
+  selected,
+  onToggle,
+}: {
+  brands: Filters["brands"];
+  selected: number[];
+  onToggle: (id: number) => void;
+}) {
+  const [text, setText] = useState("");
+  const [all, setAll] = useState(false);
+  const q = text.trim().toLowerCase();
+  const asList = all || !!q;
+  const list = brands
+    .filter((b) => !q || b.name.toLowerCase().includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const top = [
+    ...brands.filter((b) => selected.includes(b.id)),
+    ...[...brands]
+      .sort((a, b) => b.product_count - a.product_count)
+      .filter((b) => !selected.includes(b.id))
+      .slice(0, BRANDS_SHOWN),
+  ];
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <Txt style={styles.groupTitle}>
+          Бренд{selected.length ? ` · выбрано ${selected.length}` : ""}
+        </Txt>
+        {asList && !q && (
+          <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setAll(false)}>
+            <Txt style={styles.link}>Свернуть</Txt>
+          </Pressable>
+        )}
+      </View>
+      {brands.length > BRANDS_SHOWN && (
+        <View style={[styles.search, { height: 40 }]}>
+          <Ionicons name="search" size={16} color={colors.muted} />
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder="Найти бренд"
+            placeholderTextColor={colors.faint}
+            style={[styles.searchInput, { fontSize: 15 }]}
+            autoCorrect={false}
+            accessibilityLabel="Найти бренд"
+          />
+        </View>
+      )}
+      {asList ? (
+        <View style={styles.brandList}>
+          {list.length === 0 && <Muted style={{ padding: 12 }}>Ничего не нашлось</Muted>}
+          {list.map((b) => {
+            const on = selected.includes(b.id);
+            return (
+              <Pressable
+                key={b.id}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                onPress={() => onToggle(b.id)}
+                style={styles.brandRow}
+              >
+                <Ionicons
+                  name={on ? "checkbox" : "square-outline"}
+                  size={20}
+                  color={on ? colors.gold : colors.faint}
+                />
+                <Txt style={{ flex: 1, fontFamily: on ? fonts.sansSemi : fonts.sans }}>
+                  {b.name}
+                </Txt>
+                <Muted style={{ fontSize: 12 }}>{b.product_count}</Muted>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {top.map((b) => (
+            <Chip
+              key={b.id}
+              label={b.name}
+              active={selected.includes(b.id)}
+              onPress={() => onToggle(b.id)}
+            />
+          ))}
+          {brands.length > top.length && (
+            <Chip label={`Все бренды · ${brands.length}`} onPress={() => setAll(true)} />
+          )}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -586,6 +695,23 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.line,
   },
   groupTitle: { fontFamily: fonts.sansBold, fontSize: 13, color: colors.muted },
+  link: { fontFamily: fonts.sansSemi, fontSize: 13, color: colors.gold },
+  brandList: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  },
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
+  },
   toggle: {
     flexDirection: "row",
     alignItems: "center",

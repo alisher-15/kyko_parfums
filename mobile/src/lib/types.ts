@@ -9,7 +9,7 @@ export type PricingMode = "order_total" | "item_quantity";
 export type OrderStatus = "new" | "processing" | "shipped" | "delivered" | "cancelled";
 export type OrderChannel = "online" | "store";
 export type PaymentMethod = "cash" | "card" | "transfer" | "other";
-export type ProductSort = "default" | "price_asc" | "price_desc" | "name" | "new";
+export type ProductSort = "default" | "price_asc" | "price_desc" | "name" | "new" | "popular";
 
 export interface Page<T> {
   items: T[];
@@ -46,6 +46,8 @@ export interface Brand extends BrandBrief {
   logo_url: string | null;
   description: string | null;
   product_count: number;
+  /** In the running line of brands on the home screen (top houses by default, the owner's choice). */
+  is_top: boolean;
 }
 
 export interface CurrencyInfo {
@@ -121,10 +123,20 @@ export interface ProductListItem {
   min_price: number | null;
   /** Distinct volumes: a bottle and a tester of one size count once. */
   volumes: number[];
-  /** Marked «Новинка» by an admin. */
+  /** Marked «Выбор Kyko» by an admin (products.new_at). */
   is_new: boolean;
   /** A running promotion lowers a price the viewer pays (the "−15%" badge). */
   deal: Deal | null;
+  /** The tester that saves the most against the bottle of its volume, at this viewer's prices. */
+  tester?: TesterOffer | null;
+  /** Units sold lately, only with sort=popular («Купили 41 раз»). */
+  sold?: number | null;
+}
+
+export interface TesterOffer {
+  volume_ml: number;
+  price: number;
+  bottle_price: number;
 }
 
 export interface ProductDetail extends ProductListItem {

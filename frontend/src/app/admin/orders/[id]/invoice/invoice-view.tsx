@@ -30,7 +30,7 @@ export function InvoiceView({ id }: { id: number }) {
   const date = new Date(order.created_at).toLocaleDateString("ru-RU");
   const address = [order.delivery_city, order.delivery_address].filter(Boolean).join(", ");
   const info: [string, string | null][] = [
-    ["Продавец", "Kyko Parfum"],
+    ["Продавец", "Kyko"],
     [
       "Покупатель",
       order.contact_name || (order.channel === "store" ? "Покупатель в магазине" : null),

@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { ImageUpload } from "@/components/admin/image-upload";
-import { AdminScreen, SearchBox, confirm } from "@/components/admin/kit";
+import { AdminScreen, Pill, SearchBox, Toggle, confirm } from "@/components/admin/kit";
 import { ProductImage } from "@/components/product";
 import { Button, ErrorState, Field, Loader, Muted, Notice, Txt } from "@/components/ui";
 import { api, errorText } from "@/lib/api";
@@ -125,6 +125,7 @@ function BrandRow({
 }) {
   const [name, setName] = useState(brand.name);
   const [logo, setLogo] = useState(brand.logo_url);
+  const [top, setTop] = useState(brand.is_top);
   const [description, setDescription] = useState(brand.description ?? "");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -163,6 +164,7 @@ function BrandRow({
             {brand.product_count} {plural(brand.product_count, "товар", "товара", "товаров")}
           </Muted>
         </View>
+        {brand.is_top && <Pill tone="gold" label="на главной" />}
         <Muted>{open ? "▲" : "▼"}</Muted>
       </Pressable>
       {open && (
@@ -175,6 +177,12 @@ function BrandRow({
             onChange={setLogo}
             previewStyle={{ width: 96, height: 96 }}
             hint="Логотип для страницы брендов."
+          />
+          <Toggle
+            label="На главной"
+            hint="В строке «Бренды» на главной и в «Ниша и люкс». Дорогие дома отмечаются сами"
+            value={top}
+            onChange={setTop}
           />
           <Field label="Описание" value={description} onChangeText={setDescription} multiline />
           {msg && <Notice tone={msg.ok ? "success" : "error"}>{msg.text}</Notice>}
@@ -192,6 +200,7 @@ function BrandRow({
                       body: {
                         name: name.trim(),
                         logo_url: logo,
+                        is_top: top,
                         description: description.trim() || null,
                       },
                     }),

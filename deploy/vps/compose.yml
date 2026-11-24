@@ -1,4 +1,4 @@
-# Kyko Parfum on one VPS in Kazakhstan: PostgreSQL, the site (the all-in-one image of the root
+# Kyko on one VPS in Kazakhstan: PostgreSQL, the site (the all-in-one image of the root
 # Dockerfile: Next.js + FastAPI) and Caddy, which gets and renews the HTTPS certificate for the
 # domain by itself. How to use it: deploy/vps/README.md.
 name: kyko

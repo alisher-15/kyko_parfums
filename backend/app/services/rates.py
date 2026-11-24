@@ -40,7 +40,7 @@ def fetch_html() -> str:
     if not url:
         raise RateError("источник курса отключён, укажите курс вручную")
     request = urllib.request.Request(
-        url, headers={"User-Agent": "Mozilla/5.0 (compatible; KykoParfum/1.0)"}
+        url, headers={"User-Agent": "Mozilla/5.0 (compatible; Kyko/1.0)"}
     )
     with urllib.request.urlopen(request, timeout=FETCH_TIMEOUT) as response:  # noqa: S310
         raw = response.read(2_000_000)

@@ -66,20 +66,16 @@ def list_brands(q: str | None = None, db: Session = Depends(get_db)):
     )
     if q:
         stmt = stmt.where(Brand.name.ilike(contains(q)))
-    return [
-        BrandOut(
-            id=b.id, name=b.name, logo_url=b.logo_url, description=b.description, product_count=c
-        )
-        for b, c in db.execute(stmt).all()
-    ]
+    return [BrandOut.of(b, c) for b, c in db.execute(stmt).all()]
 
 
 @router.post("/brands", response_model=BrandOut, status_code=status.HTTP_201_CREATED)
 def create_brand(data: BrandIn, db: Session = Depends(get_db)):
-    brand = Brand(**data.model_dump())
+    # Unset, is_top is the column's default: a top house by its name.
+    brand = Brand(**data.model_dump(exclude_none=True))
     db.add(brand)
     _commit(db, "Бренд с таким названием уже существует")
-    return BrandOut(**data.model_dump(), id=brand.id, product_count=0)
+    return BrandOut.of(brand, 0)
 
 
 @router.patch("/brands/{brand_id}", response_model=BrandOut)
@@ -88,16 +84,12 @@ def update_brand(brand_id: int, data: BrandUpdate, db: Session = Depends(get_db)
     if brand is None:
         raise HTTPException(404, "Бренд не найден")
     for k, v in data.model_dump(exclude_unset=True).items():
+        if k == "is_top" and v is None:
+            continue
         setattr(brand, k, v.strip() if k == "name" and v else v)
     _commit(db, "Бренд с таким названием уже существует")
     count = db.scalar(select(func.count(Product.id)).where(Product.brand_id == brand.id)) or 0
-    return BrandOut(
-        id=brand.id,
-        name=brand.name,
-        logo_url=brand.logo_url,
-        description=brand.description,
-        product_count=count,
-    )
+    return BrandOut.of(brand, count)
 
 
 @router.delete("/brands/{brand_id}", status_code=status.HTTP_204_NO_CONTENT)

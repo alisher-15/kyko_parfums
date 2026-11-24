@@ -40,6 +40,12 @@ export interface ProductFilters {
   max_price?: number;
   is_new?: boolean;
   on_sale?: boolean;
+  /** Products with a tester cheaper than its bottle. */
+  tester?: boolean;
+  /** The top houses' products («Ниша и люкс»). */
+  top?: boolean;
+  /** These products only («Вы смотрели»). */
+  id?: number[];
   promotion_id?: number;
   sort?: ProductSort;
 }

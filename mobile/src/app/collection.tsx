@@ -5,8 +5,8 @@ import type { ProductFilters } from "@/lib/queries";
 import type { ProductSort } from "@/lib/types";
 
 /**
- * Part of the catalog opened from somewhere else: a section tile, a brand, a promotion banner,
- * «Акции» or «Новинки» on the home screen. Search, filters and sort work on top of it.
+ * Part of the catalog opened from somewhere else: a home screen block («Хиты продаж», «Тестеры»,
+ * «Выбор Kyko», «Для неё», a budget…), a section, a brand or a promotion banner. Search, filters and sort work on top of it.
  */
 export default function CollectionScreen() {
   const params = useLocalSearchParams<{
@@ -16,6 +16,11 @@ export default function CollectionScreen() {
     promotion_id?: string;
     on_sale?: string;
     is_new?: string;
+    tester?: string;
+    top?: string;
+    gender?: string;
+    min_price?: string;
+    max_price?: string;
     sort?: string;
   }>();
 
@@ -29,6 +34,13 @@ export default function CollectionScreen() {
     if (Number.isInteger(promotion) && promotion > 0) f.promotion_id = promotion;
     if (params.on_sale === "true") f.on_sale = true;
     if (params.is_new === "true") f.is_new = true;
+    if (params.tester === "true") f.tester = true;
+    if (params.top === "true") f.top = true;
+    if (params.gender) f.gender = [params.gender];
+    const min = Number(params.min_price);
+    if (params.min_price && Number.isFinite(min)) f.min_price = min;
+    const max = Number(params.max_price);
+    if (params.max_price && Number.isFinite(max)) f.max_price = max;
     if (params.sort) f.sort = params.sort as ProductSort;
     return f;
   }, [
@@ -37,6 +49,11 @@ export default function CollectionScreen() {
     params.promotion_id,
     params.on_sale,
     params.is_new,
+    params.tester,
+    params.top,
+    params.gender,
+    params.min_price,
+    params.max_price,
     params.sort,
   ]);
 

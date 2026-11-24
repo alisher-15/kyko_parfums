@@ -216,7 +216,7 @@ export function ProductForm({
             checked={form.is_new}
             onChange={(e) => setForm({ ...form, is_new: e.target.checked })}
           />
-          Новинка — показывать в «Новых поступлениях» на главной
+          Выбор Kyko — показывать в блоке «Выбор Kyko» на главной
         </label>
         {msg && (msg.ok ? <SuccessBox>{msg.text}</SuccessBox> : <ErrorBox>{msg.text}</ErrorBox>)}
         {/* Until the brands and sections are loaded their lists have no choice: the form would not send. */}

@@ -9,11 +9,11 @@ test.describe("Поисковики и превью ссылок", () => {
     await page.goto(`/products/${coco.id}`);
     await expect(page.getByRole("heading", { name: coco.name })).toBeVisible();
     // Made on the server, so search engines and messengers see it without running the page.
-    await expect(page).toHaveTitle("Chanel Coco Mademoiselle EDP — Kyko Parfum");
+    await expect(page).toHaveTitle("Chanel Coco Mademoiselle EDP — Kyko");
     const meta = (selector: string) => page.locator(selector).getAttribute("content");
     expect(await meta("meta[name=description]")).toContain("цена от");
     expect(await meta("meta[property='og:title']")).toBe("Chanel Coco Mademoiselle EDP");
-    expect(await meta("meta[property='og:site_name']")).toBe("Kyko Parfum");
+    expect(await meta("meta[property='og:site_name']")).toBe("Kyko");
     expect(await meta("meta[property='og:url']")).toBe(`http://localhost:3000/products/${coco.id}`);
     // Demo products have no photo: the shop's own picture stands in.
     const image = await meta("meta[property='og:image']");

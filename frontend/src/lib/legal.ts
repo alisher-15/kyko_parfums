@@ -1,7 +1,7 @@
 // The seller's details for the offer and the privacy policy (/offer, /privacy). Fill them in
 // before the shop goes live; an empty field shows on the pages as a highlighted gap.
 export const SELLER = {
-  /** «ИП Иванова А. Б.» or «ТОО "Kyko Parfum"». */
+  /** «ИП Иванова А. Б.» or «ТОО "Kyko"». */
   name: "",
   /** ИИН (sole trader) or БИН (company). */
   idNumber: "",

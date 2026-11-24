@@ -55,18 +55,24 @@ export function ProductImage({
 
 /**
  * A product in a grid or a sideways row. `compact`: the home page's rows, a smaller card with
- * brand, name, price and volumes only.
+ * brand, name, price and volumes only. `note`: one more badge («Купили 41 раз»). `tester`: the
+ * card of the home page's «Тестеры»: the tester's price next to the bottle's, struck through.
  */
 export function ProductCard({
   product,
   width,
   compact = false,
+  note,
+  tester = false,
 }: {
   product: ProductListItem;
   width?: number;
   compact?: boolean;
+  note?: string;
+  tester?: boolean;
 }) {
   const { money } = useCurrency();
+  const offer = tester ? product.tester : null;
   const favorites = useFavorites();
   const liked = favorites.has(product.id);
   const meta = [product.gender && GENDER_LABELS[product.gender], product.category]
@@ -92,10 +98,19 @@ export function ProductCard({
           iconSize={compact ? 22 : undefined}
         />
         <View style={styles.badges}>
-          {product.deal && (
+          {!!note && <Badge small={compact} label={note} tone="ink" />}
+          {offer && (
+            <Badge
+              small={compact}
+              label={`−${Math.round((1 - offer.price / offer.bottle_price) * 100)}%`}
+            />
+          )}
+          {product.deal && !offer && (
             <Badge small={compact} label={percentOff(product.deal.discount_percent)} />
           )}
-          {product.is_new && <Badge small={compact} label="Новинка" tone="ink" />}
+          {product.is_new && !note && !offer && (
+            <Badge small={compact} label="Выбор Kyko" tone="ink" />
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -124,7 +139,14 @@ export function ProductCard({
           </Muted>
         )}
         <View style={[styles.bottom, compact && { paddingTop: 4 }]}>
-          {product.min_price !== null ? (
+          {offer ? (
+            <Txt style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
+              <Text style={[styles.from, styles.struck, compact && { fontSize: 11 }]}>
+                {money(offer.bottle_price)}
+              </Text>{" "}
+              {money(offer.price)}
+            </Txt>
+          ) : product.min_price !== null ? (
             <Txt style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
               <Text style={[styles.from, compact && { fontSize: 11 }]}>от </Text>
               {money(product.min_price)}
@@ -132,10 +154,16 @@ export function ProductCard({
           ) : (
             <Muted style={{ fontSize: 13 }}>Цена по запросу</Muted>
           )}
-          {product.volumes.length > 0 && (
+          {offer ? (
             <Muted style={[styles.meta, compact && styles.metaCompact]} numberOfLines={1}>
-              {product.volumes.join(" / ")} мл{product.type ? ` · ${product.type}` : ""}
+              тестер {offer.volume_ml} мл
             </Muted>
+          ) : (
+            product.volumes.length > 0 && (
+              <Muted style={[styles.meta, compact && styles.metaCompact]} numberOfLines={1}>
+                {product.volumes.join(" / ")} мл{product.type ? ` · ${product.type}` : ""}
+              </Muted>
+            )
           )}
         </View>
       </View>
@@ -183,6 +211,7 @@ export function QuantityStepper({
 }
 
 const styles = StyleSheet.create({
+  struck: { textDecorationLine: "line-through" },
   card: {
     flexShrink: 0,
     backgroundColor: colors.white,

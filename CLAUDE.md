@@ -116,6 +116,12 @@ Full stack: `docker compose up -d --build`.
 
 Work on a branch and open a PR into `main`. GitHub Actions (`.github/workflows/ci.yml`) runs the backend checks, the frontend checks, the mobile checks and the browser tests on every PR and on `main`; merge only when all four jobs are green. When a UI text or flow changes, update the matching spec in `e2e/tests/`. Render auto-deploys `main`; migrations run at container start via `python -m app.cli migrate`. Before pushing, run the same checks locally.
 
+## Review and planning agents (ECC)
+
+`.claude/agents/` holds twelve agents taken unchanged from [ECC / everything-claude-code](https://github.com/affaan-m/everything-claude-code) (MIT, `ECC-LICENSE`; commit `4adeee6`, 2026-11-19): `planner` and `architect` (plans and design, read-only), `code-reviewer`, `security-reviewer`, `silent-failure-hunter`, `database-reviewer`, `fastapi-reviewer`, `python-reviewer`, `typescript-reviewer`, `react-reviewer` (reviews of a diff or an area), `seo-specialist` and `marketing-agent` (the storefront). Only agents were taken: none of ECC's hooks, commands, installers or MCP configs. To update, copy the same files from a newer ECC commit and note it here.
+
+They don't know this project's deliberate choices; don't report or "fix" these as findings: JWT in localStorage on the site and in the Keychain/Keystore in the app (no cookies, single origin); client-rendered pages (prices depend on the role); sync SQLAlchemy sessions in FastAPI (`def` routes run in the threadpool); prices computed only on the server; the website and the app changed together in one PR. Every finding still needs the project's rules above (migrations, backward-compatible API, e2e specs).
+
 ## Migrations: required rule
 
 Every Alembic migration must declare a module-level `backward_compatible = True/False`: can the code from before this migration run on the schema after it? Use True for new tables, nullable or server-default columns and looser constraints. Use False for NOT NULL without a default, drops, renames and stricter constraints. `app/migrations.py` records the newest breaking revision in the `schema_compat` table, so a previous build can still start after a failed deploy. A migration without the flag won't be applied, and `tests/test_migrations.py` fails. Never rename or change `schema_compat`. Split breaking changes into two releases: first add, then tighten or drop. Name migration files `YYYYMMDD_NNNN_description.py` with sequential revision ids (`"0006"`).

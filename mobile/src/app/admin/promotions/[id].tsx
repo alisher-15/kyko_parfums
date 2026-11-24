@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { CreativeMaker } from "@/components/admin/creative-maker";
 import { ImageUpload } from "@/components/admin/image-upload";
 import {
   AdminScreen,
@@ -25,7 +26,7 @@ import { ProductImage } from "@/components/product";
 import { Button, Chip, ErrorState, Field, Loader, Muted, Notice, Txt } from "@/components/ui";
 import type { AdminProduct, Promotion } from "@/lib/admin-types";
 import { api, errorText } from "@/lib/api";
-import { PROMOTION_STATUS_LABELS, tenge, volumeLabel } from "@/lib/format";
+import { PROMOTION_STATUS_LABELS, dayMonth, percentOff, tenge, volumeLabel } from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import type { Brand, BrandBrief, Page } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
@@ -120,6 +121,8 @@ function EditPromotion({ id }: { id: number }) {
 function PromotionForm({ promotion }: { promotion?: Promotion }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormState>(() => toForm(promotion));
+  // The banner maker, filled from the form.
+  const [making, setMaking] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (key: keyof FormState) => (text: string) => setForm({ ...form, [key]: text });
@@ -189,6 +192,39 @@ function PromotionForm({ promotion }: { promotion?: Promotion }) {
           onChange={(url) => setForm({ ...form, image_url: url })}
           previewStyle={{ width: "100%", aspectRatio: 3 / 2 }}
         />
+        <Button
+          small
+          kind="outline"
+          icon={making ? "close" : "color-palette-outline"}
+          title={making ? "Скрыть шаблоны" : "Сделать по шаблону"}
+          testID="promotion-make-banner"
+          onPress={() => setMaking(!making)}
+        />
+        {making && (
+          <View style={{ gap: 8 }}>
+            <Muted style={{ fontSize: 12 }}>
+              Заголовок, скидка, дата и товары взяты из акции — поправьте и поставьте баннер. Текст
+              будет на картинке, поэтому включится «Готовый баннер».
+            </Muted>
+            <CreativeMaker
+              lockFormat
+              initial={{
+                format: "banner",
+                title: form.title,
+                subtitle: form.description.slice(0, 160),
+                badge: form.discount.trim()
+                  ? percentOff(Number(form.discount.replace(",", ".")))
+                  : "",
+                note: form.ends_on ? `до ${dayMonth(form.ends_on)}` : "",
+                products: form.scope === "products" ? form.products.slice(0, 3) : [],
+              }}
+              onUse={(url) => {
+                setForm({ ...form, image_url: url, image_only: true });
+                setMaking(false);
+              }}
+            />
+          </View>
+        )}
         {form.image_url && (
           <Toggle
             label="Готовый баннер: текст уже на картинке"

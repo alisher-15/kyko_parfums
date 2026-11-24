@@ -94,4 +94,28 @@ export async function saveAndShare(
   await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: filename });
 }
 
+/**
+ * A picture made in the app (a data URL, e.g. a banner preview) to the phone's «Поделиться»:
+ * Instagram, WhatsApp, Photos. In the web build it downloads.
+ */
+export async function shareDataUrl(dataUrl: string, filename: string): Promise<void> {
+  const [head, b64] = dataUrl.split(",", 2);
+  const mimeType = /data:([^;]+)/.exec(head)?.[1] ?? "image/jpeg";
+  if (Platform.OS === "web") {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+    return;
+  }
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const file = new File(Paths.cache, filename);
+  if (file.exists) file.delete();
+  file.create();
+  file.write(bytes);
+  await Sharing.shareAsync(file.uri, { mimeType, dialogTitle: filename });
+}
+
 export const XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";

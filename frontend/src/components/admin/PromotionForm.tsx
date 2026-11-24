@@ -3,9 +3,10 @@
 import { useState, type FormEvent } from "react";
 import { ErrorBox, Field, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
-import { money, volumeLabel } from "@/lib/format";
+import { dayMonth, money, percentOff, volumeLabel } from "@/lib/format";
 import type { AdminProduct, Brand, BrandBrief, Page, Promotion } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
+import { CreativeMaker } from "./CreativeMaker";
 import { ImageUpload } from "./ImageUpload";
 
 type ProductChoice = { id: number; name: string; type: string | null; image_url: string | null; brand: BrandBrief };
@@ -62,6 +63,8 @@ export function PromotionForm({
   onSaved: (p: Promotion) => void;
 }) {
   const [form, setForm] = useState<FormState>(() => toForm(promotion));
+  // The banner maker under the form, filled from it.
+  const [making, setMaking] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (key: keyof FormState) => (e: { target: { value: string } }) =>
@@ -125,6 +128,14 @@ export function PromotionForm({
             </span>
           </label>
         )}
+        <button
+          type="button"
+          className="btn btn-outline btn-sm mt-3"
+          aria-expanded={making}
+          onClick={() => setMaking(!making)}
+        >
+          {making ? "Скрыть шаблоны" : "Сделать по шаблону"}
+        </button>
         <p className="mt-2 text-xs text-muted">
           {form.image_url && form.image_only
             ? "Баннер — карточка 3:2 в ленте акций вверху главной, на телефоне их видно две с небольшим: картинка 1200×800 заполнит её целиком, без обрезки и полос. Карточка небольшая, поэтому пишите на картинке главное и крупно."
@@ -228,6 +239,30 @@ export function PromotionForm({
           {promotion ? "Сохранить акцию" : "Создать акцию"}
         </button>
       </div>
+      {making && (
+        <div className="border-t border-line pt-6 lg:col-span-2">
+          <h3 className="mb-1 font-serif text-xl font-semibold">Баннер по шаблону</h3>
+          <p className="mb-4 text-sm text-muted">
+            Заголовок, скидка, дата и товары взяты из акции — поправьте и поставьте баннер. Текст будет
+            на картинке, поэтому у акции включится «Готовый баннер».
+          </p>
+          <CreativeMaker
+            lockFormat
+            initial={{
+              format: "banner",
+              title: form.title,
+              subtitle: form.description.slice(0, 160),
+              badge: form.discount.trim() ? percentOff(Number(form.discount.replace(",", "."))) : "",
+              note: form.ends_on ? `до ${dayMonth(form.ends_on)}` : "",
+              products: form.scope === "products" ? form.products.slice(0, 3) : [],
+            }}
+            onUse={(url) => {
+              setForm({ ...form, image_url: url, image_only: true });
+              setMaking(false);
+            }}
+          />
+        </div>
+      )}
     </form>
   );
 }

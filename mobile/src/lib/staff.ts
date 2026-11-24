@@ -35,6 +35,7 @@ export interface AdminSection {
     | "/admin/products"
     | "/admin/categories"
     | "/admin/promotions"
+    | "/admin/creatives"
     | "/admin/brands"
     | "/admin/users"
     | "/admin/import"
@@ -101,6 +102,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     title: "Акции",
     hint: "Баннеры и скидки",
     icon: "megaphone-outline",
+    area: null,
+  },
+  {
+    href: "/admin/creatives",
+    title: "Баннеры и сторис",
+    hint: "Картинки по шаблону",
+    icon: "image-outline",
     area: null,
   },
   {

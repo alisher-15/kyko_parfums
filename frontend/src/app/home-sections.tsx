@@ -6,7 +6,6 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
 import { SearchIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
-import { ErrorBox } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
 import { CONTACTS, whatsappLink } from "@/lib/contacts";
@@ -424,26 +423,18 @@ export function HomeTesters() {
   );
 }
 
-/** «Выбор Kyko»: the products marked in the admin panel; while none are, the latest added. */
+/**
+ * «Выбор Kyko»: the products the shop recommends, marked in the admin panel (the latest marked
+ * first). No block while none are: the latest added products are no recommendation.
+ */
 export function HomeChoice() {
-  const marked = useApi<Page<ProductListItem>>("/products", {
+  const { data, error } = useApi<Page<ProductListItem>>("/products", {
     query: { is_new: true, sort: "new", page_size: 12 },
   });
-  const noneMarked = marked.data?.total === 0;
-  const latest = useApi<Page<ProductListItem>>(noneMarked ? "/products" : null, {
-    query: { sort: "new", page_size: 12 },
-  });
-  const shown = noneMarked ? latest : marked;
-  const more = noneMarked ? "/catalog?sort=new" : "/catalog?is_new=true";
+  if (error || !data || data.total === 0) return null;
   return (
-    <Section
-      title={noneMarked ? "Новые поступления" : "Выбор Kyko"}
-      hint={noneMarked ? undefined : "Что мы советуем сами"}
-      link={<More href={more} />}
-    >
-      {shown.error && <ErrorBox>Не удалось загрузить товары: {shown.error.message}</ErrorBox>}
-      {!shown.data && !shown.error && <RailSkeleton />}
-      {shown.data && <ProductRail label="Выбор Kyko" items={shown.data.items} more={more} />}
+    <Section title="Выбор Kyko" hint="Что мы советуем сами" link={<More href="/catalog?is_new=true" />}>
+      <ProductRail label="Выбор Kyko" items={data.items} more="/catalog?is_new=true" />
     </Section>
   );
 }

@@ -291,30 +291,24 @@ export function Testers() {
   );
 }
 
-/** «Выбор Kyko»: the products marked in the admin panel; while none are, the latest added. */
+/**
+ * «Выбор Kyko»: the products the shop recommends, marked in the admin panel (the latest marked
+ * first), as on the website. No block while none are.
+ */
 export function Choice() {
-  const marked = useApi<Page<ProductListItem>>("/products", {
+  const { data } = useApi<Page<ProductListItem>>("/products", {
     is_new: true,
     sort: "new",
     page_size: 12,
   });
-  const noneMarked = marked.data?.total === 0;
-  const latest = useApi<Page<ProductListItem>>(noneMarked ? "/products" : null, {
-    sort: "new",
-    page_size: 12,
-  });
-  const shown = noneMarked ? latest : marked;
-  if (!shown.data?.items.length) return null;
-  const title = noneMarked ? "Новые поступления" : "Выбор Kyko";
+  if (!data?.items.length) return null;
   return (
     <Section
-      title={title}
-      hint={noneMarked ? undefined : "Что мы советуем сами"}
-      more={() =>
-        openCollection(title, noneMarked ? { sort: "new" } : { is_new: "true", sort: "new" })
-      }
+      title="Выбор Kyko"
+      hint="Что мы советуем сами"
+      more={() => openCollection("Выбор Kyko", { is_new: "true", sort: "new" })}
     >
-      <Rail items={shown.data.items} />
+      <Rail items={data.items} />
     </Section>
   );
 }

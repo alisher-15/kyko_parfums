@@ -13,11 +13,24 @@ export interface PickedFile {
   part: Blob | { uri: string; name: string; type: string };
 }
 
-/** A FormData with one file under `field` (the API takes uploads as `file`). */
+/**
+ * A FormData with one file under `field` (the API takes uploads as `file`).
+ *
+ * The browser takes a Blob and a name. On phones the app's `fetch` is Expo's (`expo/fetch`,
+ * installed globally since SDK 52), which can't send React Native's `{uri, name, type}` parts:
+ * it reads a part through `bytes()`. So the phone's file goes in as a part that reads its bytes
+ * from disk when the request is sent.
+ */
 export function formWith(file: PickedFile, field = "file"): FormData {
   const form = new FormData();
-  // React Native's FormData takes {uri, name, type}; the browser's takes a Blob and a name.
-  form.append(field, file.part as Blob, file.name);
+  const part = file.part;
+  if (part instanceof Blob) {
+    form.append(field, part, file.name);
+  } else {
+    const onDisk = new File(part.uri);
+    const upload = { name: file.name, type: file.type, bytes: () => onDisk.bytes() };
+    form.append(field, upload as unknown as Blob, file.name);
+  }
   return form;
 }
 

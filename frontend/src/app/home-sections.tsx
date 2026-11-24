@@ -265,20 +265,23 @@ export function HomeTrust() {
 }
 
 /**
- * A way into the catalog with its count and a photo of its most popular product (a query of one
- * product, sorted by sales). Hidden while it has no products.
+ * A way into the catalog with its count and a picture: a section's own (`image`, the one set in
+ * «Категории»), else a photo of its most popular product (a query of one product, sorted by
+ * sales). Hidden while it has no products.
  */
 function EntryTile({
   href,
   title,
   note,
   query,
+  image: ownImage,
   dark = false,
 }: {
   href: string;
   title: string;
   note?: (total: number) => string;
   query: Record<string, string | number | boolean>;
+  image?: string | null;
   dark?: boolean;
 }) {
   const { data } = useApi<Page<ProductListItem>>("/products", {
@@ -286,7 +289,7 @@ function EntryTile({
   });
   if (!data) return <div aria-hidden className="aspect-square animate-pulse rounded-2xl bg-stone-100" />;
   if (data.total === 0) return null;
-  const image = data.items[0]?.image_url;
+  const image = ownImage || data.items[0]?.image_url;
   return (
     <Link
       href={href}
@@ -348,6 +351,7 @@ export function HomeStart() {
             title={c.name}
             note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
             query={{ category_id: c.id }}
+            image={c.image_url}
           />
         ))}
       </nav>

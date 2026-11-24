@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kyko Parfum on an Ubuntu server in one command (as root):
+# Kyko on an Ubuntu server in one command (as root):
 #
 #   curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy/vps/install.sh | bash
 #

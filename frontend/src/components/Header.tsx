@@ -16,6 +16,7 @@ const NAV = [
   { href: "/catalog?gender=female", label: "Женские" },
   { href: "/catalog?gender=male", label: "Мужские" },
   { href: "/catalog?gender=unisex", label: "Унисекс" },
+  { href: "/catalog?tester=true", label: "Тестеры" },
   { href: "/brands", label: "Бренды" },
 ];
 
@@ -55,7 +56,7 @@ export function Header() {
         </button>
 
         <Link href="/" className="font-serif text-2xl font-bold tracking-wide whitespace-nowrap">
-          Kyko <span className="text-gold">Parfum</span>
+          Kyko
         </Link>
 
         <nav className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">

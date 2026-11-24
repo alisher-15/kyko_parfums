@@ -15,6 +15,9 @@ export const CONTACTS = [
   },
 ] as const;
 
+/** WhatsApp, where orders, payment and delivery are agreed (the floating button). */
+export const WHATSAPP = CONTACTS[0].href;
+
 /** A WhatsApp link that opens a chat with a ready message, e.g. about a product. */
 export function whatsappAbout(text: string): string {
   return `${CONTACTS[0].href}?text=${encodeURIComponent(text)}`;

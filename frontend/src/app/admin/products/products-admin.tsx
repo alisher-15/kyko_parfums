@@ -209,7 +209,7 @@ export function ProductsAdmin() {
             checked={onlyNew}
             onChange={(e) => setFilters({ is_new: e.target.checked })}
           />
-          Новинки
+          Выбор Kyko
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -258,7 +258,7 @@ export function ProductsAdmin() {
                       <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
                         {p.is_active ? "На сайте" : "Скрыт"}
                       </span>
-                      {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                      {p.is_new && <span className="chip text-gold-dark">Выбор Kyko</span>}
                     </div>
                   </div>
                   <div className="mt-1 space-y-0.5 text-xs">
@@ -345,7 +345,7 @@ export function ProductsAdmin() {
                         <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
                           {p.is_active ? "На сайте" : "Скрыт"}
                         </span>
-                        {p.is_new && <span className="chip text-gold-dark">Новинка</span>}
+                        {p.is_new && <span className="chip text-gold-dark">Выбор Kyko</span>}
                       </div>
                     </td>
                   </tr>

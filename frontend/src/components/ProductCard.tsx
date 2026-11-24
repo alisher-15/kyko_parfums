@@ -7,9 +7,21 @@ import type { ProductListItem } from "@/lib/types";
 import { ProductImage } from "./ui";
 
 /** `compact`: the smaller card of the home page rails (smaller type, no gender line, volumes
- *  under the price). */
-export function ProductCard({ product, compact = false }: { product: ProductListItem; compact?: boolean }) {
+ *  under the price). `note`: one more badge («Купили 41 раз»). `tester`: the card of the home
+ *  page's «Тестеры»: the tester's price next to the bottle's, struck through. */
+export function ProductCard({
+  product,
+  compact = false,
+  note,
+  tester = false,
+}: {
+  product: ProductListItem;
+  compact?: boolean;
+  note?: string;
+  tester?: boolean;
+}) {
   const { money } = useCurrency();
+  const offer = tester ? product.tester : null;
   const badge = compact ? "px-1.5 py-0 text-[10px]" : "px-2.5 py-0.5 text-xs";
   return (
     <Link
@@ -21,21 +33,27 @@ export function ProductCard({ product, compact = false }: { product: ProductList
         <div className={`absolute ${compact ? "inset-2" : "inset-4"}`}>
           <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
         </div>
-        {product.type && (
+        {product.type && !(compact && (product.deal || product.is_new || note || offer)) && (
           <span className={`absolute chip ${compact ? "top-1.5 right-1.5 px-1.5 py-0 text-[10px]" : "top-3 right-3"}`}>
             {product.type}
           </span>
         )}
-        {(product.deal || product.is_new) && (
+        {(product.deal || product.is_new || note || offer) && (
           <div className={`absolute flex flex-col items-start gap-1 ${compact ? "top-1.5 left-1.5" : "top-3 left-3"}`}>
-            {product.deal && (
+            {note && <span className={`rounded-full bg-ink font-semibold text-white ${badge}`}>{note}</span>}
+            {offer && (
+              <span className={`rounded-full bg-gold font-bold text-white ${badge}`}>
+                −{Math.round((1 - offer.price / offer.bottle_price) * 100)}%
+              </span>
+            )}
+            {product.deal && !offer && (
               <span className={`rounded-full bg-gold font-bold text-white ${badge}`}>
                 {percentOff(product.deal.discount_percent)}
               </span>
             )}
-            {product.is_new && (
+            {product.is_new && !note && !offer && (
               <span className={`rounded-full bg-ink font-semibold text-white ${badge}`}>
-                Новинка
+                Выбор Kyko
               </span>
             )}
           </div>
@@ -50,7 +68,12 @@ export function ProductCard({ product, compact = false }: { product: ProductList
             {product.name}
           </div>
           <div className="mt-auto pt-1.5 text-xs">
-            {product.min_price !== null ? (
+            {offer ? (
+              <>
+                <s className="text-muted">{money(offer.bottle_price)}</s>{" "}
+                <span className="font-bold">{money(offer.price)}</span>
+              </>
+            ) : product.min_price !== null ? (
               <>
                 <span className="text-muted">от </span>
                 <span className="font-bold">{money(product.min_price)}</span>
@@ -59,8 +82,12 @@ export function ProductCard({ product, compact = false }: { product: ProductList
               <span className="text-muted">Цена по запросу</span>
             )}
           </div>
-          {product.volumes.length > 0 && (
-            <div className="truncate text-[11px] text-muted">{product.volumes.join(" / ")} мл</div>
+          {offer ? (
+            <div className="truncate text-[11px] text-muted">тестер {offer.volume_ml} мл</div>
+          ) : (
+            product.volumes.length > 0 && (
+              <div className="truncate text-[11px] text-muted">{product.volumes.join(" / ")} мл</div>
+            )
           )}
         </div>
       ) : (

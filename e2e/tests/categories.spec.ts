@@ -12,7 +12,7 @@ function find(all: Node[], section: string, group?: string): Node {
 }
 
 test.describe("Разделы каталога", () => {
-  test("плитки на главной ведут в раздел, раздел показывает свои группы и товары", async ({ page }) => {
+  test("разделы с главной и «Все категории»: раздел показывает свои группы и товары", async ({ page }) => {
     const admin = await adminToken();
     const all = await tree(admin);
     const lips = find(all, "Макияж", "Губы");
@@ -27,16 +27,13 @@ test.describe("Разделы каталога", () => {
     });
     try {
       await page.goto("/");
-      const tiles = page.getByRole("navigation", { name: "Категории" });
-      await expect(tiles.getByRole("link", { name: "Все категории" })).toBeVisible();
-      await expect(tiles.getByRole("link", { name: "Парфюмерия" })).toBeVisible();
-      // Two rows on a phone, one on a computer: the tiles keep their order either way.
-      const names = await tiles.locator("[data-tile-label]").allTextContents();
-      expect(names.slice(0, 2)).toEqual(["Все категории", "Парфюмерия"]);
-      expect(names).toContain("Макияж");
+      // Sections other than perfume sit next to «Для неё», «Тестеры»… in «С чего начнём?».
+      const start = page.getByRole("navigation", { name: "С чего начнём" });
+      await expect(start.getByRole("link", { name: /^Для неё/ })).toBeVisible();
+      await expect(start.getByRole("link", { name: /^Макияж/ })).toBeVisible();
 
       // «Все категории» opens every section as a card (as Kaspi's «Категории»).
-      await tiles.getByRole("link", { name: "Все категории" }).click();
+      await page.getByRole("link", { name: "Все категории →" }).click();
       await expect(page).toHaveURL(/\/categories$/);
       await expect(page.getByRole("heading", { level: 1, name: "Категории" })).toBeVisible();
       const cards = page.getByRole("navigation", { name: "Категории" });

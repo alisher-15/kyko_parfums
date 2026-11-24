@@ -63,9 +63,9 @@ export default function AdminBrandsPage() {
         </label>
       </div>
       <p className="mb-4 text-sm text-muted">
-        «На главной» — бренд в бегущей строке под разделами. Дорогие дома (Creed, Tom Ford, Amouage,
-        Kilian, Xerjoff…) отмечаются сами, когда бренд появляется; галочку можно снять или поставить
-        любому. С логотипом строка выглядит как витрина, без него — название бренда.
+        «На главной» — бренд в строке «Бренды» на главной и в «Ниша и люкс». Дорогие дома (Creed, Tom
+        Ford, Amouage, Kilian, Xerjoff…) отмечаются сами, когда бренд появляется; галочку можно снять
+        или поставить любому.
       </p>
       {(msg || error) && (
         <div className="mb-4">
@@ -139,7 +139,7 @@ function BrandRow({
         <input
           type="checkbox"
           className="accent-gold"
-          aria-label={`${brand.name}: в бегущей строке на главной`}
+          aria-label={`${brand.name}: на главной`}
           checked={top}
           onChange={(e) => {
             const next = e.target.checked;

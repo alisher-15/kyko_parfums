@@ -176,11 +176,11 @@ function BrandRow({
             seed={brand.id}
             onChange={setLogo}
             previewStyle={{ width: 96, height: 96 }}
-            hint="Логотип для страницы брендов и бегущей строки на главной."
+            hint="Логотип для страницы брендов."
           />
           <Toggle
             label="На главной"
-            hint="В бегущей строке брендов. Дорогие дома (Creed, Tom Ford, Amouage…) отмечаются сами"
+            hint="В строке «Бренды» на главной и в «Ниша и люкс». Дорогие дома отмечаются сами"
             value={top}
             onChange={setTop}
           />

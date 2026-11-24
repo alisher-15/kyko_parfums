@@ -19,12 +19,12 @@ export function absoluteUrl(pathOrUrl: string): string {
 
 /** The link preview picture (public/og.png), for pages and products without a photo. Static
  *  pages are made by `next build`, so the address must be known then too (see the Dockerfile). */
-export const SITE_IMAGE = { url: absoluteUrl("/og.png"), width: 1200, height: 630, alt: "Kyko Parfum" };
+export const SITE_IMAGE = { url: absoluteUrl("/og.png"), width: 1200, height: 630, alt: "Kyko" };
 
 /** Link preview fields of every page. A page's own openGraph replaces the layout's whole, so
  *  pages that set one spread these into it. */
 export const SITE_OPEN_GRAPH = {
-  siteName: "Kyko Parfum",
+  siteName: "Kyko",
   locale: "ru_RU",
   type: "website" as const,
   images: [SITE_IMAGE],

@@ -3,21 +3,22 @@ import { adminToken, api, createProduct, expect, loginAsAdmin, productLinks, tes
 test.describe("Витрина для гостя", () => {
   test("главная показывает подборки и товары", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByText("Горячие предложения").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "С чего начнём?" })).toBeVisible();
     await expect(page.locator("a[href^='/products/']").first()).toBeVisible();
-    // No big banner: one line invites shops to wholesale, a guest goes to registration.
+    // Wholesale is a block at the bottom; a guest goes to registration.
     await expect(page.getByRole("link", { name: "Стать оптовым клиентом →" })).toHaveAttribute("href", "/register");
     // The shop's contacts in the footer.
+    const footer = page.getByRole("contentinfo");
     for (const [name, href] of [
       [/^WhatsApp/, "https://wa.me/77474848194"],
       [/^Telegram/, "https://t.me/KYK0_parfum"],
       [/^Instagram/, "https://www.instagram.com/kyk0_parfum"],
     ] as const) {
-      await expect(page.getByRole("link", { name })).toHaveAttribute("href", href);
+      await expect(footer.getByRole("link", { name })).toHaveAttribute("href", href);
     }
   });
 
-  test("бегущая строка топовых брендов: дорогие дома сами, галочка в «Бренды»", async ({ page, openPage }) => {
+  test("главная: строка брендов с галочкой «На главной», WhatsApp, без блока «Акции»", async ({ page, openPage }) => {
     const admin = await adminToken();
     const brands: { id: number; name: string; is_top: boolean }[] = await api("GET", "/admin/brands", admin);
     const creed = brands.find((b) => b.name === "Creed")!;
@@ -27,18 +28,19 @@ test.describe("Витрина для гостя", () => {
     try {
       await loginAsAdmin(page);
       await page.goto("/admin/brands");
-      await page.getByLabel("Versace: в бегущей строке на главной").check();
+      await page.getByLabel("Versace: на главной").check();
       await expect.poll(async () => (await api("GET", "/admin/brands", admin)).find((b: { id: number }) => b.id === versace.id).is_top).toBe(true);
 
-      // With reduced motion the line keeps still (a row to scroll), so a link can be clicked.
-      const guest = await openPage({ reducedMotion: "reduce" });
+      const guest = await openPage();
       await guest.goto("/");
-      const line = guest.getByRole("navigation", { name: "Топовые бренды" });
-      await expect(line.getByRole("link", { name: "Creed" }).first()).toBeVisible();
-      await expect(line.getByRole("link", { name: "Versace" }).first()).toBeAttached();
+      const line = guest.getByRole("navigation", { name: "Бренды" });
+      await expect(line.getByRole("link", { name: "Creed" })).toBeVisible();
+      await expect(line.getByRole("link", { name: "Versace" })).toBeAttached();
       // Products on promotion are behind the banners: no «Акции» block of their own.
       await expect(guest.getByRole("heading", { name: "Акции" })).toHaveCount(0);
-      await line.getByRole("link", { name: "Creed" }).first().click();
+      // WhatsApp on every page: orders, payment and delivery are agreed there.
+      await expect(guest.getByRole("link", { name: "Написать в WhatsApp" })).toHaveAttribute("href", /^https:\/\/wa\.me\/77474848194\?text=/);
+      await line.getByRole("link", { name: "Creed" }).click();
       await expect(guest).toHaveURL(new RegExp(`brand_id=${creed.id}`));
     } finally {
       await api("PATCH", `/admin/brands/${versace.id}`, admin, { is_top: false });

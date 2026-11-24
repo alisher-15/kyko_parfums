@@ -66,6 +66,14 @@ class VariantPublic(BaseModel):
     deal: DealOut | None = None
 
 
+class TesterOffer(BaseModel):
+    """A tester next to its bottle, at the prices this viewer pays (the home page's «Тестеры»)."""
+
+    volume_ml: int
+    price: Money
+    bottle_price: Money
+
+
 class ProductListItem(BaseModel):
     id: int
     name: str
@@ -88,6 +96,10 @@ class ProductListItem(BaseModel):
     is_new: bool = False
     # A running promotion lowers a price this viewer pays (the badge "−15%").
     deal: DealOut | None = None
+    # The tester that saves this viewer the most against the bottle of the same volume.
+    tester: TesterOffer | None = None
+    # Units sold in the last POPULAR_DAYS days, only with sort=popular («Купили 41 раз»).
+    sold: int | None = None
 
 
 class ProductPage(Page[ProductListItem]):

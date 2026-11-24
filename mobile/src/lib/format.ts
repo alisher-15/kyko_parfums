@@ -115,6 +115,7 @@ export const SORT_LABELS: Record<ProductSort, string> = {
   price_desc: "Сначала дороже",
   name: "По названию",
   new: "Новинки",
+  popular: "Популярные",
 };
 
 // ---------- Admin ----------

@@ -316,7 +316,7 @@ export function Pill({
   );
 }
 
-/** A labelled on/off switch: «Показывать на сайте», «Новинка». */
+/** A labelled on/off switch: «Показывать на сайте», «Выбор Kyko». */
 export function Toggle({
   label,
   value,

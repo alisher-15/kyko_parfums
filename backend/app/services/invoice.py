@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.models import Gender, Order, OrderChannel, OrderItem, Product
 
-SHOP_NAME = "Kyko Parfum"
+SHOP_NAME = "Kyko"
 PAYMENT_LABELS = {
     "cash": "Наличные",
     "card": "Карта",

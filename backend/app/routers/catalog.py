@@ -2,13 +2,24 @@ from decimal import Decimal
 from enum import StrEnum
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, exists, false, func, select
+from sqlalchemy import and_, exists, false, func, select, text
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.availability import low_stock
 from app.db import get_db
 from app.deps import get_current_user_optional
-from app.models import Brand, Gender, PriceTier, Product, ProductVariant, Promotion, User
+from app.models import (
+    Brand,
+    Gender,
+    Order,
+    OrderItem,
+    OrderStatus,
+    PriceTier,
+    Product,
+    ProductVariant,
+    Promotion,
+    User,
+)
 from app.pricing import (
     Deal,
     deal_price,
@@ -31,6 +42,7 @@ from app.schemas.catalog import (
     PromotionPublic,
     SitemapOut,
     SitemapProduct,
+    TesterOffer,
     VariantPublic,
 )
 from app.schemas.categories import CategoryBrief, CategoryPublic
@@ -53,6 +65,12 @@ class ProductSort(StrEnum):
     price_asc = "price_asc"
     price_desc = "price_desc"
     new = "new"
+    # Most units sold lately (POPULAR_DAYS), then marked «Новинка», then the latest added.
+    popular = "popular"
+
+
+# «Хиты продаж» count the units sold in this many days (store sales too; cancelled orders not).
+POPULAR_DAYS = 60
 
 
 def variant_public(
@@ -98,6 +116,29 @@ def _deal_out(deal: Deal) -> DealOut:
     )
 
 
+def _viewer_price(variant: ProductVariant, tier: PriceTier, deal: Deal | None) -> Decimal:
+    promo = deal_price(variant, tier, deal)
+    return promo if promo is not None else price_for_tier(variant, tier)
+
+
+def _tester_offer(
+    variants: list[ProductVariant], tier: PriceTier, deal: Deal | None
+) -> TesterOffer | None:
+    """The tester with the biggest saving on the bottle of its volume, at this viewer's prices."""
+    bottles = {v.volume_ml: v for v in variants if not v.is_tester}
+    best = None
+    for t in variants:
+        bottle = bottles.get(t.volume_ml) if t.is_tester else None
+        if bottle is None:
+            continue
+        price, bottle_price = _viewer_price(t, tier, deal), _viewer_price(bottle, tier, deal)
+        if price < bottle_price and (best is None or bottle_price - price > best[2] - best[1]):
+            best = (t.volume_ml, price, bottle_price)
+    if best is None:
+        return None
+    return TesterOffer(volume_ml=best[0], price=best[1], bottle_price=best[2])
+
+
 def _list_item_fields(
     product: Product,
     variants: list[ProductVariant],
@@ -124,6 +165,7 @@ def _list_item_fields(
         volumes=sorted({v.volume_ml for v in variants}),
         is_new=product.is_new,
         deal=_deal_out(deal) if applies and deal else None,
+        tester=_tester_offer(variants, tier, deal),
     )
 
 
@@ -141,6 +183,12 @@ def list_products(
     is_new: bool = False,
     on_sale: bool = False,
     promotion_id: int | None = None,
+    # Products with a tester cheaper than its bottle («Тестеры» on the home page).
+    tester: bool = False,
+    # Brands in the home page's top houses (brands.is_top): «Ниша и люкс».
+    top: bool = False,
+    # These products only, for «Вы смотрели» (the device remembers the ids).
+    id: list[int] = Query(default=[], max_length=50),
     sort: ProductSort = ProductSort.default,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=24, ge=1, le=100),
@@ -180,6 +228,25 @@ def list_products(
         conditions.append(promotions.on_sale())
     if promotion_id is not None:
         conditions.append(promotions.in_promotion(promotion_id))
+    if id:
+        conditions.append(Product.id.in_(id))
+    if top:
+        conditions.append(Brand.is_top)
+    if tester:
+        bottle = ProductVariant.__table__.alias("bottle")
+        conditions.append(
+            exists().where(
+                ProductVariant.product_id == Product.id,
+                ProductVariant.is_active,
+                ProductVariant.is_tester,
+                exists().where(
+                    bottle.c.product_id == Product.id,
+                    bottle.c.is_active,
+                    bottle.c.is_tester.is_(False),
+                    bottle.c.volume_ml == ProductVariant.volume_ml,
+                ),
+            )
+        )
     if min_price is not None or max_price is not None:
         variant_conds = [ProductVariant.product_id == Product.id, ProductVariant.is_active]
         if min_price is not None:
@@ -188,11 +255,23 @@ def list_products(
             variant_conds.append(price <= max_price)
         conditions.append(exists().where(*variant_conds))
 
+    sold = (
+        select(OrderItem.product_id.label("product_id"), func.sum(OrderItem.quantity).label("sold"))
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(
+            Order.status != OrderStatus.cancelled,
+            Order.created_at >= func.now() - text(f"interval '{POPULAR_DAYS} days'"),
+        )
+        .group_by(OrderItem.product_id)
+        .subquery()
+    )
+
     def matching(*more):
         return (
-            select(Product.id, agg.c.min_price)
+            select(Product.id, agg.c.min_price, sold.c.sold)
             .join(Brand, Brand.id == Product.brand_id)
             .outerjoin(agg, agg.c.product_id == Product.id)
+            .outerjoin(sold, sold.c.product_id == Product.id)
             .where(*conditions, *more)
         )
 
@@ -225,6 +304,13 @@ def list_products(
             Product.created_at.desc(),
             Product.id.desc(),
         ],
+        # While the shop has few sales, the marked and the latest products fill the list.
+        ProductSort.popular: [
+            sold.c.sold.desc().nulls_last(),
+            Product.new_at.desc().nulls_last(),
+            Product.created_at.desc(),
+            Product.id.desc(),
+        ],
     }[sort]
     if similarity is not None and sort == ProductSort.default:
         order_by = [similarity.desc(), *order_by]
@@ -234,6 +320,7 @@ def list_products(
     ).all()
     ids = [r.id for r in rows]
     min_prices = {r.id: r.min_price for r in rows}
+    sold_counts = {r.id: int(r.sold or 0) for r in rows}
 
     products = {
         p.id: p
@@ -256,7 +343,8 @@ def list_products(
         ProductListItem(
             **_list_item_fields(
                 products[pid], variants_by_product[pid], min_prices[pid], user, deals.get(pid)
-            )
+            ),
+            sold=sold_counts[pid] if sort == ProductSort.popular else None,
         )
         for pid in ids
     ]

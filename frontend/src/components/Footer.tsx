@@ -17,7 +17,7 @@ export function Footer() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-muted sm:px-6 md:grid-cols-4">
         <div>
           <div className="font-serif text-xl font-bold text-ink">
-            Kyko <span className="text-gold">Parfum</span>
+            Kyko
           </div>
           <p className="mt-2 max-w-xs">
             Оригинальная парфюмерия и косметика. Розничные и оптовые продажи.
@@ -63,7 +63,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-line py-4 text-center text-xs text-stone-400">
-        © {new Date().getFullYear()} Kyko Parfum. Оплата по факту или переводом — онлайн-оплата
+        © {new Date().getFullYear()} Kyko. Оплата по факту или переводом — онлайн-оплата
         появится позже.
       </div>
     </footer>

@@ -319,8 +319,8 @@ function ProductForm({
         onChange={(v) => setForm({ ...form, is_active: v })}
       />
       <Toggle
-        label="Новинка"
-        hint="В «Горячих предложениях» на главной"
+        label="Выбор Kyko"
+        hint="В блоке «Выбор Kyko» на главной"
         value={form.is_new}
         onChange={(v) => setForm({ ...form, is_new: v })}
       />

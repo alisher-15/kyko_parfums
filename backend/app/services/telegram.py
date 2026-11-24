@@ -138,7 +138,7 @@ def connect_new_chats(db: Session) -> list[TelegramRecipient]:
             call(
                 "sendMessage",
                 chat_id=recipient.chat_id,
-                text="Готово: сюда будут приходить новые заказы Kyko Parfum.",
+                text="Готово: сюда будут приходить новые заказы Kyko.",
             )
         except TelegramError as e:
             log.warning("Telegram welcome to %s failed: %s", recipient.chat_id, e)

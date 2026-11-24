@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as Haptics from "expo-haptics";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Linking,
   Platform,
@@ -45,6 +45,7 @@ import {
   volumeLabel,
 } from "@/lib/format";
 import { useApi } from "@/lib/queries";
+import { rememberViewed } from "@/lib/recent";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
 
@@ -53,6 +54,11 @@ export default function ProductScreen() {
   const productId = Number(id);
   const valid = Number.isInteger(productId) && productId > 0;
   const product = useApi<ProductDetail>(valid ? `/products/${productId}` : null);
+  // For «Вы смотрели» on the home screen: only a product the shop could show.
+  const shownId = product.data?.id;
+  useEffect(() => {
+    if (shownId) rememberViewed(shownId);
+  }, [shownId]);
   const rules = useApi<PricingRules>("/pricing/rules");
   const favorites = useFavorites();
   const [selectedId, setSelectedId] = useState<number | null>(null);

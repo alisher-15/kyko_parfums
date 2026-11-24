@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -15,12 +15,17 @@ import {
   percentOff,
   splitNotes,
 } from "@/lib/format";
+import { rememberViewed } from "@/lib/recent";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 export function ProductView({ id }: { id: number }) {
   const valid = Number.isInteger(id) && id > 0;
   const { data: product, error } = useApi<ProductDetail>(valid ? `/products/${id}` : null);
+  // For «Вы смотрели» on the home page: only a product the shop could show.
+  useEffect(() => {
+    if (product) rememberViewed(product.id);
+  }, [product]);
   const { data: rules } = useApi<PricingRules>("/pricing/rules");
   const [selectedId, setSelectedId] = useState<number | null>(null);
 

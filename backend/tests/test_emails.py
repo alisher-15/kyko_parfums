@@ -31,14 +31,14 @@ def test_the_customer_gets_emails_about_the_order(client, auth, catalog, outbox)
     assert len(outbox) == 1
     to, subject, body = outbox[0]
     assert to == "anna@example.com"
-    assert subject == f"Заказ №{order['id']} принят — Kyko Parfum"
+    assert subject == f"Заказ №{order['id']} принят — Kyko"
     assert "Chanel Coco Mademoiselle, 50 мл × 2" in body and "Алматы, ул. Абая, 1" in body
     assert f"/account/orders/{order['id']}" in body
 
     admin = auth(UserRole.admin)
     url = f"/api/admin/orders/{order['id']}"
     assert client.patch(url, json={"status": "shipped"}, headers=admin).status_code == 200
-    assert outbox[-1][:2] == ("anna@example.com", f"Заказ №{order['id']} отправлен — Kyko Parfum")
+    assert outbox[-1][:2] == ("anna@example.com", f"Заказ №{order['id']} отправлен — Kyko")
     # A note for the shop says nothing to the customer.
     client.patch(url, json={"admin_note": "позвонить"}, headers=admin)
     assert len(outbox) == 2

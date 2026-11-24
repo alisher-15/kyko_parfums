@@ -24,7 +24,7 @@ import { colors, fonts, radius } from "@/theme";
 import { ProductCard } from "./product";
 import { Button, Chip, EmptyState, ErrorState, Field, Loader, Muted, Title, Txt } from "./ui";
 
-type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id" | "category_id">;
+type UserFilters = Omit<ProductFilters, "q" | "sort" | "promotion_id" | "category_id" | "id">;
 
 const SORTS = Object.keys(SORT_LABELS) as ProductSort[];
 
@@ -36,7 +36,9 @@ function countFilters(f: UserFilters): number {
     (f.type?.length ?? 0) +
     (f.min_price !== undefined || f.max_price !== undefined ? 1 : 0) +
     (f.on_sale ? 1 : 0) +
-    (f.is_new ? 1 : 0)
+    (f.is_new ? 1 : 0) +
+    (f.tester ? 1 : 0) +
+    (f.top ? 1 : 0)
   );
 }
 
@@ -415,9 +417,19 @@ function FiltersForm({ value, hideBrands, categoryId, onClose, onApply }: Filter
               onChange={(v) => setDraft((d) => ({ ...d, on_sale: v || undefined }))}
             />
             <ToggleRow
-              label="Новинки"
+              label="Выбор Kyko"
               value={!!draft.is_new}
               onChange={(v) => setDraft((d) => ({ ...d, is_new: v || undefined }))}
+            />
+            <ToggleRow
+              label="Тестеры"
+              value={!!draft.tester}
+              onChange={(v) => setDraft((d) => ({ ...d, tester: v || undefined }))}
+            />
+            <ToggleRow
+              label="Ниша и люкс"
+              value={!!draft.top}
+              onChange={(v) => setDraft((d) => ({ ...d, top: v || undefined }))}
             />
           </View>
           {data.genders.length > 0 && (

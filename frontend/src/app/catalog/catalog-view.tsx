@@ -20,6 +20,7 @@ const SORTS = [
   { value: "price_desc", label: "Сначала дороже" },
   { value: "name", label: "По названию" },
   { value: "new", label: "Новинки" },
+  { value: "popular", label: "Популярные" },
 ];
 
 export function CatalogView() {
@@ -39,6 +40,8 @@ export function CatalogView() {
       max_price: params.get("max_price") ?? undefined,
       is_new: params.get("is_new") === "true" || undefined,
       on_sale: params.get("on_sale") === "true" || undefined,
+      tester: params.get("tester") === "true" || undefined,
+      top: params.get("top") === "true" || undefined,
       promotion_id: params.get("promotion_id") ?? undefined,
       category_id: params.get("category_id") ?? undefined,
       sort: params.get("sort") ?? undefined,
@@ -95,6 +98,8 @@ export function CatalogView() {
     (query.max_price ? 1 : 0) +
     (query.is_new ? 1 : 0) +
     (query.on_sale ? 1 : 0) +
+    (query.tester ? 1 : 0) +
+    (query.top ? 1 : 0) +
     (query.promotion_id ? 1 : 0);
 
   const total = products.data?.total ?? 0;
@@ -134,7 +139,11 @@ export function CatalogView() {
                   : query.on_sale
                     ? "Акции"
                     : query.is_new
-                      ? "Горячие предложения"
+                      ? "Выбор Kyko"
+                      : query.tester
+                        ? "Тестеры"
+                        : query.top
+                          ? "Ниша и люкс"
                       : "Каталог"}
           </h1>
           {promotion.data && (
@@ -308,6 +317,8 @@ function FilterPanel({
     max_price?: string;
     is_new?: boolean;
     on_sale?: boolean;
+    tester?: boolean;
+    top?: boolean;
   };
   toggle: (key: string, value: string) => void;
   update: (mutate: (p: URLSearchParams) => void) => void;
@@ -331,7 +342,7 @@ function FilterPanel({
     });
   };
 
-  const flag = (key: "is_new" | "on_sale") =>
+  const flag = (key: "is_new" | "on_sale" | "tester" | "top") =>
     update((p) => (p.get(key) === "true" ? p.delete(key) : p.set(key, "true")));
 
   return (
@@ -341,7 +352,13 @@ function FilterPanel({
           Акции
         </Check>
         <Check checked={!!query.is_new} onChange={() => flag("is_new")}>
-          Новинки
+          Выбор Kyko
+        </Check>
+        <Check checked={!!query.tester} onChange={() => flag("tester")}>
+          Тестеры
+        </Check>
+        <Check checked={!!query.top} onChange={() => flag("top")}>
+          Ниша и люкс
         </Check>
       </FilterGroup>
 
@@ -441,6 +458,8 @@ function FilterPanel({
                   "max_price",
                   "is_new",
                   "on_sale",
+                  "tester",
+                  "top",
                   "promotion_id",
                 ].forEach((k) => p.delete(k)),
               );

@@ -80,7 +80,7 @@ def send_test(db: Session = Depends(get_db)):
         raise HTTPException(422, "Сначала добавьте получателя")
     failed = set(
         telegram.send_to_all(
-            [c.chat_id for c in chats], "Проверка: уведомления о заказах Kyko Parfum работают."
+            [c.chat_id for c in chats], "Проверка: уведомления о заказах Kyko работают."
         )
     )
     return TelegramTestOut(

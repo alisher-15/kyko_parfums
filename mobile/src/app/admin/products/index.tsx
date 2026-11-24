@@ -48,7 +48,7 @@ const TOGGLES: {
 }[] = [
   { key: "backordered", label: "Нужно заказать у поставщика" },
   { key: "no_variants", label: "Без цен / объёмов" },
-  { key: "is_new", label: "Новинки" },
+  { key: "is_new", label: "Выбор Kyko" },
   { key: "no_photo", label: "Без фото" },
   { key: "no_barcode", label: "Без штрихкода" },
 ];
@@ -242,7 +242,7 @@ function ProductRow({ product: p, section }: { product: AdminProduct; section: s
         )}
         <View style={{ flexDirection: "row", gap: 6, marginTop: 2 }}>
           {!p.is_active && <Pill tone="muted" label="Скрыт" />}
-          {p.is_new && <Pill tone="gold" label="Новинка" />}
+          {p.is_new && <Pill tone="gold" label="Выбор Kyko" />}
           {stock < 0 && <Pill tone="warn" label="под заказ" />}
         </View>
       </View>

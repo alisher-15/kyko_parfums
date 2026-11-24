@@ -2,16 +2,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState } from "react";
 import {
-  AccessibilityInfo,
-  Animated,
-  Easing,
   FlatList,
   Linking,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -30,208 +25,9 @@ import {
   tenge,
   volumeLabel,
 } from "@/lib/format";
-import type { Brand, Category, OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
+import type { OrderStatus, PromotionPublic, Quote, User } from "@/lib/types";
 import { colors, fonts, radius, statusColors } from "@/theme";
 import { Button, Field, Muted, Notice, Txt } from "./ui";
-
-// ---------- Catalog sections ----------
-
-const TILE = 76;
-/** A little wider than the picture, so «Парфюмерия» fits on one line. */
-const TILE_COLUMN = 88;
-
-/**
- * The catalog's sections as tiles under the banners, as on Kaspi and the website: two rows that
- * scroll sideways on phones, one row on tablets; «Все категории» first (it opens /categories). The API leaves out sections
- * without products; each tile has a picture (its own, else a photo of its products).
- */
-export function CategoryTiles({ sections }: { sections: Category[] }) {
-  const { width } = useWindowDimensions();
-  const rows = width >= 768 ? 1 : 2;
-  const tiles: ReactNode[] = [
-    <Tile
-      key="all"
-      label="Все категории"
-      onPress={() => router.push("/categories")}
-      testID="category-all"
-    >
-      <Ionicons name="grid-outline" size={28} color={colors.gold} />
-    </Tile>,
-    ...sections.map((c) => (
-      <Tile
-        key={c.id}
-        label={c.name}
-        testID={`category-${c.id}`}
-        onPress={() =>
-          router.push({ pathname: "/collection", params: { category_id: c.id, title: c.name } })
-        }
-      >
-        {assetUrl(c.image_url) ? (
-          // White photo backgrounds melt into the grey tile, as on the website.
-          <View style={{ width: "86%", height: "86%", mixBlendMode: "multiply" }}>
-            <Image
-              source={assetUrl(c.image_url)}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              accessibilityIgnoresInvertColors
-            />
-          </View>
-        ) : (
-          <Text style={styles.tileLetter}>{c.name.slice(0, 1)}</Text>
-        )}
-      </Tile>
-    )),
-  ];
-  // Filled column by column, as the website's grid, so the order reads the same while scrolling.
-  const columns: ReactNode[][] = [];
-  tiles.forEach((t, i) => {
-    const col = Math.floor(i / rows);
-    (columns[col] ??= []).push(t);
-  });
-  return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      accessibilityLabel="Категории"
-      contentContainerStyle={{ paddingHorizontal: 10, gap: 4 }}
-    >
-      {columns.map((col, i) => (
-        <View key={i} style={{ gap: 12 }}>
-          {col}
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
-
-function Tile({
-  label,
-  onPress,
-  testID,
-  children,
-}: {
-  label: string;
-  onPress: () => void;
-  testID?: string;
-  children: ReactNode;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={label}
-      testID={testID}
-      onPress={onPress}
-      style={({ pressed }) => [
-        { width: TILE_COLUMN, alignItems: "center", gap: 6 },
-        pressed && { opacity: 0.7 },
-      ]}
-    >
-      <View style={styles.tileBox}>{children}</View>
-      <Text style={styles.tileLabel} numberOfLines={2}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-// ---------- Top brands ----------
-
-/** At least this many names in one pass of the running line, so it is wider than a screen. */
-const MARQUEE_MIN = 10;
-/** How fast the line runs, in points a second. */
-const MARQUEE_SPEED = 40;
-
-/**
- * The top houses (`is_top`, chosen in «Бренды») as a running line, as on the website: logos where
- * the brand has one, else the name in large letters; a tap opens the brand's products. With
- * «Reduce motion» on it keeps still and scrolls by hand.
- */
-export function BrandMarquee({ brands }: { brands: Brand[] }) {
-  const top = brands.filter((b) => b.is_top).sort((a, b) => b.product_count - a.product_count);
-  const [still, setStill] = useState(false);
-  const [passWidth, setPassWidth] = useState(0);
-  const [x] = useState(() => new Animated.Value(0));
-
-  useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setStill);
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setStill);
-    return () => sub.remove();
-  }, []);
-
-  useEffect(() => {
-    if (still || passWidth === 0) return;
-    x.setValue(0);
-    const run = Animated.loop(
-      Animated.timing(x, {
-        toValue: -passWidth,
-        duration: (passWidth / MARQUEE_SPEED) * 1000,
-        easing: Easing.linear,
-        useNativeDriver: Platform.OS !== "web",
-      }),
-    );
-    run.start();
-    return () => run.stop();
-  }, [still, passWidth, x]);
-
-  if (top.length === 0) return null;
-  const pass = Array.from({ length: Math.ceil(MARQUEE_MIN / top.length) }, () => top).flat();
-  const names = (copy: number) =>
-    pass.map((b, i) => (
-      <Pressable
-        key={`${copy}-${b.id}-${i}`}
-        accessibilityRole="link"
-        accessibilityLabel={b.name}
-        // The repeats only close the loop for the eye.
-        accessibilityElementsHidden={copy === 1 || i >= top.length}
-        importantForAccessibility={copy === 1 || i >= top.length ? "no-hide-descendants" : "auto"}
-        onPress={() =>
-          router.push({ pathname: "/collection", params: { brand_id: b.id, title: b.name } })
-        }
-        style={styles.marqueeItem}
-      >
-        {assetUrl(b.logo_url) ? (
-          <View style={styles.marqueeLogo}>
-            <Image
-              source={assetUrl(b.logo_url)}
-              style={StyleSheet.absoluteFill}
-              contentFit="contain"
-              accessibilityIgnoresInvertColors
-            />
-          </View>
-        ) : (
-          <Text style={styles.marqueeName} numberOfLines={1}>
-            {b.name.toUpperCase()}
-          </Text>
-        )}
-      </Pressable>
-    ));
-
-  if (still) {
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        accessibilityLabel="Топовые бренды"
-        style={styles.marquee}
-      >
-        {names(0).slice(0, top.length)}
-      </ScrollView>
-    );
-  }
-  return (
-    <View style={[styles.marquee, { overflow: "hidden" }]} accessibilityLabel="Топовые бренды">
-      <Animated.View style={{ flexDirection: "row", transform: [{ translateX: x }] }}>
-        <View
-          style={{ flexDirection: "row" }}
-          onLayout={(e) => setPassWidth(e.nativeEvent.layout.width)}
-        >
-          {names(0)}
-        </View>
-        <View style={{ flexDirection: "row" }}>{names(1)}</View>
-      </Animated.View>
-    </View>
-  );
-}
 
 // ---------- Promotions ----------
 
@@ -498,40 +294,6 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 }
 
 const styles = StyleSheet.create({
-  marquee: {
-    backgroundColor: colors.white,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.line,
-    paddingVertical: 18,
-  },
-  marqueeItem: { height: 40, justifyContent: "center", paddingHorizontal: 22 },
-  marqueeLogo: { width: 120, height: 40, opacity: 0.5 },
-  marqueeName: {
-    fontFamily: fonts.serif,
-    fontSize: 26,
-    letterSpacing: 3,
-    color: colors.faint,
-  },
-  tileBox: {
-    width: TILE,
-    height: TILE,
-    borderRadius: radius.lg,
-    backgroundColor: "#f5f5f4",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  tileLetter: { fontFamily: fonts.serif, fontSize: 26, color: colors.gold },
-  tileLabel: {
-    fontFamily: fonts.sans,
-    fontSize: 12,
-    lineHeight: 15,
-    // Two lines always, so the second row of tiles stays level.
-    height: 30,
-    textAlign: "center",
-    color: colors.ink,
-  },
   bold: { fontFamily: fonts.sansBold },
   card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
   cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },

@@ -85,7 +85,12 @@ class VariantUpdate(BaseModel):
     volume_ml: int | None = Field(default=None, gt=0, le=100_000)
     is_tester: bool | None = None
     sku: str | None = Field(default=None, max_length=64)
-    stock: int | None = Field(default=None, ge=0)
+    # Absolute stock. Sending the volume's current stock changes nothing, even below zero (what
+    # customers are owed), so older apps that always send it can still save a backordered volume.
+    stock: int | None = Field(default=None, ge=-1_000_000, le=1_000_000)
+    # The stock the form was opened with: when it differs from the stock now (an order came in
+    # meanwhile), the edit is refused with 409 instead of overwriting the order's deduction.
+    stock_expected: int | None = None
     # Why the stock changed ("приход от поставщика", "пересчёт") — saved in the stock journal.
     stock_note: str | None = Field(default=None, max_length=255)
     retail_price: MoneyIn | None = None
@@ -324,6 +329,11 @@ class StoreSaleIn(BaseModel):
     customer_phone: str | None = Field(default=None, max_length=64)
     payment_method: PaymentMethod = PaymentMethod.cash
     comment: str | None = Field(default=None, max_length=2000)
+    # The total the till showed on its button: a sale whose total came out different is refused
+    # (409) instead of being recorded at a sum the customer didn't pay.
+    expected_total: Decimal | None = None
+    # Made by the till for this sale: a retry with it returns the sale already recorded.
+    request_key: str | None = Field(default=None, min_length=8, max_length=64)
 
     _blank = field_validator("customer_name", "customer_phone", "comment", mode="before")(
         _blank_to_none

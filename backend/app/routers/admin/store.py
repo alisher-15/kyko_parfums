@@ -5,6 +5,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import case, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import get_db
@@ -34,7 +35,7 @@ from app.schemas.admin import (
     StoreSaleIn,
     VariantSearchItem,
 )
-from app.services.orders import add_event, order_load_options
+from app.services.orders import add_event, fmt_money, order_load_options, placed_before
 from app.services.promotions import deals_for_variants
 from app.services.search import contains, product_name_match
 from app.services.settings import get_pricing_settings
@@ -238,10 +239,21 @@ def create_sale(
     data: StoreSaleIn, db: Session = Depends(get_db), admin: User = Depends(require_staff)
 ):
     """Record a sale made in the shop: the order is created as delivered and stock is deducted."""
+    # A retry of a sale that went through (the answer was lost): the same sale, once.
+    again = placed_before(db, data.request_key, OrderChannel.store, admin.id)
+    if again is not None:
+        return _sale_out(db, again)
     p = _price(db, data, lock=True)
     if p.errors:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, {"message": p.errors[0], "errors": p.errors})
+    if data.expected_total is not None and data.expected_total != p.total:
+        db.rollback()
+        message = (
+            f"Сумма чека изменилась: теперь {fmt_money(p.total)}. "
+            "Проверьте чек и проведите продажу ещё раз."
+        )
+        raise HTTPException(status.HTTP_409_CONFLICT, {"message": message, "errors": [message]})
 
     customer = p.customer
     order = Order(
@@ -256,6 +268,7 @@ def create_sale(
         contact_phone=data.customer_phone or (customer.phone if customer else None),
         contact_email=customer.email if customer else None,
         comment=data.comment,
+        request_key=data.request_key,
     )
     db.add(order)
     for ln in p.lines:
@@ -281,11 +294,22 @@ def create_sale(
         )
         move_stock(db, v, -ln.quantity, StockReason.store_sale, order=order, user=admin)
     add_event(order, OrderEventKind.created, "Продажа в магазине проведена", admin)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # The same sale sent twice at once: the other request recorded it.
+        db.rollback()
+        again = placed_before(db, data.request_key, OrderChannel.store, admin.id)
+        if again is None:
+            raise
+        return _sale_out(db, again)
+    return _sale_out(db, order.id)
 
+
+def _sale_out(db: Session, order_id: int) -> AdminOrderOut:
     order = db.scalar(
         select(Order)
-        .where(Order.id == order.id)
+        .where(Order.id == order_id)
         .options(*order_load_options())
         .execution_options(populate_existing=True)
     )

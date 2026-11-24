@@ -25,7 +25,7 @@ from typing import Any
 
 from openpyxl import Workbook
 from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.models import (
     PriceFormat,
@@ -131,6 +131,18 @@ def match_lines(
         variant_id = next((by_code[c] for c in codes if c in by_code), None)
         found.append((line, variant_id, "barcode" if variant_id else None, False))
 
+    # A tester line carries the bottle's barcode: it is the tester of that volume, if the shop
+    # has one, else nothing (never the bottle, whose cost would drop to the tester's price).
+    tester_of = _testers_of(
+        db, {vid for line, vid, by, _ in found if by == "barcode" and line.tester and vid}
+    )
+    found = [
+        (line, tester_of.get(vid), "barcode" if tester_of.get(vid) else None, ignored)
+        if by == "barcode" and line.tester
+        else (line, vid, by, ignored)
+        for line, vid, by, ignored in found
+    ]
+
     ids = {variant_id for _, variant_id, _, _ in found if variant_id is not None}
     stmt = (
         select(ProductVariant)
@@ -138,7 +150,8 @@ def match_lines(
         .options(joinedload(ProductVariant.product).joinedload(Product.brand))
     )
     if lock:
-        stmt = stmt.with_for_update(of=ProductVariant)
+        # In id order, as checkout and the till lock: no deadlock with an order placed meanwhile.
+        stmt = stmt.with_for_update(of=ProductVariant).order_by(ProductVariant.id)
     variants = {v.id: v for v in db.scalars(stmt).unique()}
     return [
         LineMatch(line, variants.get(variant_id) if variant_id else None, by, ignored)
@@ -146,7 +159,52 @@ def match_lines(
     ]
 
 
+def _testers_of(db: Session, bottle_ids: set[int]) -> dict[int, int]:
+    """bottle volume id → the id of the tester of the same product and volume."""
+    if not bottle_ids:
+        return {}
+    bottle = aliased(ProductVariant)
+    rows = db.execute(
+        select(bottle.id, ProductVariant.id)
+        .join(
+            ProductVariant,
+            (ProductVariant.product_id == bottle.product_id)
+            & (ProductVariant.volume_ml == bottle.volume_ml)
+            & ProductVariant.is_tester,
+        )
+        .where(bottle.id.in_(bottle_ids), ~bottle.is_tester)
+    )
+    return dict(rows.all())
+
+
 # ---------- Planning and applying ----------
+
+# A cost moving further than this (×2 or ÷2), or a first cost this far from the retail price
+# (above it, or under a fifth of it), is most likely a misread or mistyped line: it is not
+# applied, and the report lists it for the owner to check.
+ODD_COST_RATIO = Decimal(2)
+ODD_FIRST_MARKUP = Decimal(5)
+
+
+def odd_cost(v: ProductVariant, cost: Decimal) -> str | None:
+    """Why a new cost looks wrong, or None."""
+    old = v.cost_price
+    if old is not None and old > 0:
+        if cost > old * ODD_COST_RATIO or cost * ODD_COST_RATIO < old:
+            return f"себестоимость {fmt(old)} → {fmt(cost)}: изменение больше чем вдвое"
+        return None
+    retail = v.retail_price
+    if retail is None or retail <= 0:
+        return None
+    if cost > retail:
+        return f"закупка {fmt(cost)} дороже розничной цены {fmt(retail)}"
+    if cost * ODD_FIRST_MARKUP < retail:
+        return f"закупка {fmt(cost)} — меньше пятой части розничной цены {fmt(retail)}"
+    return None
+
+
+def fmt(amount: Decimal) -> str:
+    return f"{amount.quantize(Decimal(1)):,} ₸".replace(",", " ")
 
 
 @dataclass
@@ -161,6 +219,20 @@ class Change:
     prices_new: Prices
     # The volume gets its first cost: it remembers the markups of its current prices.
     remember: bool = False
+    # The cost went up but the prices could not follow (by the markups they would break the
+    # retail ≥ wholesale ≥ bulk order): the owner sets them by hand.
+    stuck: bool = False
+
+
+@dataclass
+class Suspicious:
+    """A line whose price was stored but whose cost was not applied: it looks wrong."""
+
+    variant: ProductVariant
+    line: PriceLine
+    cost_old: Decimal | None
+    cost_new: Decimal
+    reason: str
 
 
 @dataclass
@@ -170,6 +242,7 @@ class Plan:
     prices: dict[int, PriceLine] = field(default_factory=dict)
     duplicates: int = 0
     changes: list[Change] = field(default_factory=list)
+    suspicious: list[Suspicious] = field(default_factory=list)
     # Another supplier's list before the main supplier's first one: its prices are kept, costs
     # wait for the main list (else Эрик's price would stand for every volume Канат also has).
     waiting_for_main: bool = False
@@ -217,7 +290,14 @@ def plan_price_list(
         )
         prices_old: Prices = (v.retail_price, v.wholesale_price, v.bulk_price)
         prices_new = prices_old
-        remember = False
+        remember = stuck = False
+        if cost_new is not None and cost_new != v.cost_price:
+            reason = odd_cost(v, cost_new)
+            if reason is not None:
+                # The supplier's price is kept (it is what the list says); the cost and the
+                # prices wait for the owner, who corrects the line or the volume by hand.
+                plan.suspicious.append(Suspicious(v, line, v.cost_price, cost_new, reason))
+                cost_new = v.cost_price
         if cost_new is not None and cost_new != v.cost_price:
             levels = (v.retail_markup, v.wholesale_markup, v.bulk_markup)
             if all(m is None for m in levels):
@@ -230,7 +310,8 @@ def plan_price_list(
                     check_price_order(*candidate)
                     prices_new = candidate  # type: ignore[assignment]
                 except ValueError:
-                    pass  # odd prices set by hand: leave them to the admin
+                    # Odd prices set by hand: leave them to the admin, and say so.
+                    stuck = cost_new > (v.cost_price or 0)
         if (
             supplier_old != line.price
             or cost_new != v.cost_price
@@ -248,6 +329,7 @@ def plan_price_list(
                     prices_old=prices_old,
                     prices_new=prices_new,
                     remember=remember,
+                    stuck=stuck,
                 )
             )
     return plan

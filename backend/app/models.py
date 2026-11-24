@@ -460,6 +460,7 @@ class SupplierLink(Base):
 
 class Order(TimestampMixin, Base):
     __tablename__ = "orders"
+    __table_args__ = (UniqueConstraint("request_key", name="uq_orders_request_key"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # NULL for an anonymous walk-in customer in the shop.
@@ -494,6 +495,9 @@ class Order(TimestampMixin, Base):
     delivery_address: Mapped[str | None] = mapped_column(Text)
     comment: Mapped[str | None] = mapped_column(Text)
     admin_note: Mapped[str | None] = mapped_column(Text)
+    # A key the site or app makes for one checkout or till sale: sending it again (a retry after a
+    # timeout) returns the order already placed instead of placing a second one.
+    request_key: Mapped[str | None] = mapped_column(String(64))
 
     user: Mapped[User | None] = relationship(back_populates="orders", foreign_keys=[user_id])
     created_by: Mapped[User | None] = relationship(foreign_keys=[created_by_id])

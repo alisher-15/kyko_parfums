@@ -52,34 +52,43 @@ export function onSignedOut(listener: () => void): () => void {
   return () => signOutListeners.delete(listener);
 }
 
-let refreshing: Promise<boolean> | null = null;
+/** What a refresh came to: a new pair, a session the server ended, or no answer at all. */
+type Refresh = "ok" | "ended" | "offline";
 
-async function refreshTokens(): Promise<boolean> {
+let refreshing: Promise<Refresh> | null = null;
+
+async function refreshTokens(): Promise<Refresh> {
   const current = tokens;
-  if (!current) return false;
-  refreshing ??= (async () => {
+  if (!current) return "ended";
+  refreshing ??= (async (): Promise<Refresh> => {
     try {
       const res = await fetchWithTimeout(`${API_URL}/auth/refresh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh_token: current.refresh_token }),
       });
-      if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
         await setTokens(null);
         signOutListeners.forEach((l) => l());
-        return false;
+        return "ended";
       }
+      // A server error (a restart) is not the end of the session: try again next time.
+      if (!res.ok) return "offline";
       await setTokens((await res.json()) as TokenPair);
-      return true;
+      return "ok";
     } catch {
       // No connection: keep the session, the next request will try again.
-      return false;
+      return "offline";
     } finally {
       refreshing = null;
     }
   })();
   return refreshing;
 }
+
+/** Shown when a session ends while sending something: it was not sent as a guest instead. */
+export const SESSION_ENDED = "Вход истёк — войдите снова. Ничего не отправлено.";
+const NO_CONNECTION = "Нет связи с магазином. Проверьте интернет и попробуйте ещё раз.";
 
 // ---------- Requests ----------
 
@@ -129,7 +138,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch {
-    throw new ApiError(0, "Нет связи с магазином. Проверьте интернет и попробуйте ещё раз.", null);
+    throw new ApiError(0, NO_CONNECTION, null);
   } finally {
     clearTimeout(timer);
   }
@@ -153,12 +162,26 @@ function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Re
   });
 }
 
+function isRead(opts: RequestOptions): boolean {
+  const method = opts.method ?? (opts.form || opts.body !== undefined ? "POST" : "GET");
+  return method.toUpperCase() === "GET";
+}
+
 async function request(path: string, opts: RequestOptions): Promise<Response> {
   const res = await send(path, opts, true);
   if (res.status !== 401 || !tokens) return res;
-  // The access token expired: refresh once, or go on as a guest.
-  const refreshed = await refreshTokens();
-  return send(path, opts, refreshed);
+  // The access token expired: refresh once.
+  const refresh = await refreshTokens();
+  if (refresh === "ok") return send(path, opts, true);
+  // A read goes on as a guest once the session has really ended. Anything that writes must not,
+  // and nothing goes as a guest while the connection is down: a wholesale customer's order would
+  // become a guest's at retail prices, and retail prices would be cached under their account.
+  if (refresh === "ended" && isRead(opts)) return send(path, opts, false);
+  throw new ApiError(
+    refresh === "ended" ? 401 : 0,
+    refresh === "ended" ? SESSION_ENDED : NO_CONNECTION,
+    null,
+  );
 }
 
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
@@ -186,4 +209,29 @@ export async function apiFile(path: string, query?: Query): Promise<ArrayBuffer>
     throw new ApiError(res.status, errorMessage(data?.detail, `Ошибка ${res.status}`), data);
   }
   return res.arrayBuffer();
+}
+
+/**
+ * The key of one checkout or till sale (`request_key`): sent again with a retry, it returns the
+ * order already placed instead of a second one. `nonce` is made once per attempt and renewed
+ * after a success; the content's hash makes a changed cart or receipt a new order.
+ */
+export function requestKey(nonce: string, content: unknown): string {
+  const text = JSON.stringify(content);
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return `${nonce}-${hash.toString(36)}`;
+}
+
+/** A random one-off value (a guest's retry gets their order back with it: it must not be guessable). */
+export function newNonce(): string {
+  const bytes = new Uint8Array(12);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return (
+    Date.now().toString(36) + Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")
+  );
 }

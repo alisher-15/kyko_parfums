@@ -25,11 +25,18 @@ from app.schemas.suppliers import (
     PriceListOut,
     PriceListReport,
     SupplierOut,
+    SuspiciousLine,
     UnmatchedLine,
+    UnreadableLine,
     VariantSupplierPrice,
 )
 from app.services import suppliers as svc
-from app.services.price_lists import PriceListError, line_key, read_price_list
+from app.services.price_lists import (
+    PriceListError,
+    Unreadable,
+    line_key,
+    read_price_list_with_skips,
+)
 
 router = APIRouter()
 
@@ -103,7 +110,7 @@ def list_suppliers(db: Session = Depends(get_db)):
     ]
 
 
-def _report(plan: svc.Plan, dry_run: bool) -> PriceListReport:
+def _report(plan: svc.Plan, dry_run: bool, skipped: list[Unreadable]) -> PriceListReport:
     changes = plan.changes
 
     def rose(old, new) -> bool:
@@ -161,6 +168,20 @@ def _report(plan: svc.Plan, dry_run: bool) -> PriceListReport:
             )
             for c in sorted(changes, key=weight, reverse=True)[:CHANGES_LIMIT]
         ],
+        unreadable=[UnreadableLine(row=u.row, line=u.text, value=u.value) for u in skipped],
+        suspicious=[
+            SuspiciousLine(
+                variant_id=x.variant.id,
+                product_id=x.variant.product_id,
+                label=x.variant.label,
+                line=x.line.text,
+                cost_old=x.cost_old,
+                cost_new=x.cost_new,
+                reason=x.reason,
+            )
+            for x in plan.suspicious
+        ],
+        prices_not_raised=sum(1 for c in changes if c.stuck),
     )
 
 
@@ -177,9 +198,9 @@ async def upload_price_list(
     supplier = _supplier(db, supplier_id)
 
     def run() -> PriceListReport:
-        lines = read_price_list(supplier.price_format, content, name)
+        lines, skipped = read_price_list_with_skips(supplier.price_format, content, name)
         plan = svc.plan_price_list(db, supplier, lines, lock=not dry_run)
-        report = _report(plan, dry_run)
+        report = _report(plan, dry_run, skipped)
         if dry_run:
             db.rollback()
         else:

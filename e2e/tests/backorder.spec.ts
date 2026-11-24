@@ -47,6 +47,24 @@ test("товара нет в наличии: клиент заказывает �
     expect(order.variant_stock[missing.id], "one unit is owed to the customer").toBe(-1);
   });
 
+  await test.step("цену товара «под заказ» можно поменять, а долг клиенту остаётся", async () => {
+    const m = await openPage();
+    await loginAsAdmin(m);
+    await m.goto(`/admin/products/${product.id}`);
+    // The 100 ml volume's retail price: stock −1, the unit owed to the customer.
+    await m.locator('input[value="50000"]').fill("52000");
+    const row = m.locator("div.border-line", { has: m.locator('input[value="52000"]') }).last();
+    await row.getByRole("button", { name: "Сохранить" }).click();
+    await expect
+      .poll(async () => {
+        const p = await api("GET", `/admin/products/${product.id}`, admin);
+        const v = p.variants.find((x: { id: number }) => x.id === missing.id);
+        return [v.retail_price, v.stock];
+      })
+      .toEqual([52000, -1]);
+    await m.close();
+  });
+
   await test.step("менеджер видит пометку в списке, в заказе и на дашборде", async () => {
     const m = await openPage();
     await loginAsAdmin(m);

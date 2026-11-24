@@ -71,6 +71,8 @@ class CheckoutIn(BaseModel):
     delivery_city: str = Field(min_length=1, max_length=128)
     delivery_address: str = Field(min_length=1, max_length=2000)
     comment: str | None = Field(default=None, max_length=2000)
+    # Made by the site or app for this checkout: a retry with it returns the order it placed.
+    request_key: str | None = Field(default=None, min_length=8, max_length=64)
 
     @field_validator("items")
     @classmethod

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/format";
 import type { OrderStatus } from "@/lib/types";
 import { DropIcon } from "./icons";
@@ -167,6 +167,15 @@ export function QuantityInput({
   max?: number;
 }) {
   const clamp = (v: number) => Math.max(1, max !== undefined ? Math.min(v, Math.max(max, 1)) : v);
+  // What is being typed, while the field has focus: it may be empty on the way from "1" to "5"
+  // (clamping each keystroke turned that into "15"). The number is set on blur or Enter.
+  const [draft, setDraft] = useState<string | null>(null);
+  const commitDraft = () => {
+    if (draft === null) return;
+    const n = Math.floor(Number(draft));
+    if (Number.isFinite(n) && n >= 1 && clamp(n) !== value) onChange(clamp(n));
+    setDraft(null);
+  };
   return (
     <div className="inline-flex items-center rounded-full border border-line bg-white">
       <button
@@ -182,8 +191,16 @@ export function QuantityInput({
         type="number"
         min={1}
         max={max}
-        value={value}
-        onChange={(e) => onChange(clamp(Number(e.target.value) || 1))}
+        aria-label="Количество"
+        value={draft ?? value}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commitDraft}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            commitDraft();
+          }
+        }}
         className="w-12 [appearance:textfield] bg-transparent text-center text-sm outline-none [&::-webkit-inner-spin-button]:appearance-none"
       />
       <button

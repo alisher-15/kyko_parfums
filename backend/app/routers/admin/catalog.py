@@ -395,7 +395,16 @@ def update_variant(
         )
     stock_note = changes.pop("stock_note", None)
     new_stock = changes.pop("stock", None)
-    if new_stock is not None:
+    expected = changes.pop("stock_expected", None)
+    if new_stock is not None and new_stock != variant.stock:
+        if expected is not None and expected != variant.stock:
+            raise HTTPException(
+                409,
+                f"Остаток изменился, пока карточка была открыта: сейчас {variant.stock} шт. "
+                "Обновите страницу и впишите остаток заново.",
+            )
+        if new_stock < 0:
+            raise HTTPException(422, "Остаток можно задать только от 0 и выше")
         set_stock(db, variant, new_stock, StockReason.manual, user=admin, note=stock_note)
     repriced = any(changes.get(k, getattr(variant, k)) != getattr(variant, k) for k in PRICE_FIELDS)
     price_history.label(db, "Админка", admin)

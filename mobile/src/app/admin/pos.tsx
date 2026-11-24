@@ -17,7 +17,7 @@ import { ScanField, type ScanResult } from "@/components/admin/scan";
 import { ProductImage, QuantityStepper } from "@/components/product";
 import { Button, Chip, Field, Muted, Notice, Txt } from "@/components/ui";
 import type { AdminOrder, AdminUser, StoreQuote, VariantSearchItem } from "@/lib/admin-types";
-import { ApiError, api, errorText } from "@/lib/api";
+import { ApiError, api, errorText, newNonce, requestKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, tenge, volumeLabel } from "@/lib/format";
 import { useApi } from "@/lib/queries";
@@ -61,8 +61,13 @@ function Pos() {
   const [payment, setPayment] = useState<PaymentMethod>("cash");
   const [comment, setComment] = useState("");
   const [discountAll, setDiscountAll] = useState("");
-  const [quote, setQuote] = useState<StoreQuote | null>(null);
+  // The quote with the receipt it was made for: until the quote of the receipt as it is now
+  // comes back, the totals are dimmed and the sale can't be recorded.
+  const [quoted, setQuoted] = useState<{ key: string; quote: StoreQuote } | null>(null);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // One sale's key, made on its first «Провести» and renewed once it is recorded.
+  const nonce = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<AdminOrder | null>(null);
   const [results, setResults] = useState<VariantSearchItem[]>([]);
@@ -79,6 +84,8 @@ function Pos() {
     discount_percent: Number(l.discount.replace(",", ".")) || 0,
   }));
   const quoteKey = JSON.stringify([items, tier || null, customer?.id ?? null]);
+  const quote = quoted?.quote ?? null;
+  const fresh = quoted?.key === quoteKey;
 
   // The server prices the draft receipt (a moment after each change).
   useEffect(() => {
@@ -86,8 +93,12 @@ function Pos() {
     const timer = setTimeout(() => {
       const [qItems, price_tier, customer_id] = JSON.parse(quoteKey);
       api<StoreQuote>("/admin/store/quote", { body: { items: qItems, price_tier, customer_id } })
-        .then((q) => !cancelled && setQuote(q))
-        .catch((e: unknown) => !cancelled && setError(errorText(e)));
+        .then((q) => {
+          if (cancelled) return;
+          setQuoted({ key: quoteKey, quote: q });
+          setQuoteError(null);
+        })
+        .catch((e: unknown) => !cancelled && setQuoteError(errorText(e)));
     }, 200);
     return () => {
       cancelled = true;
@@ -181,8 +192,10 @@ function Pos() {
   };
 
   const submit = async () => {
+    if (!quote || !fresh) return;
     setBusy(true);
     setError(null);
+    nonce.current ??= newNonce();
     try {
       const order = await api<AdminOrder>("/admin/store/sales", {
         body: {
@@ -193,8 +206,12 @@ function Pos() {
           customer_phone: customer ? null : customerPhone,
           payment_method: payment,
           comment,
+          // The sum on the button: a receipt that came to another total is refused, not recorded.
+          expected_total: quote.total,
+          request_key: requestKey(nonce.current, quoteKey),
         },
       });
+      nonce.current = null;
       setDone(order);
       reset();
       void queryClient.invalidateQueries({ queryKey: ["/admin/orders"] });
@@ -458,7 +475,7 @@ function Pos() {
           <Field label="Комментарий" value={comment} onChangeText={setComment} />
         </Block>
 
-        <Block>
+        <Block style={fresh || lines.length === 0 ? undefined : { opacity: 0.6 }}>
           <KV label="По прайсу" value={tenge(quote?.subtotal ?? 0)} />
           {!!quote?.discount_total && (
             <KV label="Скидка" value={`−${tenge(quote.discount_total)}`} color={colors.ok} />
@@ -479,6 +496,7 @@ function Pos() {
             <Notice tone="error">{quote.errors.join("\n")}</Notice>
           )}
           {error && <Notice tone="error">{error}</Notice>}
+          {quoteError && <Notice tone="error">Не удалось посчитать чек: {quoteError}</Notice>}
           <Button
             testID="pos-submit"
             title={
@@ -487,7 +505,7 @@ function Pos() {
                 : `Провести продажу${quote?.total ? ` · ${tenge(quote.total)}` : ""}`
             }
             loading={busy}
-            disabled={!quote?.can_submit || lines.length === 0}
+            disabled={!fresh || !quote?.can_submit || lines.length === 0}
             onPress={() => void submit()}
           />
           <Muted style={{ fontSize: 12, textAlign: "center" }}>

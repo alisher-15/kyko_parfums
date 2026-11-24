@@ -329,6 +329,7 @@ function ReportView({
           цены поставщика: себестоимость и цены продажи не изменятся.
         </Notice>
       )}
+      <PriceListWarnings report={report} />
       <View style={{ flexDirection: "row", gap: 8 }}>
         <Button
           kind="gold"
@@ -476,6 +477,40 @@ function ChangeRow({ change: c }: { change: PriceChangeLine }) {
       <Change label="Опт" from={c.wholesale_old} to={c.wholesale_new} />
       <Change label="Кр. опт" from={c.bulk_old} to={c.bulk_new} />
     </Pressable>
+  );
+}
+
+/** What the list could not do on its own: odd costs held back, prices not read or not raised. */
+function PriceListWarnings({ report }: { report: PriceListReport }) {
+  const suspicious = report.suspicious ?? [];
+  const unreadable = report.unreadable ?? [];
+  const notRaised = report.prices_not_raised ?? 0;
+  if (!suspicious.length && !unreadable.length && !notRaised) return null;
+  return (
+    <Notice tone="warn">
+      {suspicious.length > 0 && (
+        <Text>
+          <Text style={{ fontFamily: fonts.sansBold }}>
+            Не применится — проверьте: {suspicious.length}.
+          </Text>{" "}
+          Цена поставщика запомнится, а себестоимость и цены продажи останутся прежними.
+          {suspicious.map((x) => `\n• ${x.label} («${x.line}»): ${x.reason}`).join("")}
+          {"\n"}
+        </Text>
+      )}
+      {unreadable.length > 0 && (
+        <Text>
+          <Text style={{ fontFamily: fonts.sansBold }}>
+            Цена не прочитана: {unreadable.length}{" "}
+            {plural(unreadable.length, "строка", "строки", "строк")}.
+          </Text>
+          {unreadable.map((u) => `\n• Строка ${u.row}: «${u.line}» — «${u.value}»`).join("")}
+          {"\n"}
+        </Text>
+      )}
+      {notRaised > 0 &&
+        `У ${volumes(notRaised)} себестоимость вырастет, а цены продажи — нет: по наценкам оптовая цена стала бы выше розничной. Поправьте их цены вручную.`}
+    </Notice>
   );
 }
 

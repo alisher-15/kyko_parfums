@@ -74,4 +74,43 @@ test.describe("Оптовые цены и тизер крупного опта",
       await api("PUT", "/admin/settings/pricing", admin, settings);
     }
   });
+
+  test("вход истёк при оформлении: заказ не уходит гостевым по рознице, форма сохранена", async ({ page }) => {
+    const admin = await adminToken();
+    const coco = await product(admin, "coco");
+    await ensureStock(admin, coco.variants[0], 2);
+    const buyer = await newCustomer("expired", "wholesale");
+    await login(page, buyer.email, buyer.password);
+    await page.goto(`/products/${coco.id}`);
+    await page.getByRole("button", { name: "В корзину" }).click();
+    await page.goto("/checkout");
+    await page.getByLabel("Имя и фамилия").fill("Оптовик Тестов");
+    await page.getByLabel("Телефон").fill("+7 701 111 22 33");
+    await page.getByLabel("Город").fill("Алматы");
+    await page.getByLabel("Адрес").fill("пр. Абая, 5");
+    await page.getByLabel(/согласие на обработку/).check();
+    const before = (await api("GET", "/admin/orders?page_size=1", admin)).total;
+
+    // The session ends meanwhile (a password change on another device): both tokens are dead.
+    await page.evaluate(() =>
+      localStorage.setItem("kyko.tokens", JSON.stringify({ access_token: "dead", refresh_token: "dead" })),
+    );
+    await page.getByRole("button", { name: /Подтвердить заказ/ }).click();
+    // Whether the dead session shows up on sending or just before it, the form comes back as a
+    // guest's with what was typed, and says so.
+    await expect(page.getByText("Вход истёк, заказ не отправлен.")).toBeVisible();
+    await expect(page.getByLabel("Город")).toHaveValue("Алматы");
+    await expect(page.getByLabel("Адрес")).toHaveValue("пр. Абая, 5");
+    expect((await api("GET", "/admin/orders?page_size=1", admin)).total, "no guest order").toBe(before);
+
+    await page.getByRole("link", { name: "Войдите снова" }).click();
+    await page.fill("input[autocomplete=username]", buyer.email);
+    await page.fill("input[type=password]", buyer.password);
+    await page.getByRole("button", { name: "Войти" }).click();
+    await page.waitForURL("**/checkout");
+    await expect(page.getByLabel("Адрес")).toHaveValue("пр. Абая, 5");
+    await page.getByLabel(/согласие на обработку/).check();
+    await page.getByRole("button", { name: /Подтвердить заказ/ }).click();
+    await page.waitForURL(/\/account\/orders\/\d+/);
+  });
 });

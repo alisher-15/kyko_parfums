@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useApi } from "./queries";
 import type { Category, CategoryKind } from "./types";
 
@@ -57,4 +58,16 @@ export function chipsFor<T extends Node>(all: T[], id: number): { parent: T | nu
   const parent =
     node.parent_id === null ? null : (all.find((c) => c.id === node.parent_id) ?? null);
   return { parent, chips: parent ? childrenOf(all, parent.id) : [] };
+}
+
+/**
+ * Opens a node step by step, as on Kaspi and the website: its groups (the categories screen with
+ * `parent`) while it has any, else its products (the collection screen).
+ */
+export function openCategory(all: Node[], node: Pick<Category, "id" | "name">) {
+  if (childrenOf(all, node.id).length) {
+    router.push({ pathname: "/categories", params: { parent: node.id, title: node.name } });
+  } else {
+    router.push({ pathname: "/collection", params: { category_id: node.id, title: node.name } });
+  }
 }

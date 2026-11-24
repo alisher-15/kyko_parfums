@@ -53,3 +53,13 @@ export function categoryOptions(
     return { id: c.id, label: `${"   ".repeat(depth)}${c.name}`, depth };
   });
 }
+
+/**
+ * Where a node leads, step by step as on Kaspi: to its groups (`/categories?parent=`) while it has
+ * any, else to its products in the catalog.
+ */
+export function categoryHref(all: Pick<Category, "id" | "parent_id">[], node: Pick<Category, "id">): string {
+  return childrenOf(all, node.id).length
+    ? `/categories?parent=${node.id}`
+    : `/catalog?category_id=${node.id}`;
+}

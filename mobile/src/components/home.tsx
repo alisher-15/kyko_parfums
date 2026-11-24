@@ -4,7 +4,7 @@ import { router, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import { FlatList, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/lib/auth";
-import { childrenOf, useCategories } from "@/lib/categories";
+import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { assetUrl } from "@/lib/config";
 import { CONTACTS, WHATSAPP, whatsappAbout } from "@/lib/contacts";
 import { plural } from "@/lib/format";
@@ -139,11 +139,14 @@ function EntryTile({
   params,
   note,
   dark = false,
+  onPress,
 }: {
   title: string;
   params: Params;
   note?: (total: number) => string;
   dark?: boolean;
+  /** Instead of opening the collection with `params`. */
+  onPress?: () => void;
 }) {
   const { data } = useApi<Page<ProductListItem>>("/products", {
     ...params,
@@ -156,7 +159,7 @@ function EntryTile({
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={title}
-      onPress={() => openCollection(title, params)}
+      onPress={onPress ?? (() => openCollection(title, params))}
       style={({ pressed }) => [
         styles.entry,
         dark && { backgroundColor: colors.ink },
@@ -216,6 +219,7 @@ export function StartGrid() {
             title={c.name}
             params={{ category_id: c.id }}
             note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
+            onPress={() => openCategory(tree ?? [], c)}
           />
         ))}
       </View>

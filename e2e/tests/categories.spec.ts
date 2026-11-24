@@ -38,7 +38,13 @@ test.describe("Разделы каталога", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Категории" })).toBeVisible();
       const cards = page.getByRole("navigation", { name: "Категории" });
       await expect(cards.getByRole("link", { name: "Парфюмерия" })).toBeVisible();
+      // A section with groups opens its groups first, as on Kaspi, then «Все товары» or a group.
       await cards.getByRole("link", { name: "Макияж" }).click();
+      await expect(page).toHaveURL(/\/categories\?parent=\d+$/);
+      await expect(page.getByRole("heading", { level: 1, name: "Макияж" })).toBeVisible();
+      await expect(cards.getByRole("link", { name: "Губы" })).toBeVisible();
+      await cards.getByRole("link", { name: /^Все товары/ }).click();
+      await expect(page).toHaveURL(new RegExp(`/catalog\\?category_id=${find(all, "Макияж").id}$`));
       await expect(page.getByRole("heading", { level: 1, name: "Макияж" })).toBeVisible();
       const groups = page.getByLabel("Подразделы");
       await expect(groups.getByRole("link", { name: "Губы" })).toBeVisible();

@@ -8,7 +8,7 @@ import { SearchIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { childrenOf, useCategories } from "@/lib/categories";
+import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
 import { CONTACTS, whatsappLink } from "@/lib/contacts";
 import { dayMonth, percentOff, plural } from "@/lib/format";
 import { useRecentlyViewed } from "@/lib/recent";
@@ -326,7 +326,7 @@ export function HomeStart() {
         {others.map((c) => (
           <EntryTile
             key={c.id}
-            href={`/catalog?category_id=${c.id}`}
+            href={tree ? categoryHref(tree, c) : `/catalog?category_id=${c.id}`}
             title={c.name}
             note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
             query={{ category_id: c.id }}

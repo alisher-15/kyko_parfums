@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ErrorBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import type { AdminProduct, BrandBrief, CreativeOut, Page } from "@/lib/types";
@@ -97,6 +97,37 @@ export function CreativeMaker({
   const set = <K extends keyof CreativeDraft>(k: K, v: CreativeDraft[K]) => setDraft({ ...draft, [k]: v });
   const fresh = preview?.key === key;
   const fileName = `kyko-${draft.format === "banner" ? "banner" : "story"}.jpg`;
+
+  // Phones get the system share sheet («Сохранить изображение» to Photos, Instagram, WhatsApp):
+  // iPhone Safari won't save a data: link («Загрузить» does nothing). Computers download a file.
+  const canShare = typeof navigator !== "undefined" && typeof navigator.canShare === "function";
+  const touch = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+  // Made ahead, not on the tap: Safari opens the share sheet only straight from the tap.
+  const src = preview?.src ?? "";
+  const file = useMemo(() => (src ? jpegFile(src, fileName) : null), [src, fileName]);
+  const save = async () => {
+    if (!file) return;
+    setError(null);
+    if (touch && canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: draft.title });
+      } catch (e) {
+        // Closing the sheet is not an error.
+        if (!(e instanceof DOMException && e.name === "AbortError")) {
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      }
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  };
 
   const use = async () => {
     if (!onUse) return;
@@ -228,9 +259,9 @@ export function CreativeMaker({
         {error && <ErrorBox>{error}</ErrorBox>}
         <div className="flex flex-wrap gap-2">
           {preview?.src && (
-            <a className="btn btn-outline btn-sm" href={preview.src} download={fileName}>
-              Скачать JPG
-            </a>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void save()}>
+              {touch && canShare ? "Сохранить или поделиться" : "Скачать JPG"}
+            </button>
           )}
           {onUse && draft.format === "banner" && (
             <button
@@ -246,6 +277,14 @@ export function CreativeMaker({
       </div>
     </div>
   );
+}
+
+/** A data:image/jpeg;base64 preview as a file to share or download. */
+function jpegFile(dataUrl: string, name: string): File {
+  const bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], name, { type: "image/jpeg" });
 }
 
 /** Up to three products for the picture, found by name or brand. */

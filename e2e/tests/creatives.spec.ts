@@ -15,7 +15,7 @@ test("баннер и сторис по шаблону: превью, скачи
     await expect(page.getByTestId("creative-preview")).toHaveAttribute("src", /^data:image\/jpeg;base64,/);
     await page.getByRole("button", { name: /Сторис 1080×1920/ }).click();
     const download = page.waitForEvent("download");
-    await page.getByRole("link", { name: "Скачать JPG" }).click();
+    await page.getByRole("button", { name: "Скачать JPG" }).click();
     expect((await download).suggestedFilename()).toBe("kyko-story.jpg");
   });
 

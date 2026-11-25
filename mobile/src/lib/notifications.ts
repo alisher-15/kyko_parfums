@@ -5,7 +5,7 @@ import { AndroidImportance } from "expo-notifications";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { AppState, Linking, Platform } from "react-native";
-import { api } from "./api";
+import { api, hasTokens } from "./api";
 import { prefs } from "./storage";
 
 /**
@@ -15,6 +15,8 @@ import { prefs } from "./storage";
  */
 
 const TOKEN_KEY = "kyko.pushToken";
+// Set once the phone has asked at the first start (see askOnFirstLaunch).
+const ASKED_KEY = "kyko.pushAsked";
 // The Android channel the backend sends to («channelId» in services/push.py).
 const CHANNEL = "orders";
 
@@ -44,15 +46,19 @@ export async function pushStatus(): Promise<PushStatus> {
   return status === "granted" ? "granted" : status === "denied" ? "denied" : "undetermined";
 }
 
+/** The «Заказы» channel. Android 13+ shows the permission prompt only once a channel exists. */
+async function ensureChannel(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  await Notifications.setNotificationChannelAsync(CHANNEL, {
+    name: "Заказы",
+    description: "Статус ваших заказов",
+    importance: AndroidImportance.HIGH,
+  });
+}
+
 /** Send this phone's address to the shop, for the signed-in customer. */
 async function register(): Promise<boolean> {
-  if (Platform.OS === "android") {
-    await Notifications.setNotificationChannelAsync(CHANNEL, {
-      name: "Заказы",
-      description: "Статус ваших заказов",
-      importance: AndroidImportance.HIGH,
-    });
-  }
+  await ensureChannel();
   const projectId = Constants.expoConfig?.extra?.eas?.projectId as string | undefined;
   try {
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
@@ -73,6 +79,21 @@ async function register(): Promise<boolean> {
 /** Whether this phone's address reached the shop (notifications can come). */
 async function registered(): Promise<boolean> {
   return (await prefs.get<string | null>(TOKEN_KEY, null)) !== null;
+}
+
+/**
+ * The first start after installing (or after the update that brought this): the phone asks
+ * whether the shop may send order notifications. Asked once; after a «no» the account screen
+ * turns them on later. A guest who allows them is registered when they sign in (syncPush).
+ */
+export async function askOnFirstLaunch(): Promise<void> {
+  if (!supported()) return;
+  if (await prefs.get<boolean>(ASKED_KEY, false)) return;
+  await prefs.set(ASKED_KEY, true);
+  if ((await pushStatus()) !== "undetermined") return;
+  await ensureChannel();
+  const { status } = await Notifications.requestPermissionsAsync();
+  if (status === "granted" && hasTokens()) await register();
 }
 
 /** Ask the customer, and register the phone if they agree. */

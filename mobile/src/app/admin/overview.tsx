@@ -61,20 +61,36 @@ function Overview() {
           accent={d.orders_by_status.new > 0}
           href={{ pathname: "/admin/orders", params: { status: "new" } }}
         />
-        <Tile label="Выручка · выданные заказы" value={tenge(d.revenue_total)} />
+        <Tile
+          label="Выручка · выданные заказы"
+          value={tenge(d.revenue_total)}
+          href={{ pathname: "/admin/orders", params: { status: "delivered" } }}
+        />
         <Tile
           label={`В работе, ещё не выдано · ${d.pending_orders}`}
           value={tenge(d.pending_total)}
           href="/admin/orders"
         />
-        <Tile label="Возвраты" value={tenge(d.refunds_total)} />
+        <Tile
+          label="Возвраты"
+          value={tenge(d.refunds_total)}
+          href={{ pathname: "/admin/orders", params: { status: "delivered" } }}
+        />
         <Tile
           label={`Магазин сегодня · ${d.store_sales_today}`}
           value={tenge(d.store_revenue_today)}
           href={{ pathname: "/admin/orders", params: { channel: "store" } }}
         />
-        <Tile label="Выручка сайта" value={tenge(d.revenue_by_channel.online)} />
-        <Tile label="Выручка магазина" value={tenge(d.revenue_by_channel.store)} />
+        <Tile
+          label="Выручка сайта"
+          value={tenge(d.revenue_by_channel.online)}
+          href={{ pathname: "/admin/orders", params: { channel: "online" } }}
+        />
+        <Tile
+          label="Выручка магазина"
+          value={tenge(d.revenue_by_channel.store)}
+          href={{ pathname: "/admin/orders", params: { channel: "store" } }}
+        />
         <Tile
           label="Заявки на опт"
           value={String(d.wholesale_requests)}
@@ -84,12 +100,18 @@ function Overview() {
         <Tile
           label={`Валовая прибыль${margin === null ? "" : ` · маржа ${margin}%`}`}
           value={tenge(d.gross_profit)}
+          href={{ pathname: "/admin/orders", params: { status: "delivered" } }}
         />
-        <Tile label="Склад по себестоимости" value={tenge(d.stock_value)} />
+        <Tile
+          label="Склад по себестоимости"
+          value={tenge(d.stock_value)}
+          href={{ pathname: "/admin/products", params: { no_cost: "true" } }}
+        />
         <Tile
           label="В наличии без себестоимости"
           value={String(d.variants_without_cost)}
           accent={d.variants_without_cost > 0}
+          href={{ pathname: "/admin/products", params: { no_cost: "true" } }}
         />
         <Tile
           label={`Заказать у поставщика · ${d.units_backordered} шт.`}
@@ -97,7 +119,22 @@ function Overview() {
           accent={d.variants_backordered > 0}
           href={{ pathname: "/admin/products", params: { backordered: "true" } }}
         />
-        <Tile label="Мало на складе (≤ 3 шт.)" value={String(d.variants_low_stock)} />
+        {d.variants_few === undefined ? (
+          <Tile label="Мало на складе (≤ 3 шт.)" value={String(d.variants_low_stock)} />
+        ) : (
+          <>
+            <Tile
+              label="Мало на складе · 1–5 шт., объёмов"
+              value={String(d.variants_few)}
+              href={{ pathname: "/admin/products", params: { stock_state: "few" } }}
+            />
+            <Tile
+              label="Нет в наличии · объёмов"
+              value={String(d.variants_out ?? 0)}
+              href={{ pathname: "/admin/products", params: { stock_state: "out" } }}
+            />
+          </>
+        )}
         <Tile label="Товаров" value={String(d.products_total)} href="/admin/products" />
         <Tile
           label="Без цен / объёмов"

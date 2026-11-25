@@ -42,13 +42,13 @@ export default function AdminDashboard() {
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Tile label="Новые заказы" value={data.orders_by_status.new} href="/admin/orders?status=new" accent={data.orders_by_status.new > 0} />
-        <Tile label="Выручка · выданные заказы" value={money(data.revenue_total)} />
+        <Tile label="Выручка · выданные заказы" value={money(data.revenue_total)} href="/admin/orders?status=delivered" />
         <Tile
           label={`В работе, ещё не выдано · ${data.pending_orders}`}
           value={money(data.pending_total)}
           href="/admin/orders"
         />
-        <Tile label="Возвраты" value={money(data.refunds_total)} />
+        <Tile label="Возвраты" value={money(data.refunds_total)} href="/admin/orders?status=delivered" />
         <Tile
           label={`Продажи в магазине сегодня · ${data.store_sales_today}`}
           value={money(data.store_revenue_today)}
@@ -60,11 +60,13 @@ export default function AdminDashboard() {
         <Tile
           label={`Валовая прибыль${margin === null ? "" : ` · маржа ${margin}%`}`}
           value={money(data.gross_profit)}
+          href="/admin/orders?status=delivered"
         />
-        <Tile label="Склад по себестоимости" value={money(data.stock_value)} href="/admin/receipts" />
+        <Tile label="Склад по себестоимости" value={money(data.stock_value)} href="/admin/products?no_cost=true" />
         <Tile
           label="В наличии без себестоимости"
           value={data.variants_without_cost}
+          href="/admin/products?no_cost=true"
           accent={data.variants_without_cost > 0}
         />
         <Tile
@@ -73,7 +75,8 @@ export default function AdminDashboard() {
           href="/admin/products?backordered=true"
           accent={data.variants_backordered > 0}
         />
-        <Tile label="Мало на складе (≤ 3 шт.)" value={data.variants_low_stock} />
+        <Tile label="Мало на складе · 1–5 шт., объёмов" value={data.variants_few} href="/admin/products?stock_state=few" />
+        <Tile label="Нет в наличии · объёмов" value={data.variants_out} href="/admin/products?stock_state=out" />
         <Tile label="Товаров" value={data.products_total} href="/admin/products" />
         <Tile label="Без цен / объёмов" value={data.products_without_variants} href="/admin/products?no_variants=true" />
         <Tile label="Брендов" value={data.brands_total} href="/admin/brands" />

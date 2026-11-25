@@ -177,7 +177,7 @@ function ReceiptView({ id }: { id: number }) {
           <Block title="Сканер">
             <ScanField onScan={scan} cameraTitle={`Приёмка № ${receipt.id}`} />
             <Muted style={{ fontSize: 12 }}>
-              Один скан — одна штука. Несколько одинаковых коробок проще добавить кнопкой «+».
+              Один скан — одна штука. Несколько одинаковых коробок — впишите количество в строке.
             </Muted>
           </Block>
         )}

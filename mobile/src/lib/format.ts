@@ -181,3 +181,18 @@ export function formatPhone(input: string): string {
   ];
   return `+7 ${parts.filter(Boolean).join(" ")}`;
 }
+
+/** A stock count line off by more than this, or a count off by more than BIG_DIFF_TOTAL in all,
+ * is checked once more before it is posted: a slip («4» for «40») would set the stock wrong. */
+export const BIG_DIFF_LINE = 5;
+export const BIG_DIFF_TOTAL = 10;
+
+/** The lines of a count that differ a lot from the system, and whether the count needs a check. */
+export function bigDifferences<L extends { counted: number; expected: number | null }>(
+  lines: L[],
+): { lines: L[]; needsCheck: boolean } {
+  const off = (l: L) => (l.expected === null ? 0 : Math.abs(l.counted - l.expected));
+  const big = lines.filter((l) => off(l) > BIG_DIFF_LINE);
+  const total = lines.reduce((sum, l) => sum + off(l), 0);
+  return { lines: big, needsCheck: big.length > 0 || total > BIG_DIFF_TOTAL };
+}

@@ -17,7 +17,7 @@ import { UnknownBarcode } from "@/components/admin/unknown";
 import { Button, ErrorState, Field, Loader, Muted, Notice, Txt } from "@/components/ui";
 import type { CountLine, StockCount } from "@/lib/admin-types";
 import { ApiError, api, errorText } from "@/lib/api";
-import { dateTime, volumeLabel } from "@/lib/format";
+import { bigDifferences, dateTime, volumeLabel } from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import { colors, fonts, radius } from "@/theme";
 
@@ -125,6 +125,22 @@ function CountView({ id }: { id: number }) {
     ) {
       return;
     }
+    // A slip («4» for «40») would set the stock wrong: a big difference is checked once more.
+    const big = bigDifferences(count.items);
+    if (big.needsCheck) {
+      const list = big.lines
+        .map((l) => {
+          const d = l.counted - (l.expected ?? 0);
+          return `• ${l.label}: было ${l.expected}, посчитано ${l.counted}, ${d > 0 ? "+" : ""}${d}`;
+        })
+        .join("\n");
+      const ok = await confirm(
+        "Большое расхождение — проверьте",
+        list || "Расхождение по всем позициям больше 10 шт.",
+        "Расхождения верные",
+      );
+      if (!ok) return;
+    }
     await run(
       () => api<StockCount>(`${base}/post`, { method: "POST" }),
       "Инвентаризация проведена, остатки исправлены",
@@ -159,7 +175,7 @@ function CountView({ id }: { id: number }) {
           <Block title="Сканер">
             <ScanField onScan={scan} cameraTitle={`Инвентаризация № ${count.id}`} />
             <Muted style={{ fontSize: 12 }}>
-              Один скан — одна штука. Несколько одинаковых проще посчитать кнопками −/+.
+              Один скан — одна штука. Несколько одинаковых — впишите количество в строке.
             </Muted>
           </Block>
         )}

@@ -5,7 +5,7 @@ import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { ErrorBox, Field, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, dateTime, money } from "@/lib/format";
+import { ROLE_LABELS, dateTime, formatPhone, money } from "@/lib/format";
 import type { PricingRules, TokenPair, User } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -131,7 +131,13 @@ function ProfileForm({ user }: { user: User }) {
         <input className="input" value={form.full_name} onChange={set("full_name")} />
       </Field>
       <Field label="Телефон">
-        <input className="input" type="tel" value={form.phone} onChange={set("phone")} />
+        <input
+          className="input"
+          type="tel"
+          placeholder="+7 ___ ___ __ __"
+          value={form.phone}
+          onChange={(e) => set("phone")({ target: { value: formatPhone(e.target.value) } })}
+        />
       </Field>
       <Field label="Компания">
         <input className="input" value={form.company_name} onChange={set("company_name")} />

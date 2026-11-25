@@ -7,6 +7,7 @@ import { AuthCard } from "@/components/AuthCard";
 import { Consent } from "@/components/Consent";
 import { ErrorBox, Field } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { formatPhone } from "@/lib/format";
 import { safeNext } from "@/lib/safe-next";
 
 export function RegisterForm() {
@@ -56,7 +57,10 @@ export function RegisterForm() {
           <input className="input" autoComplete="name" value={form.full_name} onChange={set("full_name")} />
         </Field>
         <Field label="Телефон">
-          <input className="input" type="tel" autoComplete="tel" value={form.phone} onChange={set("phone")} />
+          <input className="input" type="tel" autoComplete="tel" placeholder="+7 ___ ___ __ __"
+            value={form.phone}
+            onChange={(e) => set("phone")({ target: { value: formatPhone(e.target.value) } })}
+          />
         </Field>
         <Field label="Email">
           <input

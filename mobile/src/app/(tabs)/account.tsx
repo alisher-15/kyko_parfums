@@ -250,10 +250,11 @@ const styles = StyleSheet.create({
 
 /** «Уведомления о заказах»: turn on, or send to the phone's settings after a «no». */
 function PushRow() {
-  const { status, enable, openSettings } = usePushStatus();
+  const { status, notConnected, enable, openSettings } = usePushStatus();
   if (status === null || status === "unsupported") return null;
-  const subtitle =
-    status === "granted"
+  const subtitle = notConnected
+    ? "Не подключены: телефон не получил адрес для уведомлений. Нажмите, чтобы попробовать ещё раз"
+    : status === "granted"
       ? "Включены: статус заказа придёт на телефон"
       : status === "denied"
         ? "Выключены в настройках телефона"
@@ -263,7 +264,7 @@ function PushRow() {
       <Divider style={{ marginLeft: 50 }} />
       <MenuRow
         testID="menu-push"
-        icon={status === "granted" ? "notifications" : "notifications-outline"}
+        icon={status === "granted" && !notConnected ? "notifications" : "notifications-outline"}
         title="Уведомления о заказах"
         subtitle={subtitle}
         onPress={() => (status === "denied" ? openSettings() : void enable())}

@@ -4,6 +4,7 @@ import { Button, EmptyState, Field, Muted, Notice } from "@/components/ui";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { User } from "@/lib/types";
+import { formatPhone } from "@/lib/format";
 
 export default function ProfileScreen() {
   const { user, setUser } = useAuth();
@@ -64,7 +65,7 @@ export default function ProfileScreen() {
         <Field
           label="Телефон"
           value={form.phone}
-          onChangeText={set("phone")}
+          onChangeText={(t) => set("phone")(formatPhone(t))}
           keyboardType="phone-pad"
           autoComplete="tel"
           placeholder="+7 ___ ___ __ __"

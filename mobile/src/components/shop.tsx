@@ -18,11 +18,12 @@ import { useCart } from "@/lib/cart";
 import { OFFER_URL, PRIVACY_URL, assetUrl } from "@/lib/config";
 import { useCurrency } from "@/lib/currency";
 import {
-  ROLE_LABELS,
-  STATUS_LABELS,
   dayMonth,
+  formatPhone,
   percentOff,
   plural,
+  ROLE_LABELS,
+  STATUS_LABELS,
   tenge,
   volumeLabel,
 } from "@/lib/format";
@@ -293,7 +294,7 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
           <Field
             label="Телефон для связи"
             value={phone}
-            onChangeText={setPhone}
+            onChangeText={(t) => setPhone(formatPhone(t))}
             keyboardType="phone-pad"
             autoComplete="tel"
             placeholder="+7 ___ ___ __ __"

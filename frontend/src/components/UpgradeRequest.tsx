@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS } from "@/lib/format";
+import { ROLE_LABELS, formatPhone } from "@/lib/format";
 import type { User } from "@/lib/types";
 import { ErrorBox, Field, SuccessBox } from "./ui";
 
@@ -76,7 +76,7 @@ export function UpgradeRequest({ compact = false }: { compact?: boolean }) {
             <input className="input" required value={company} onChange={(e) => setCompany(e.target.value)} />
           </Field>
           <Field label="Телефон для связи">
-            <input className="input" required type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <input className="input" required type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} />
           </Field>
         </>
       )}

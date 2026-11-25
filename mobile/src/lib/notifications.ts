@@ -61,10 +61,18 @@ async function register(): Promise<boolean> {
     });
     await prefs.set(TOKEN_KEY, token);
     return true;
-  } catch {
-    // No token (Expo Go on Android, no connection): try again at the next start.
+  } catch (err) {
+    // No token: Expo Go on Android, no connection, or an Android build made without Firebase
+    // (`googleServicesFile`). Tried again at the next start; the account screen says it isn't on.
+    console.warn("Push registration failed", err);
+    await prefs.set(TOKEN_KEY, null);
     return false;
   }
+}
+
+/** Whether this phone's address reached the shop (notifications can come). */
+async function registered(): Promise<boolean> {
+  return (await prefs.get<string | null>(TOKEN_KEY, null)) !== null;
 }
 
 /** Ask the customer, and register the phone if they agree. */
@@ -96,20 +104,30 @@ export async function forgetPush(): Promise<void> {
 /** The permission, re-read when the customer comes back from the phone's settings. */
 export function usePushStatus(): {
   status: PushStatus | null;
+  /** Allowed on the phone but the shop has no address for it: nothing would arrive. */
+  notConnected: boolean;
   enable: () => Promise<void>;
   openSettings: () => void;
 } {
   const [status, setStatus] = useState<PushStatus | null>(null);
+  const [connected, setConnected] = useState(true);
   useEffect(() => {
-    void pushStatus().then(setStatus);
+    const read = () => {
+      void pushStatus().then(setStatus);
+      void registered().then(setConnected);
+    };
+    read();
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void pushStatus().then(setStatus);
+      if (state === "active") read();
     });
     return () => sub.remove();
   }, []);
-  const enable = useCallback(async () => setStatus(await enablePush()), []);
+  const enable = useCallback(async () => {
+    setStatus(await enablePush());
+    setConnected(await registered());
+  }, []);
   const openSettings = useCallback(() => void Linking.openSettings(), []);
-  return { status, enable, openSettings };
+  return { status, notConnected: status === "granted" && !connected, enable, openSettings };
 }
 
 /** Tapping a notification opens its order, also when it started the app. */

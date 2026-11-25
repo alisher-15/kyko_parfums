@@ -20,6 +20,7 @@ import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
 import { formatPhone, volumeLabel } from "@/lib/format";
 import { useQuote } from "@/lib/queries";
+import { rememberGuestOrder } from "@/lib/guest-orders";
 import type { Order } from "@/lib/types";
 import { colors, fonts } from "@/theme";
 
@@ -67,24 +68,6 @@ export default function CheckoutScreen() {
     if (user) sessionEnded = false;
   }, [user]);
 
-  if (!user) {
-    return (
-      <EmptyState
-        icon="person-outline"
-        title={
-          sessionEnded
-            ? "Вход истёк, заказ не отправлен. Войдите снова — данные формы сохранены"
-            : "Войдите, чтобы оформить заказ"
-        }
-        action={
-          <Button
-            title="Войти"
-            onPress={() => router.replace({ pathname: "/login", params: { next: "/checkout" } })}
-          />
-        }
-      />
-    );
-  }
   if (!ready) return <Loader />;
   if (items.length === 0) {
     return (
@@ -104,7 +87,8 @@ export default function CheckoutScreen() {
     });
   const missing =
     !form.contact_name.trim() ||
-    form.contact_phone.trim().length < 3 ||
+    // A guest is reached only by phone: the whole number (+7 and ten digits).
+    form.contact_phone.replace(/\D/g, "").length < (user ? 3 : 11) ||
     !form.delivery_city.trim() ||
     !form.delivery_address.trim();
   const q = quote.data;
@@ -115,7 +99,8 @@ export default function CheckoutScreen() {
     nonce.current ??= newNonce();
     const lines = items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity }));
     try {
-      const order = await api<Order>("/orders", {
+      // A guest's order comes back with the secret key of its page.
+      const order = await api<Order & { guest_key?: string | null }>("/orders", {
         body: {
           contact_name: form.contact_name.trim(),
           contact_phone: form.contact_phone.trim(),
@@ -131,7 +116,20 @@ export default function CheckoutScreen() {
       draft = {};
       void queryClient.invalidateQueries({ queryKey: ["/orders"] });
       router.dismissAll();
-      router.push({ pathname: "/orders/[id]", params: { id: order.id, created: "1" } });
+      if (order.guest_key) {
+        await rememberGuestOrder({
+          id: order.id,
+          key: order.guest_key,
+          total: order.total_amount,
+          created_at: order.created_at,
+        });
+        router.push({
+          pathname: "/orders/[id]",
+          params: { id: order.id, key: order.guest_key, created: "1" },
+        });
+      } else {
+        router.push({ pathname: "/orders/[id]", params: { id: order.id, created: "1" } });
+      }
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 409
@@ -151,6 +149,22 @@ export default function CheckoutScreen() {
         contentContainerStyle={{ padding: 16, gap: 16 }}
         keyboardShouldPersistTaps="handled"
       >
+        {!user && (
+          <Notice tone={sessionEnded ? "warn" : undefined}>
+            {sessionEnded
+              ? "Вход истёк, заказ не отправлен. Можно оформить его без регистрации по розничным ценам или войти снова — данные формы сохранены."
+              : "Можно без регистрации — по розничным ценам. Войдите, чтобы заказ сохранился в кабинете, применились ваши цены и приходили уведомления о статусе."}
+          </Notice>
+        )}
+        {!user && (
+          <Button
+            kind="outline"
+            small
+            title="Войти"
+            onPress={() => router.push({ pathname: "/login", params: { next: "/checkout" } })}
+            style={{ alignSelf: "flex-start" }}
+          />
+        )}
         <Title style={styles.h2}>Контакты</Title>
         <Field
           label="Имя и фамилия"
@@ -246,7 +260,11 @@ export default function CheckoutScreen() {
         />
         {(missing || !consent) && (
           <Muted style={{ textAlign: "center", fontSize: 13 }}>
-            {missing ? "Заполните имя, телефон, город и адрес" : "Отметьте согласие выше"}
+            {missing
+              ? user
+                ? "Заполните имя, телефон, город и адрес"
+                : "Заполните имя, телефон полностью (+7 и 10 цифр), город и адрес"
+              : "Отметьте согласие выше"}
           </Muted>
         )}
       </ScrollView>

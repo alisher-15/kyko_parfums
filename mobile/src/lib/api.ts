@@ -101,6 +101,8 @@ export interface RequestOptions {
   /** A multipart form (a photo, an Excel file), instead of a JSON body. */
   form?: FormData;
   query?: Query;
+  /** Extra headers (a guest order's «X-Order-Key»). */
+  headers?: Record<string, string>;
 }
 
 export function buildQuery(query?: Query): string {
@@ -145,7 +147,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
 }
 
 function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Response> {
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: "application/json", ...opts.headers };
   if (withAuth && tokens) headers.Authorization = `Bearer ${tokens.access_token}`;
   let body: string | FormData | undefined;
   if (opts.form) {

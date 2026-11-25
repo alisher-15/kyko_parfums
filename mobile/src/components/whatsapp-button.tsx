@@ -5,16 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { whatsappAbout } from "@/lib/contacts";
 import { siteUrl } from "@/lib/config";
 
-// Screens where the button would cover a form or is of no use (staff screens, sign-in, checkout).
-const HIDDEN = [
-  "/admin",
-  "/login",
-  "/register",
-  "/forgot-password",
-  "/checkout",
-  "/change-password",
-  "/delete-account",
-];
+// The shop's browsing screens only. Elsewhere it covered content (the account's menu rows, an
+// order's history, forms); the account has a WhatsApp row and an order its «Написать о заказе».
+const SHOWN = ["/", "/catalog", "/cart", "/brands", "/categories", "/collection"];
+const SHOWN_UNDER = ["/product/"];
 // The tab screens: the button sits above the tab bar.
 const TABS = ["/", "/catalog", "/favorites", "/cart", "/account"];
 /** The tab bar's height above the safe area, about the same on iOS and Android. */
@@ -31,7 +25,7 @@ const CART_BAR = 76;
 export function WhatsAppButton() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  if (HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
+  if (!SHOWN.includes(pathname) && !SHOWN_UNDER.some((p) => pathname.startsWith(p))) return null;
   const product = pathname.startsWith("/product/");
   const bottom =
     insets.bottom +

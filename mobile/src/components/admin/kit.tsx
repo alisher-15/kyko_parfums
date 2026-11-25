@@ -349,6 +349,10 @@ export function Toggle({
 }
 
 /** One choice out of a few, as chips that wrap: a brand, a gender, a supplier. */
+/** Over this many options the picker gets a search field and shows the first matches only. */
+const PICKER_SEARCH_FROM = 12;
+const PICKER_SHOWN = 24;
+
 export function ChipPicker<T extends string | number>({
   label,
   value,
@@ -362,14 +366,30 @@ export function ChipPicker<T extends string | number>({
   onChange: (value: T | null) => void;
   allowNone?: string;
 }) {
+  // A hundred brands from the price lists must not be a wall of chips: search, then pick.
+  const [q, setQ] = useState("");
+  const searchable = options.length > PICKER_SEARCH_FROM;
+  const needle = q.trim().toLowerCase();
+  const matching = needle ? options.filter((o) => o.label.toLowerCase().includes(needle)) : options;
+  const selected = options.find((o) => o.value === value);
+  const shown = searchable
+    ? [
+        ...(selected && !matching.slice(0, PICKER_SHOWN).includes(selected) ? [selected] : []),
+        ...matching.slice(0, PICKER_SHOWN),
+      ]
+    : options;
+  const hidden = searchable ? Math.max(matching.length - PICKER_SHOWN, 0) : 0;
   return (
     <View style={{ gap: 6 }}>
       {label && <Text style={styles.label}>{label}</Text>}
+      {searchable && (
+        <SearchBox value={q} onChange={setQ} placeholder={`Найти: ${options.length} вариантов`} />
+      )}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {allowNone && (
+        {allowNone && !needle && (
           <Chip label={allowNone} active={value === null} onPress={() => onChange(null)} />
         )}
-        {options.map((o) => (
+        {shown.map((o) => (
           <Chip
             key={String(o.value)}
             label={o.label}
@@ -378,6 +398,10 @@ export function ChipPicker<T extends string | number>({
           />
         ))}
       </View>
+      {hidden > 0 && <Muted style={{ fontSize: 12 }}>Ещё {hidden} — уточните поиск</Muted>}
+      {searchable && needle && matching.length === 0 && (
+        <Muted style={{ fontSize: 12 }}>Ничего не найдено</Muted>
+      )}
     </View>
   );
 }

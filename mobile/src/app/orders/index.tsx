@@ -7,11 +7,13 @@ import { Button, EmptyState, ErrorState, Loader, Muted, Txt } from "@/components
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { dateTime, plural, tenge } from "@/lib/format";
+import { useGuestOrders } from "@/lib/guest-orders";
 import type { OrderBrief, Page } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
 
 export default function OrdersScreen() {
   const { user, ready } = useAuth();
+  const guestOrders = useGuestOrders();
   const orders = useInfiniteQuery({
     queryKey: ["/orders", "infinite"],
     queryFn: ({ pageParam }) =>
@@ -23,11 +25,44 @@ export default function OrdersScreen() {
   });
 
   if (!user) {
+    if (guestOrders.length === 0) {
+      return (
+        <EmptyState
+          icon="person-outline"
+          title="Войдите, чтобы видеть заказы"
+          action={<Button title="Войти" onPress={() => router.replace("/login")} />}
+        />
+      );
+    }
+    // Orders placed without an account on this phone (each opens by its key).
     return (
-      <EmptyState
-        icon="person-outline"
-        title="Войдите, чтобы видеть заказы"
-        action={<Button title="Войти" onPress={() => router.replace("/login")} />}
+      <FlatList
+        data={guestOrders}
+        keyExtractor={(o) => String(o.id)}
+        contentContainerStyle={{ padding: 16, gap: 10, flexGrow: 1 }}
+        ListHeaderComponent={
+          <Muted style={{ fontSize: 13, marginBottom: 4 }}>
+            Заказы без регистрации, оформленные на этом телефоне. Войдите, чтобы новые заказы
+            сохранялись в кабинете.
+          </Muted>
+        }
+        renderItem={({ item: o }) => (
+          <Pressable
+            testID={`order-${o.id}`}
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({ pathname: "/orders/[id]", params: { id: o.id, key: o.key } })
+            }
+            style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
+          >
+            <View style={{ flex: 1, gap: 4 }}>
+              <Txt style={{ fontFamily: fonts.sansBold }}>№ {o.id}</Txt>
+              <Muted style={{ fontSize: 13 }}>{dateTime(o.created_at)}</Muted>
+            </View>
+            <Txt style={{ fontFamily: fonts.sansBold }}>{tenge(o.total)}</Txt>
+            <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+          </Pressable>
+        )}
       />
     );
   }

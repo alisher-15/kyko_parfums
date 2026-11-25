@@ -156,7 +156,14 @@ export function useNotificationTaps(ready: boolean): void {
   useEffect(() => {
     if (!ready || Platform.OS === "web") return;
     const open = (response: Notifications.NotificationResponse | null) => {
-      const orderId = Number(response?.notification.request.content.data?.order_id);
+      const data = response?.notification.request.content.data;
+      // A new order, sent to the staff: it opens in the admin panel.
+      const adminOrderId = Number(data?.admin_order_id);
+      if (Number.isInteger(adminOrderId) && adminOrderId > 0) {
+        router.push({ pathname: "/admin/orders/[id]", params: { id: adminOrderId } });
+        return;
+      }
+      const orderId = Number(data?.order_id);
       if (Number.isInteger(orderId) && orderId > 0) {
         router.push({ pathname: "/orders/[id]", params: { id: orderId } });
       }

@@ -71,7 +71,7 @@ function Users() {
             <SearchBox
               value={q}
               onChange={setQ}
-              placeholder="Email, имя, телефон, компания"
+              placeholder="Найти клиента"
               testID="users-search"
             />
           </View>

@@ -161,3 +161,37 @@ def test_deleting_the_account_forgets_its_phones(client, db):
     r = client.post("/api/me/delete", json={"password": PASSWORD}, headers=headers)
     assert r.status_code == 204
     assert _tokens(db) == {}
+
+
+STAFF_PHONE = "ExponentPushToken[ssssssssssssssssssssss]"
+BUYER_PHONE = "ExponentPushToken[cccccccccccccccccccccc]"
+
+
+def test_a_new_online_order_reaches_the_staffs_phones(client, db, catalog, sent):
+    """The owner's phone (signed in to the app) hears about a new order at once; customers'
+    phones don't, and nobody is told about their own order."""
+    make_user(db, "owner@example.com", UserRole.admin)
+    owner = login(client, "owner@example.com")
+    client.post("/api/me/push-tokens", json={"token": STAFF_PHONE}, headers=owner)
+    make_user(db, "anna@example.com")
+    anna = login(client, "anna@example.com")
+    client.post("/api/me/push-tokens", json={"token": BUYER_PHONE}, headers=anna)
+
+    order = _order(client, catalog, anna)
+    assert len(sent) == 1
+    (message,) = sent[0]
+    assert message["to"] == STAFF_PHONE
+    assert message["title"] == f"Новый заказ №{order['id']}"
+    assert message["body"] == "100 ₸ · Алматы · Анна"
+    assert message["data"] == {"admin_order_id": order["id"]}
+
+    # A guest's order too, and it says so.
+    item = {"variant_id": catalog["coco50"].id, "quantity": 1}
+    guest = client.post("/api/orders", json={**CHECKOUT, "items": [item]}).json()
+    assert sent[-1][0]["body"] == "100 ₸ · Алматы · Анна, без регистрации"
+    assert sent[-1][0]["data"] == {"admin_order_id": guest["id"]}
+
+    # The owner ordering for themselves is not told about it.
+    count = len(sent)
+    _order(client, catalog, owner)
+    assert len(sent) == count

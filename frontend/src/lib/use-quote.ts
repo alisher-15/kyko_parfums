@@ -10,9 +10,12 @@ import type { Quote } from "./types";
 export function useQuote() {
   const { items, ready } = useCart();
   const { sessionKey, loading: authLoading } = useAuth();
-  const [quote, setQuote] = useState<Quote | null>(null);
+  // The quote with the session it was made for: after a logout or a role change the previous
+  // session's prices (a wholesale total) are never shown, not even for a moment.
+  const [quoted, setQuoted] = useState<{ session: typeof sessionKey; quote: Quote } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
   const payload = JSON.stringify(
     items.map((i) => ({ variant_id: i.variantId, quantity: i.quantity })),
   );
@@ -25,7 +28,7 @@ export function useQuote() {
       api<Quote>("/cart/quote", { body: { items: JSON.parse(payload) } })
         .then((q) => {
           if (!cancelled) {
-            setQuote(q);
+            setQuoted({ session: sessionKey, quote: q });
             setError(null);
           }
         })
@@ -40,7 +43,14 @@ export function useQuote() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [payload, ready, sessionKey, authLoading]);
+  }, [payload, ready, sessionKey, authLoading, attempt]);
 
-  return { quote, error, loading: loading || !ready || authLoading };
+  const quote = quoted?.session === sessionKey ? quoted.quote : null;
+  return {
+    quote,
+    error,
+    loading: loading || !ready || authLoading,
+    /** Ask again after a failure. */
+    retry: () => setAttempt((n) => n + 1),
+  };
 }

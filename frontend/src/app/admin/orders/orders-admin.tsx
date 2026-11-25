@@ -78,10 +78,12 @@ export function OrdersAdmin({
             setSearch(q);
             setPage(1);
           }}
-          className="ml-auto flex gap-2"
+          className="flex w-full gap-2 sm:ml-auto sm:w-auto"
         >
           <input
             className="input"
+            type="search"
+            aria-label="Поиск заказа"
             placeholder="№, email, имя, телефон"
             value={q}
             onChange={(e) => setQ(e.target.value)}

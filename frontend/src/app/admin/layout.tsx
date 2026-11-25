@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { RequireAuth } from "@/components/RequireAuth";
 import { ErrorBox } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -19,6 +19,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (role && pathname === "/admin" && !allowed) router.replace(staffHome(role));
   }, [role, pathname, allowed, router]);
+  // Phones show the menu as a sideways strip: keep the open section in view.
+  const activeRef = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname]);
 
   return (
     <RequireAuth roles={STAFF_ROLES}>
@@ -29,6 +34,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               Kyko <span className="text-gold">Admin</span>
             </Link>
             <div className="hidden truncate pt-1 text-xs text-stone-400 lg:block">{user?.email}</div>
+            {/* Phones and tablets: the sidebar's bottom links are here instead. */}
+            <div className="flex items-center gap-4 text-xs lg:hidden">
+              <Link href="/" className="hover:text-white">
+                ← На сайт
+              </Link>
+              <button onClick={() => logout()} className="hover:text-white">
+                Выйти
+              </button>
+            </div>
           </div>
           <nav className="flex gap-1 overflow-x-auto px-3 pb-3 text-sm lg:flex-col lg:overflow-visible">
             {ADMIN_NAV.filter((n) => may(role, n.area)).map((n) => {
@@ -37,6 +51,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <Link
                   key={n.href}
                   href={n.href}
+                  ref={active ? activeRef : undefined}
+                  aria-current={active ? "page" : undefined}
                   className={`rounded-lg px-3 py-2 whitespace-nowrap ${
                     active ? "bg-white/10 font-semibold text-white" : "hover:bg-white/5 hover:text-white"
                   }`}

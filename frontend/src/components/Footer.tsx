@@ -62,8 +62,9 @@ export function Footer() {
           })}
         </div>
       </div>
-      <div className="border-t border-line py-4 text-center text-xs text-stone-400">
-        © {new Date().getFullYear()} Kyko. Оплата по факту или переводом — онлайн-оплата
+      <div className="border-t border-line py-4 text-center text-xs text-muted">
+        {/* The page is built once: in a new year the client's year differs from the built one. */}
+        © <span suppressHydrationWarning>{new Date().getFullYear()}</span> Kyko. Оплата по факту или переводом — онлайн-оплата
         появится позже.
       </div>
     </footer>

@@ -51,6 +51,7 @@ export function Header() {
           className="rounded-full p-2 hover:bg-white lg:hidden"
           onClick={() => setOpen(!open)}
           aria-label="Меню"
+          aria-expanded={open}
         >
           {open ? <CloseIcon /> : <MenuIcon />}
         </button>
@@ -96,7 +97,12 @@ export function Header() {
               {user ? (user.full_name ?? "Кабинет") : "Войти"}
             </span>
           </Link>
-          <Link href="/cart" className="relative rounded-full p-2 hover:bg-white" title="Корзина">
+          <Link
+            href="/cart"
+            className="relative rounded-full p-2 hover:bg-white"
+            title="Корзина"
+            aria-label={count > 0 ? `Корзина, товаров: ${count}` : "Корзина"}
+          >
             <BagIcon />
             {count > 0 && (
               <span className="absolute -top-0.5 -right-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-gold px-1 text-[10px] font-bold text-white">

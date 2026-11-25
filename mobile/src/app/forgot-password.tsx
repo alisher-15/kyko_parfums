@@ -11,6 +11,8 @@ export default function ForgotPasswordScreen() {
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
+    // The keyboard's Go can fire while a request is on its way, or with the field empty.
+    if (busy || !email.trim()) return;
     setBusy(true);
     setError(null);
     try {

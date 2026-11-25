@@ -183,7 +183,7 @@ export function SearchBox({
         value={text}
         onChangeText={setText}
         placeholder={placeholder}
-        placeholderTextColor={colors.faint}
+        placeholderTextColor={colors.muted}
         autoCorrect={false}
         autoCapitalize="none"
         style={styles.searchInput}

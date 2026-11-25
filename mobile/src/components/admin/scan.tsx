@@ -119,7 +119,7 @@ export function ScanField({
             onChangeText={setValue}
             onSubmitEditing={submit}
             placeholder={placeholder}
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.muted}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="done"

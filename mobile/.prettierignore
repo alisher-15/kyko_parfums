@@ -2,3 +2,5 @@ node_modules
 .expo
 dist
 package-lock.json
+# Downloaded from Firebase as is
+google-services.json

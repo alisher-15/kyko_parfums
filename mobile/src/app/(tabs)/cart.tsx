@@ -4,7 +4,6 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 import { ProductImage, QuantityStepper } from "@/components/product";
 import { QuoteHints, TengeNote } from "@/components/shop";
 import { Button, Card, EmptyState, Eyebrow, Loader, Muted, Notice, Txt } from "@/components/ui";
-import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
 import { TIER_LABELS, volumeLabel } from "@/lib/format";
@@ -13,7 +12,6 @@ import { colors, fonts, radius } from "@/theme";
 
 export default function CartScreen() {
   const { items, setQuantity, remove, ready } = useCart();
-  const { user } = useAuth();
   const quote = useQuote(items);
   const { money } = useCurrency();
 
@@ -164,20 +162,13 @@ export default function CartScreen() {
       </ScrollView>
 
       <View style={styles.bar}>
-        {user ? (
-          <Button
-            testID="checkout"
-            title="Оформить заказ"
-            disabled={!q?.can_checkout || busy}
-            onPress={() => router.push("/checkout")}
-          />
-        ) : (
-          <Button
-            testID="checkout"
-            title="Войти и оформить заказ"
-            onPress={() => router.push({ pathname: "/login", params: { next: "/checkout" } })}
-          />
-        )}
+        {/* Guests order too (retail prices), as on the website; the checkout offers to log in. */}
+        <Button
+          testID="checkout"
+          title="Оформить заказ"
+          disabled={!q?.can_checkout || busy}
+          onPress={() => router.push("/checkout")}
+        />
       </View>
     </View>
   );

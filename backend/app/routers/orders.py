@@ -38,7 +38,7 @@ from app.schemas.orders import (
     QuoteOut,
     TierHintOut,
 )
-from app.services import email, telegram
+from app.services import email, push, telegram
 from app.services.orders import (
     add_event,
     change_status,
@@ -247,6 +247,13 @@ def create_order(
         chat_ids = [r.chat_id for r in telegram.recipients(db)]
         if chat_ids:
             background.add_task(telegram.send_to_all, chat_ids, telegram.order_message(placed))
+    # And the staff's phones, in the app (the owner may well be away from Telegram).
+    if push.enabled():
+        tokens = push.staff_tokens(db, exclude_user_id=placed.user_id)
+        if tokens:
+            background.add_task(
+                push.send, tokens, *push.new_order(placed), {"admin_order_id": placed.id}
+            )
     # And the customer by email.
     to = email.recipient(placed)
     if to and email.enabled():

@@ -11,10 +11,12 @@
       },
       "env": {
         "EXPO_PUBLIC_SITE_URL": "https://89-126-205-132.sslip.io"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "channel": "production"
     }
   },
   "submit": {

@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -33,12 +33,24 @@ import { colors, fonts } from "@/theme";
 
 /** Orders always show tenge: that is what is charged (as on the website's account pages). */
 export default function OrderScreen() {
-  const { id, created } = useLocalSearchParams<{ id: string; created?: string }>();
+  const { id, created, key } = useLocalSearchParams<{
+    id: string;
+    created?: string;
+    key?: string;
+  }>();
   const orderId = Number(id);
   const queryClient = useQueryClient();
-  const order = useApi<Order>(
-    Number.isInteger(orderId) && orderId > 0 ? `/orders/${orderId}` : null,
-  );
+  const valid = Number.isInteger(orderId) && orderId > 0;
+  // A guest's order: opened by its secret key, kept on this phone (lib/guest-orders.ts).
+  const guest = typeof key === "string" && key.length > 0;
+  const guestHeaders = guest ? { "X-Order-Key": key } : undefined;
+  const mine = useApi<Order>(valid && !guest ? `/orders/${orderId}` : null);
+  const theirs = useQuery<Order>({
+    queryKey: [`/orders/guest/${orderId}`, key ?? null],
+    queryFn: () => api<Order>(`/orders/guest/${orderId}`, { headers: guestHeaders }),
+    enabled: valid && guest,
+  });
+  const order = guest ? theirs : mine;
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,8 +67,16 @@ export default function OrderScreen() {
     setCancelling(true);
     setError(null);
     try {
-      const updated = await api<Order>(`/orders/${o.id}/cancel`, { method: "POST" });
-      queryClient.setQueryData([`/orders/${o.id}`, null], updated);
+      const updated = guest
+        ? await api<Order>(`/orders/guest/${o.id}/cancel`, {
+            method: "POST",
+            headers: guestHeaders,
+          })
+        : await api<Order>(`/orders/${o.id}/cancel`, { method: "POST" });
+      queryClient.setQueryData(
+        guest ? [`/orders/guest/${o.id}`, key] : [`/orders/${o.id}`, null],
+        updated,
+      );
       void queryClient.invalidateQueries({ queryKey: ["/orders"] });
     } catch (err) {
       setError(errorText(err));
@@ -92,7 +112,14 @@ export default function OrderScreen() {
           Заказ оформлен! Менеджер свяжется с вами, чтобы подтвердить наличие и доставку.
         </Notice>
       )}
-      {created === "1" && <PushOffer />}
+      {/* Notifications go to a signed-in customer's phone: a guest's order has no account. */}
+      {created === "1" && !guest && <PushOffer />}
+      {created === "1" && guest && (
+        <Notice>
+          Заказ сохранён на этом телефоне: он есть в «Профиль» → «Мои заказы». Зарегистрируйтесь,
+          чтобы получать уведомления о статусе.
+        </Notice>
+      )}
 
       <Card style={{ gap: 6 }}>
         <View style={styles.headRow}>

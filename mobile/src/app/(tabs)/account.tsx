@@ -16,6 +16,7 @@ import { PRIVACY_URL } from "@/lib/config";
 import { CONTACTS } from "@/lib/contacts";
 import { useCurrency } from "@/lib/currency";
 import { ROLE_LABELS, longDate, tenge } from "@/lib/format";
+import { useGuestOrders } from "@/lib/guest-orders";
 import { usePushStatus } from "@/lib/notifications";
 import { useApi } from "@/lib/queries";
 import type { PricingRules, User } from "@/lib/types";
@@ -23,6 +24,7 @@ import { colors, fonts, radius } from "@/theme";
 
 export default function AccountScreen() {
   const { user, logout, reload } = useAuth();
+  const guestOrders = useGuestOrders();
   const { rate } = useCurrency();
 
   const confirmLogout = () => {
@@ -46,6 +48,18 @@ export default function AccountScreen() {
       }
     >
       {user ? <StatusCard user={user} /> : <GuestCard />}
+
+      {!user && guestOrders.length > 0 && (
+        <Card style={styles.menu}>
+          <MenuRow
+            icon="receipt-outline"
+            title="Мои заказы"
+            subtitle={`Без регистрации: ${guestOrders.length}`}
+            onPress={() => router.push("/orders")}
+            testID="menu-orders"
+          />
+        </Card>
+      )}
 
       {user && (
         <Card style={styles.menu}>
@@ -159,7 +173,8 @@ function GuestCard() {
       </View>
       <Title>Войдите в аккаунт</Title>
       <Muted>
-        Чтобы оформлять заказы, видеть их статус и получить оптовые цены для магазина или салона.
+        Чтобы заказы сохранялись в кабинете, приходили уведомления о статусе и открылись оптовые
+        цены для магазина или салона.
       </Muted>
       <Button title="Войти" onPress={() => router.push("/login")} testID="account-login" />
       <Button kind="outline" title="Зарегистрироваться" onPress={() => router.push("/register")} />

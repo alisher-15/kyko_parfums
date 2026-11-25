@@ -22,6 +22,7 @@ import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
 import { FavoritesProvider } from "@/lib/favorites";
 import { askOnFirstLaunch, useNotificationTaps } from "@/lib/notifications";
+import { useOtaUpdates } from "@/lib/updates";
 import { ApiError } from "@/lib/api";
 import { colors, fonts } from "@/theme";
 
@@ -80,6 +81,7 @@ function Navigation() {
     return () => clearTimeout(timer);
   }, [ready]);
   useNotificationTaps(ready);
+  useOtaUpdates();
   if (!ready) return null;
 
   return (

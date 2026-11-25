@@ -6,12 +6,16 @@ phones get a notification through Expo's push service, which hands it to Apple (
 (FCM). Tapping it opens the order (`data.order_id`). Sending runs as a background task after
 the response, so a slow or failing push service never breaks the admin panel. A token Expo
 reports as `DeviceNotRegistered` (the app was removed) is forgotten.
+
+A new online order also goes to the staff's phones (`staff_tokens`, `new_order`):
+`data.admin_order_id` opens it in the app's admin panel.
 """
 
 import json
 import logging
 import urllib.error
 import urllib.request
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -19,7 +23,8 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal
-from app.models import Order, OrderChannel, OrderStatus, PushToken
+from app.models import Order, OrderChannel, OrderStatus, PushToken, User
+from app.permissions import STAFF, Area, may
 
 log = logging.getLogger(__name__)
 TIMEOUT = 10
@@ -73,6 +78,30 @@ def tokens_for(db: Session, user_id: int | None) -> list[str]:
     if user_id is None:
         return []
     return list(db.scalars(select(PushToken.token).where(PushToken.user_id == user_id)))
+
+
+def staff_tokens(db: Session, exclude_user_id: int | None = None) -> list[str]:
+    """The phones of the staff who handle orders (the owner, and any cashier or warehouse
+    worker), signed in to the app: a new online order is announced to them."""
+    roles = [r for r in STAFF if may(r, Area.orders)]
+    stmt = (
+        select(PushToken.token)
+        .join(User, User.id == PushToken.user_id)
+        .where(User.role.in_(roles), User.is_active)
+    )
+    if exclude_user_id is not None:
+        stmt = stmt.where(User.id != exclude_user_id)
+    return list(db.scalars(stmt))
+
+
+def new_order(order: Order) -> tuple[str, str]:
+    """«Новый заказ №214» and «180 000 ₸ · Алматы · Анна, без регистрации»."""
+    amount = f"{order.total_amount.quantize(Decimal(1)):,}".replace(",", " ") + " ₸"
+    who = order.contact_name or ""
+    if order.user_id is None:
+        who = f"{who}, без регистрации" if who else "без регистрации"
+    parts = [amount, order.delivery_city or "", who]
+    return f"Новый заказ №{order.id}", " · ".join(p for p in parts if p)
 
 
 def order_status(order: Order) -> tuple[str, str] | None:

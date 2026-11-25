@@ -42,7 +42,7 @@ from app.models import (
     volume_label,
 )
 from app.schemas.admin import ImportReport, ImportRowError, check_price_order
-from app.services import bottles, categories, markups, price_history
+from app.services import bottles, categories, markups, price_history, sheets
 from app.services.stock import set_stock
 
 # fmt: off
@@ -631,9 +631,7 @@ def build_template() -> bytes:
         ws.append([row.get(key, "") for key, _ in TEMPLATE_COLUMNS])
     for col in ws.columns:
         ws.column_dimensions[col[0].column_letter].width = 18
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return sheets.to_bytes(wb)
 
 
 # ---------- Export ----------
@@ -746,6 +744,4 @@ def build_export(
     barcode_col = [key for key, _ in columns].index("barcode") + 1
     for (cell,) in ws.iter_rows(min_row=2, min_col=barcode_col, max_col=barcode_col):
         cell.number_format = "@"
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return sheets.to_bytes(wb)

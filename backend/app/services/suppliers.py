@@ -15,7 +15,6 @@ lists only store their prices.
 
 from __future__ import annotations
 
-import io
 from collections import defaultdict
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
@@ -39,7 +38,7 @@ from app.models import (
     VariantBarcode,
 )
 from app.schemas.admin import check_price_order
-from app.services import markups, price_history
+from app.services import markups, price_history, sheets
 from app.services.barcodes import candidates
 from app.services.importer import (
     _norm_header,
@@ -461,9 +460,7 @@ def export_links(db: Session, supplier: Supplier) -> bytes:
     ws.freeze_panes = "B2"
     for col, width in zip("ABCDEFG", (70, 22, 34, 10, 10, 8, 13), strict=True):
         ws.column_dimensions[col].width = width
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return sheets.to_bytes(wb)
 
 
 @dataclass

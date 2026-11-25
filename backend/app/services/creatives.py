@@ -11,6 +11,9 @@ light themes a bottle's white background melts into the picture (multiply).
 """
 
 import io
+import ipaddress
+import socket
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from functools import lru_cache
@@ -186,21 +189,49 @@ def _eyebrow(draw: ImageDraw.ImageDraw, x: int, y: int, size: int, palette: Pale
 # ---------- Product photos ----------
 
 
+# A product photo is read up to this size: a link to something huge leaves its place empty.
+MAX_PHOTO_BYTES = 15 * 1024 * 1024
+
+
+def _public_host(host: str | None) -> bool:
+    """Whether a host is on the internet: product links come from files too (supplier lists
+    turned into an import), and must not make the server fetch its own or the local network's
+    addresses."""
+    if not host:
+        return False
+    try:
+        addresses = {info[4][0] for info in socket.getaddrinfo(host, 443)}
+    except OSError:
+        return False
+    return all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addresses)
+
+
+def _inside(base: Path, relative: str) -> Path | None:
+    """``base / relative`` if it stays inside ``base`` (no «..» out of the folder)."""
+    path = (base / relative).resolve()
+    return path if path.is_relative_to(base.resolve()) else None
+
+
 def _photo_bytes(url: str) -> bytes | None:
     """A product photo, wherever the catalog keeps it: the bucket (or any https link), the media
     folder, or the bottles that came with the code."""
     s = get_settings()
     url = bottles.bucket_url(url) or url
     try:
-        if url.startswith(("http://", "https://")):
+        if url.startswith("https://"):
+            if not _public_host(urllib.parse.urlsplit(url).hostname):
+                return None
             req = urllib.request.Request(url, headers={"User-Agent": "kyko-creatives"})
-            with urllib.request.urlopen(req, timeout=15) as res:  # noqa: S310 (catalog URLs)
-                return res.read()
+            with urllib.request.urlopen(req, timeout=15) as res:  # noqa: S310 (checked above)
+                data = res.read(MAX_PHOTO_BYTES + 1)
+            return data if len(data) <= MAX_PHOTO_BYTES else None
         if url.startswith(s.media_url_prefix + "/"):
-            return (s.media_dir / url[len(s.media_url_prefix) + 1 :]).read_bytes()
+            path = _inside(s.media_dir, url[len(s.media_url_prefix) + 1 :])
+            return path.read_bytes() if path else None
         if url.startswith(bottles.LOCAL_PREFIX):
-            return (bottles.default_dir() / url[len(bottles.LOCAL_PREFIX) :]).read_bytes()
-    except OSError:
+            path = _inside(bottles.default_dir(), url[len(bottles.LOCAL_PREFIX) :])
+            return path.read_bytes() if path else None
+    except (OSError, ValueError):
         return None
     return None
 

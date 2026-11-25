@@ -7,6 +7,7 @@ or failing mail server never holds up checkout or the admin panel.
 
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from app.config import get_settings
@@ -38,7 +39,9 @@ def send_email(to: str, subject: str, body: str) -> None:
     try:
         with smtplib.SMTP(s.smtp_host, s.smtp_port, timeout=10) as smtp:
             if s.smtp_tls:
-                smtp.starttls()
+                # The default context checks the server's certificate and name: without it a
+                # man in the middle reads the SMTP password and the password-reset links.
+                smtp.starttls(context=ssl.create_default_context())
             if s.smtp_user:
                 smtp.login(s.smtp_user, s.smtp_password)
             smtp.send_message(msg)

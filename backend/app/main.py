@@ -22,6 +22,9 @@ if settings.sentry_dsn:
         environment=settings.sentry_environment,
         send_default_pii=False,  # no addresses, cookies or emails of visitors
         max_request_body_size="never",  # passwords and delivery addresses stay out of reports
+        # Stack frames' variables would carry them anyway (a LoginIn with its password, a
+        # CheckoutIn with a name and an address): no local variables in reports.
+        include_local_variables=False,
         traces_sample_rate=0,
     )
 

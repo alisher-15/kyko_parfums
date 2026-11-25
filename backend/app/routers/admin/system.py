@@ -38,6 +38,7 @@ from app.services.images import NotAnImage, prepare_upload
 from app.services.importer import build_export, build_template, import_catalog
 from app.services.settings import get_pricing_settings
 
+SPREADSHEET_LIMIT = 50 * 1024 * 1024
 router = APIRouter()
 log = logging.getLogger(__name__)
 
@@ -86,7 +87,7 @@ async def upload_image(
         # Pillow work is CPU-bound: keep it off the event loop.
         prepared = await run_in_threadpool(prepare_upload, data, kind)
     except NotAnImage as e:
-        raise HTTPException(415, "Файл не похож на изображение") from e
+        raise HTTPException(415, str(e)) from e
 
     key = f"products/{uuid.uuid4().hex}{prepared.ext}"
     try:
@@ -111,7 +112,11 @@ async def import_catalog_file(
     filename = file.filename or ""
     if not filename.lower().endswith((".xlsx", ".xlsm", ".csv")):
         raise HTTPException(415, "Поддерживаются файлы .xlsx и .csv")
-    content = await file.read(50 * 1024 * 1024)
+    # One byte over the limit tells a big file from one that fits: a file cut at the limit would
+    # import partly (a CSV's last price cut mid-number).
+    content = await file.read(SPREADSHEET_LIMIT + 1)
+    if len(content) > SPREADSHEET_LIMIT:
+        raise HTTPException(413, "Файл больше 50 МБ: разбейте его на части")
     try:
         # Parsing + DB work is blocking: keep it off the event loop.
         return await run_in_threadpool(

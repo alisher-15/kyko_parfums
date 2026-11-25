@@ -56,7 +56,12 @@ async def _read(file: UploadFile) -> tuple[bytes, str]:
     name = file.filename or ""
     if not name.lower().endswith((".xlsx", ".xlsm", ".csv")):
         raise HTTPException(415, "Поддерживаются файлы .xlsx и .csv")
-    return await file.read(MAX_FILE), name
+    # One byte over the limit tells a big file from one that fits: a file cut at the limit would
+    # be read partly (a CSV's last price cut mid-number).
+    content = await file.read(MAX_FILE + 1)
+    if len(content) > MAX_FILE:
+        raise HTTPException(413, "Файл больше 50 МБ")
+    return content, name
 
 
 @router.get("/suppliers", response_model=list[SupplierOut])

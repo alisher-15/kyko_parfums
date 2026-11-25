@@ -6,7 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models import UserRole
 from app.schemas.common import ORMModel
 
-Password = Field(min_length=8, max_length=128)
+# repr=False: a password never shows in a printed model (logs, error reports).
+Password = Field(min_length=8, max_length=128, repr=False)
 
 
 def _normalize_email(v: str) -> str:
@@ -25,13 +26,13 @@ class RegisterIn(BaseModel):
 class LoginIn(BaseModel):
     # Plain str: logging in must not depend on today's email-validation rules.
     email: str = Field(max_length=255)
-    password: str = Field(max_length=128)
+    password: str = Field(max_length=128, repr=False)
 
     _email = field_validator("email")(_normalize_email)
 
 
 class RefreshIn(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(repr=False)
 
 
 class ForgotPasswordIn(BaseModel):
@@ -41,12 +42,12 @@ class ForgotPasswordIn(BaseModel):
 
 
 class ResetPasswordIn(BaseModel):
-    token: str
+    token: str = Field(repr=False)
     new_password: str = Password
 
 
 class ChangePasswordIn(BaseModel):
-    current_password: str
+    current_password: str = Field(repr=False)
     new_password: str = Password
 
 
@@ -62,7 +63,7 @@ class PushTokenForgetIn(BaseModel):
 
 class DeleteAccountIn(BaseModel):
     # The current password: a phone left unlocked must not be enough to delete the account.
-    password: str = Field(max_length=128)
+    password: str = Field(max_length=128, repr=False)
 
 
 class UserOut(ORMModel):

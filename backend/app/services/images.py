@@ -225,9 +225,21 @@ class Prepared:
     note: str | None = None
 
 
+# Pictures bigger than this are refused before they are decoded: a 48 MP phone photo decoded in
+# full took about 470 MB, enough to stop the shop on a small server.
+MAX_PIXELS = 60_000_000
+# A JPEG is decoded straight at the smallest scale (1/2, 1/4, 1/8) still at least this big: no
+# stored picture is larger, and the 48 MP photo then takes a few tens of MB.
+DECODE_SIDE = 2400
+
+
 def open_image(data: bytes) -> Image.Image:
     try:
         im = Image.open(io.BytesIO(data))
+        if im.width * im.height > MAX_PIXELS:
+            raise NotAnImage("Изображение слишком большое")
+        if im.format == "JPEG":
+            im.draft("RGB", (DECODE_SIDE, DECODE_SIDE))
         im.load()
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
         raise NotAnImage("Файл не похож на изображение") from e

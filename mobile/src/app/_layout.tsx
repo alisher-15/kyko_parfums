@@ -21,7 +21,7 @@ import { AuthProvider, useAuth } from "@/lib/auth";
 import { CartProvider } from "@/lib/cart";
 import { CurrencyProvider } from "@/lib/currency";
 import { FavoritesProvider } from "@/lib/favorites";
-import { useNotificationTaps } from "@/lib/notifications";
+import { askOnFirstLaunch, useNotificationTaps } from "@/lib/notifications";
 import { ApiError } from "@/lib/api";
 import { colors, fonts } from "@/theme";
 
@@ -72,6 +72,12 @@ function Navigation() {
   const { ready } = useAuth();
   useEffect(() => {
     if (ready) SplashScreen.hide();
+  }, [ready]);
+  // A moment after the first screen shows, the phone asks about order notifications (once).
+  useEffect(() => {
+    if (!ready) return;
+    const timer = setTimeout(() => void askOnFirstLaunch(), 1200);
+    return () => clearTimeout(timer);
   }, [ready]);
   useNotificationTaps(ready);
   if (!ready) return null;

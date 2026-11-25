@@ -22,7 +22,7 @@ import { Button, EmptyState, ErrorState, Field, Loader, Muted, Notice, Txt } fro
 import type { AdminUser } from "@/lib/admin-types";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { ROLE_LABELS, dateTime } from "@/lib/format";
+import { dateTime, formatPhone, ROLE_LABELS } from "@/lib/format";
 import { usePages } from "@/lib/queries";
 import type { UserRole } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
@@ -319,7 +319,7 @@ function CreateUser({ onCreated }: { onCreated: () => void }) {
       <Field
         label="Телефон"
         value={form.phone}
-        onChangeText={set("phone")}
+        onChangeText={(t) => set("phone")(formatPhone(t))}
         keyboardType="phone-pad"
       />
       <Field label="Компания" value={form.company_name} onChangeText={set("company_name")} />

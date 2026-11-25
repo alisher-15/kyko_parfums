@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "98080549175",
+    "project_id": "kyko-e975d",
+    "storage_bucket": "kyko-e975d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:98080549175:android:e979fe30481e87648f52b2",
+        "android_client_info": {
+          "package_name": "kz.kyko.parfums"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB3ui5PLdlLYlDIVeDD9iuioohZQ4qJiTU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

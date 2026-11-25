@@ -171,9 +171,12 @@ test.describe("Витрина для гостя", () => {
     await page.getByRole("link", { name: "Оформить заказ" }).click();
     await page.waitForURL("**/checkout");
     await expect(page.getByText("Можно без регистрации — по розничным ценам.")).toBeVisible();
-    const phone = `+7 7${String(Date.now()).slice(-9)}`;
+    // Typed the way people do («8 701…» without spaces), shown as «+7 701 234 56 78».
+    const digits = `7${String(Date.now()).slice(-9)}`;
+    const phone = `+7 ${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6, 8)} ${digits.slice(8)}`;
     await page.getByLabel("Имя и фамилия").fill("Гость Тестов");
-    await page.getByLabel("Телефон").fill(phone);
+    await page.getByLabel("Телефон").fill(`8${digits}`);
+    await expect(page.getByLabel("Телефон")).toHaveValue(phone);
     await page.getByLabel("Город").fill("Алматы");
     await page.getByLabel("Адрес").fill("пр. Абая, 1");
     // Without the consent to the processing of personal data the browser won't send the form.

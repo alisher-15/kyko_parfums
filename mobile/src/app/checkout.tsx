@@ -18,7 +18,7 @@ import { ApiError, api, errorText, newNonce, onSignedOut, requestKey } from "@/l
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
-import { volumeLabel } from "@/lib/format";
+import { formatPhone, volumeLabel } from "@/lib/format";
 import { useQuote } from "@/lib/queries";
 import type { Order } from "@/lib/types";
 import { colors, fonts } from "@/theme";
@@ -162,7 +162,7 @@ export default function CheckoutScreen() {
         <Field
           label="Телефон"
           value={form.contact_phone}
-          onChangeText={set("contact_phone")}
+          onChangeText={(t) => set("contact_phone")(formatPhone(t))}
           keyboardType="phone-pad"
           autoComplete="tel"
           textContentType="telephoneNumber"

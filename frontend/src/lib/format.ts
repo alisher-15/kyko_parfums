@@ -127,3 +127,22 @@ export const STOCK_REASON_LABELS: Record<StockReason, string> = {
   receipt: "Приёмка",
   inventory: "Инвентаризация",
 };
+
+/**
+ * A phone number as it is typed, in the Kazakhstan format: «+7 701 234 56 78». The country
+ * code is always +7: a leading 8 («8 701…») or a pasted 11-digit number becomes +7, and «701…»
+ * typed without it gets it. Emptied by deleting back past «+7».
+ */
+export function formatPhone(input: string): string {
+  const digits = input.replace(/\D/g, "");
+  if (!digits) return "";
+  let national: string;
+  if (input.trimStart().startsWith("+7")) national = digits.slice(1);
+  else if (digits[0] === "8" || (digits[0] === "7" && digits.length === 11)) national = digits.slice(1);
+  else national = digits;
+  national = national.slice(0, 10);
+  // «8» alone: the start of «8 701…», shown as +7; «+7» alone: being deleted.
+  if (!national) return digits === "8" ? "+7 " : "";
+  const parts = [national.slice(0, 3), national.slice(3, 6), national.slice(6, 8), national.slice(8, 10)];
+  return `+7 ${parts.filter(Boolean).join(" ")}`;
+}

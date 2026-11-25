@@ -19,7 +19,14 @@ import { Button, Chip, Field, Muted, Notice, Txt } from "@/components/ui";
 import type { AdminOrder, AdminUser, StoreQuote, VariantSearchItem } from "@/lib/admin-types";
 import { ApiError, api, errorText, newNonce, requestKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, tenge, volumeLabel } from "@/lib/format";
+import {
+  formatPhone,
+  PAYMENT_LABELS,
+  ROLE_LABELS,
+  tenge,
+  TIER_LABELS,
+  volumeLabel,
+} from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import { prefs } from "@/lib/storage";
 import type { Page, PaymentMethod, PriceTier } from "@/lib/types";
@@ -420,7 +427,7 @@ function Pos() {
             <Field
               label="Телефон (необязательно)"
               value={customerPhone}
-              onChangeText={setCustomerPhone}
+              onChangeText={(t) => setCustomerPhone(formatPhone(t))}
               keyboardType="phone-pad"
             />
           </Block>

@@ -9,7 +9,7 @@ import { TrashIcon } from "@/components/icons";
 import { ErrorBox, ProductImage, QuantityInput, SuccessBox } from "@/components/ui";
 import { ApiError, api, newNonce, requestKey } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, money, volumeLabel } from "@/lib/format";
+import { PAYMENT_LABELS, ROLE_LABELS, TIER_LABELS, formatPhone, money, volumeLabel } from "@/lib/format";
 import { hasCyrillic, fromRussianLayout } from "@/lib/scan-code";
 import { scanFeedback, unlockAudio } from "@/lib/scan-feedback";
 import { useMedia } from "@/lib/use-media";
@@ -398,7 +398,7 @@ export default function PosPage() {
                   className="input"
                   type="tel"
                   value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  onChange={(e) => setCustomerPhone(formatPhone(e.target.value))}
                 />
               </label>
             </div>

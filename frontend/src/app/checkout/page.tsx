@@ -10,7 +10,7 @@ import { ApiError, api, newNonce, requestKey, sessionWasEnded } from "@/lib/api"
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { TengeNote, useCurrency } from "@/lib/currency";
-import { volumeLabel } from "@/lib/format";
+import { formatPhone, volumeLabel } from "@/lib/format";
 import type { Order, User } from "@/lib/types";
 import { useQuote } from "@/lib/use-quote";
 
@@ -178,7 +178,7 @@ function Checkout({ user }: { user: User | null }) {
                 required
                 type="tel"
                 value={form.contact_phone}
-                onChange={set("contact_phone")}
+                onChange={(e) => set("contact_phone")({ target: { value: formatPhone(e.target.value) } })}
                 placeholder="+7 ___ ___ __ __"
               />
             </Field>

@@ -7,6 +7,7 @@ import { errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { afterAuth } from "@/lib/navigation";
 import { colors, fonts } from "@/theme";
+import { formatPhone } from "@/lib/format";
 
 export default function RegisterScreen() {
   const { next } = useLocalSearchParams<{ next?: string }>();
@@ -79,7 +80,7 @@ export default function RegisterScreen() {
         <Field
           label="Телефон (необязательно)"
           value={form.phone}
-          onChangeText={set("phone")}
+          onChangeText={(t) => set("phone")(formatPhone(t))}
           keyboardType="phone-pad"
           autoComplete="tel"
           placeholder="+7 ___ ___ __ __"

@@ -17,7 +17,8 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgresql+psycopg://kyko:${POSTGRES_PASSWORD:-kyko}@db:5432/kyko
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      # Required: with a known secret anyone can sign an admin's token (openssl rand -hex 32).
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 32)}
       CORS_ORIGINS: '["${FRONTEND_URL:-http://localhost:3000}"]'
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       SMTP_HOST: ${SMTP_HOST:-}

@@ -29,9 +29,11 @@ def _create_token(user_id: int, token_type: TokenType, ttl: timedelta, **claims)
     return jwt.encode(payload, s.jwt_secret, algorithm=s.jwt_algorithm)
 
 
-def create_access_token(user_id: int) -> str:
+def create_access_token(user_id: int, token_version: int | None = None) -> str:
+    """``ver``: a password change or reset (``token_version`` + 1) ends the access tokens too."""
     ttl = timedelta(minutes=get_settings().access_token_ttl_minutes)
-    return _create_token(user_id, "access", ttl)
+    claims = {} if token_version is None else {"ver": token_version}
+    return _create_token(user_id, "access", ttl, **claims)
 
 
 def create_refresh_token(user_id: int, token_version: int) -> str:

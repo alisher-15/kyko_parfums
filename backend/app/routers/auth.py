@@ -49,7 +49,7 @@ me_router = APIRouter(prefix="/me", tags=["account"])
 
 def issue_tokens(user: User) -> TokenPair:
     return TokenPair(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(user.id, user.token_version),
         refresh_token=create_refresh_token(user.id, user.token_version),
         user=UserOut.model_validate(user),
     )

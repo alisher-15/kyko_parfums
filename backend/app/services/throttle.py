@@ -45,6 +45,11 @@ class Throttle:
             if len(self._hits) >= MAX_KEYS:
                 for k in list(self._hits):
                     self._prune(k, now)
+                # Still full (a flood of made-up emails): forget the oldest tenth, so memory stays
+                # bounded and a login never waits on a sweep of hundreds of thousands of keys.
+                if len(self._hits) >= MAX_KEYS:
+                    for k in list(self._hits)[: MAX_KEYS // 10]:
+                        del self._hits[k]
             self._hits.setdefault(key, deque()).append(now)
 
     def reset(self, key: str) -> None:

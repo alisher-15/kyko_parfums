@@ -26,6 +26,11 @@ def get_current_user_optional(
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Пользователь не найден или заблокирован")
+    # A password change or reset ends every session at once, not when the access token expires
+    # (a stolen one was good for up to 30 more minutes). Tokens issued before ``ver`` existed
+    # carry none and simply expire.
+    if "ver" in payload and payload["ver"] != user.token_version:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Сессия завершена, войдите заново")
     return user
 
 

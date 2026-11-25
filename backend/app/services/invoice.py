@@ -3,7 +3,6 @@
 The printable page with the same content (for PDF) is /admin/orders/<id>/invoice in the frontend.
 """
 
-import io
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -15,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.models import Gender, Order, OrderChannel, OrderItem, Product
+from app.services import sheets
 
 SHOP_NAME = "Kyko"
 PAYMENT_LABELS = {
@@ -149,6 +149,4 @@ def build_invoice(order: Order, details: dict[int, tuple[str | None, Gender | No
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-    buf = io.BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return sheets.to_bytes(wb)

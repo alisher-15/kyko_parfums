@@ -103,7 +103,7 @@ export function CatalogView({
             value={text}
             onChangeText={setText}
             placeholder="Аромат или бренд"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.muted}
             style={styles.searchInput}
             returnKeyType="search"
             autoCorrect={false}
@@ -552,7 +552,7 @@ function BrandFilter({
             value={text}
             onChangeText={setText}
             placeholder="Найти бренд"
-            placeholderTextColor={colors.faint}
+            placeholderTextColor={colors.muted}
             style={[styles.searchInput, { fontSize: 15 }]}
             autoCorrect={false}
             accessibilityLabel="Найти бренд"

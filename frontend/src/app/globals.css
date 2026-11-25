@@ -8,8 +8,11 @@
   --color-muted: #78716c;
   --color-line: #e7e5e4;
   --color-cream: #faf8f5;
-  --color-gold: #a67c52;
-  --color-gold-dark: #8a6440;
+  /* Text-safe gold: 4.7:1 on the cream ground and white on it (WCAG AA for body text). */
+  --color-gold: #8c6945;
+  --color-gold-dark: #6f5235;
+  /* Field borders: 3:1 on white, so a text field is seen as one (WCAG 1.4.11). */
+  --color-field: #948d87;
 }
 
 body {
@@ -37,7 +40,7 @@ body {
     @apply px-3 py-1.5 text-xs;
   }
   .input {
-    @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition placeholder:text-stone-400 focus:border-gold focus:ring-2 focus:ring-gold/20;
+    @apply w-full rounded-lg border border-field bg-white px-3 py-2 text-sm outline-none transition placeholder:text-stone-500 focus:border-gold focus:ring-2 focus:ring-gold/25;
   }
   .label {
     @apply mb-1 block text-xs font-semibold tracking-wide text-muted uppercase;
@@ -76,5 +79,13 @@ body {
   select,
   textarea {
     font-size: 16px;
+  }
+}
+
+/* A page's bar fixed at the bottom on phones (the product page's «В корзину»): the floating
+   WhatsApp button moves up above it. */
+@media (max-width: 1023px) {
+  html.has-bottom-bar .whatsapp-float {
+    bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 4.5rem);
   }
 }

@@ -64,7 +64,7 @@ function saveDraft(form: Form | null): void {
 
 function Checkout({ user }: { user: User | null }) {
   const { items, clear, ready } = useCart();
-  const { quote, loading } = useQuote();
+  const { quote, loading, error: quoteError, retry } = useQuote();
   const { money } = useCurrency();
   const router = useRouter();
   const [form, setFormState] = useState<Form>(() => {
@@ -210,6 +210,14 @@ function Checkout({ user }: { user: User | null }) {
           </div>
           <Consent offer />
           {error && <ErrorBox>{error}</ErrorBox>}
+          {quoteError && !quote && (
+            <ErrorBox>
+              Не удалось посчитать сумму заказа: {quoteError}.{" "}
+              <button type="button" className="font-semibold underline" onClick={retry}>
+                Попробовать ещё раз
+              </button>
+            </ErrorBox>
+          )}
           <button
             className="btn btn-primary w-full"
             disabled={submitting || loading || !quote?.can_checkout}

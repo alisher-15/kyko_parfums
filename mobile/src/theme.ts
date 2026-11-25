@@ -4,12 +4,15 @@
  */
 export const colors = {
   ink: "#1c1917",
-  gold: "#a67c52",
-  goldDark: "#8a6440",
+  // Text-safe gold: 4.7:1 on cream and white on it (WCAG AA), the same as the website's.
+  gold: "#8c6945",
+  goldDark: "#6f5235",
   goldSoft: "#f3ebe1",
   cream: "#faf8f5",
   white: "#ffffff",
   line: "#e7e5e4",
+  // Text field borders: 3:1 on white (WCAG 1.4.11), the same as the website's.
+  field: "#948d87",
   muted: "#78716c",
   faint: "#a8a29e",
   ok: "#047857",

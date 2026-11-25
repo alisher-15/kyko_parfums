@@ -291,7 +291,7 @@ export function Field({
     <View style={[{ gap: 6 }, style]}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
-        placeholderTextColor={colors.faint}
+        placeholderTextColor={colors.muted}
         accessibilityLabel={label}
         {...input}
         style={[styles.input, input.multiline && styles.inputMultiline, inputStyle]}
@@ -418,7 +418,7 @@ export const styles = StyleSheet.create({
     color: colors.ink,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.field,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     paddingVertical: 12,

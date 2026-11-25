@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -14,6 +14,7 @@ import {
   money as tenge,
   percentOff,
   splitNotes,
+  volumeLabel,
 } from "@/lib/format";
 import { rememberViewed } from "@/lib/recent";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
@@ -123,6 +124,24 @@ function Purchase({
   const { money } = useCurrency();
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  // Phones: once the buy box is scrolled away (the notes, the description), a bar at the bottom
+  // keeps the price and «В корзину» at hand.
+  const boxRef = useRef<HTMLDivElement>(null);
+  const [boxGone, setBoxGone] = useState(false);
+  useEffect(() => {
+    const box = boxRef.current;
+    if (!box || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) =>
+      setBoxGone(!entry.isIntersecting && entry.boundingClientRect.top < 0),
+    );
+    observer.observe(box);
+    return () => observer.disconnect();
+  }, []);
+  // The WhatsApp button moves up above the bar while it is shown.
+  useEffect(() => {
+    document.documentElement.classList.toggle("has-bottom-bar", boxGone);
+    return () => document.documentElement.classList.remove("has-bottom-bar");
+  }, [boxGone]);
 
   const discounted = variant.price < variant.retail_price;
   const bottles = product.variants.filter((v) => !v.is_tester);
@@ -201,7 +220,7 @@ function Purchase({
         ))}
       </div>
 
-      <div className="card mt-6 p-5">
+      <div ref={boxRef} className="card mt-6 p-5">
         <div className="flex flex-wrap items-baseline gap-3">
           <span className="text-3xl font-bold">{money(variant.price)}</span>
           {discounted && (
@@ -253,7 +272,7 @@ function Purchase({
           </button>
         </div>
         {added && (
-          <div className="mt-3 text-sm text-emerald-700">
+          <div className="mt-3 text-sm text-emerald-700" role="status">
             Добавлено в корзину ·{" "}
             <Link href="/cart" className="font-semibold underline">
               перейти в корзину
@@ -261,6 +280,28 @@ function Purchase({
           </div>
         )}
       </div>
+
+      {boxGone && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs text-muted">
+                {product.brand.name} {product.name} · {volumeLabel(variant.volume_ml, variant.is_tester)}
+              </div>
+              <div className="text-lg font-bold">{money(variant.price)}</div>
+            </div>
+            {added ? (
+              <Link href="/cart" className="btn btn-outline">
+                В корзине →
+              </Link>
+            ) : (
+              <button className="btn btn-primary" onClick={addToCart}>
+                В корзину
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {variant.next_tier_price !== null && (
         <div className="mt-4 rounded-2xl border border-gold/40 bg-amber-50/60 p-5">

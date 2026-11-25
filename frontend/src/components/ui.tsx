@@ -61,7 +61,7 @@ export function Spinner({ label = "Загрузка…" }: { label?: string }) {
 
 export function ErrorBox({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+    <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
       {children}
     </div>
   );

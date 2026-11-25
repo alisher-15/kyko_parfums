@@ -217,6 +217,9 @@ export function CatalogView() {
         <aside className={`${showFilters ? "block" : "hidden"} lg:block`}>
           {filters.data && (
             <FilterPanel
+              // The price fields start from the address: a header link or Back that changes it
+              // must not leave an old limit typed in.
+              key={`${query.min_price ?? ""}-${query.max_price ?? ""}`}
               filters={filters.data}
               query={query}
               toggle={toggle}

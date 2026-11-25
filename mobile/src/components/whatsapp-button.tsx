@@ -21,6 +21,8 @@ const TABS = ["/", "/catalog", "/favorites", "/cart", "/account"];
 const TAB_BAR = 56;
 /** The product screen's «В корзину» bar above the safe area. */
 const PRODUCT_BAR = 76;
+/** The cart's «Оформить заказ» bar above the tab bar: the button covered its right end. */
+const CART_BAR = 76;
 
 /**
  * WhatsApp in the corner of every shop screen, as on the website: orders, payment and delivery
@@ -32,7 +34,10 @@ export function WhatsAppButton() {
   if (HIDDEN.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
   const product = pathname.startsWith("/product/");
   const bottom =
-    insets.bottom + 14 + (product ? PRODUCT_BAR : TABS.includes(pathname) ? TAB_BAR : 0);
+    insets.bottom +
+    14 +
+    (product ? PRODUCT_BAR : TABS.includes(pathname) ? TAB_BAR : 0) +
+    (pathname === "/cart" ? CART_BAR : 0);
   const text = product
     ? `Здравствуйте! Вопрос про этот аромат: ${siteUrl(pathname.replace("/product/", "/products/"))}`
     : "Здравствуйте! У меня вопрос";

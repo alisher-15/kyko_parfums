@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { Button, Field, Muted, Notice, Title, Txt } from "@/components/ui";
 import { errorText } from "@/lib/api";
@@ -14,8 +14,12 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The keyboard's Go and the button can both fire: one login only, and not with empty fields.
+  const sending = useRef(false);
 
   const submit = async () => {
+    if (sending.current || !email.trim() || !password) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -24,6 +28,7 @@ export default function LoginScreen() {
     } catch (err) {
       setError(errorText(err));
       setBusy(false);
+      sending.current = false;
     }
   };
 

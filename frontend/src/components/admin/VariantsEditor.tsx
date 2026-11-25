@@ -132,8 +132,10 @@ function SupplierCosts({ suppliers, prices }: { suppliers: Supplier[]; prices: V
 }
 
 // Desktop (xl+) lays each volume out as one table-like row; smaller screens get a card per volume.
+// The columns fit the card at 1280 px with the sidebar (about 950 px): wider ones pushed «Сохранить»,
+// «×» and «Камера» out of it.
 const GRID =
-  "xl:grid xl:grid-cols-[112px_80px_64px_minmax(90px,1fr)_80px_repeat(3,minmax(96px,1fr))_56px_150px] xl:items-center xl:gap-2";
+  "xl:grid xl:grid-cols-[96px_72px_52px_minmax(80px,1fr)_72px_repeat(3,minmax(84px,1fr))_48px_136px] xl:items-center xl:gap-2";
 
 /**
  * Inline editor for volumes: each volume has its own stock and three price tiers. A tester is a

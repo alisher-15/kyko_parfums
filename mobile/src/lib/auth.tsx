@@ -123,7 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    await forgetPush();
+    // Signed out at once, even offline: telling the shop to forget the phone's push token needs
+    // no session and may take a while on a slow connection.
+    void forgetPush();
     await setTokens(null);
     applyUser(null);
   }, [applyUser]);

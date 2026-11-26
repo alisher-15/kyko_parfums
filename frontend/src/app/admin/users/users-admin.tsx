@@ -2,15 +2,19 @@
 
 import { useState, type FormEvent } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { ErrorBox, Field, Pagination, Spinner } from "@/components/ui";
+import { ErrorBox, Field, Pagination, Spinner, SuccessBox } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { STAFF_ROLES } from "@/lib/staff";
 import { ROLE_LABELS, dateTime } from "@/lib/format";
 import type { AdminUser, Page, UserRole } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 const PAGE_SIZE = 50;
 const ROLES = Object.keys(ROLE_LABELS) as UserRole[];
+// A customer's role is one of these: staff roles are given when a staff member is created, so a
+// slip in a customer's row can't hand them the admin panel.
+const CUSTOMER_ROLES: UserRole[] = ["retail", "wholesale", "bulk_wholesale"];
 
 export function UsersAdmin({
   initialRole,
@@ -28,6 +32,8 @@ export function UsersAdmin({
   const [requests, setRequests] = useState(initialRequests);
   const [page, setPage] = useState(1);
   const [msg, setMsg] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, error, loading, reload } = useApi<Page<AdminUser>>("/admin/users", {
@@ -35,15 +41,18 @@ export function UsersAdmin({
       q: search,
       role,
       wholesale_requested: requests || undefined,
+      include_deleted: showDeleted,
       page,
       page_size: PAGE_SIZE,
     },
   });
 
-  const patch = async (u: AdminUser, body: Record<string, unknown>) => {
+  const patch = async (u: AdminUser, body: Record<string, unknown>, success?: string) => {
     setMsg(null);
+    setDone(null);
     try {
       await api(`/admin/users/${u.id}`, { method: "PATCH", body });
+      if (success) setDone(success);
       reload();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : String(err));
@@ -112,7 +121,24 @@ export function UsersAdmin({
           />
           Только заявки на опт / крупный опт
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={showDeleted}
+            onChange={(e) => {
+              setShowDeleted(e.target.checked);
+              setPage(1);
+            }}
+          />
+          Показать удалённые
+        </label>
       </div>
+      {done && (
+        <div className="mb-4">
+          <SuccessBox>{done}</SuccessBox>
+        </div>
+      )}
       {(msg || error) && (
         <div className="mb-4">
           <ErrorBox>{msg ?? error?.message}</ErrorBox>
@@ -160,21 +186,46 @@ export function UsersAdmin({
                       className="input w-auto py-1"
                       value={u.role}
                       disabled={u.id === me?.id}
-                      onChange={(e) => patch(u, { role: e.target.value })}
+                      onChange={(e) => {
+                        const next = e.target.value as UserRole;
+                        if (
+                          STAFF_ROLES.includes(next) &&
+                          !confirm(`Дать ${u.email} роль «${ROLE_LABELS[next]}»? Откроется доступ к админке.`)
+                        )
+                          return;
+                        void patch(u, { role: next }, `${u.email}: роль «${ROLE_LABELS[next]}»`);
+                      }}
                     >
-                      {ROLES.map((r) => (
+                      {(STAFF_ROLES.includes(u.role) ? ROLES : CUSTOMER_ROLES).map((r) => (
                         <option key={r} value={r}>
                           {ROLE_LABELS[r]}
                         </option>
                       ))}
                     </select>
                     {u.wholesale_requested && (
-                      <button
-                        className="mt-1 block text-[11px] text-muted underline"
-                        onClick={() => patch(u, { wholesale_requested: false })}
-                      >
-                        отклонить заявку
-                      </button>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <button
+                          className="btn btn-gold btn-sm"
+                          onClick={() => {
+                            const next = u.requested_role ?? "wholesale";
+                            void patch(
+                              u,
+                              { role: next },
+                              `Клиенту ${u.email} дана роль «${ROLE_LABELS[next]}»`,
+                            );
+                          }}
+                        >
+                          Дать «{ROLE_LABELS[u.requested_role ?? "wholesale"]}»
+                        </button>
+                        <button
+                          className="btn btn-outline btn-sm"
+                          onClick={() =>
+                            void patch(u, { wholesale_requested: false }, `Заявка ${u.email} отклонена`)
+                          }
+                        >
+                          Отклонить
+                        </button>
+                      </div>
                     )}
                   </td>
                   <td>{u.orders_count}</td>
@@ -183,7 +234,14 @@ export function UsersAdmin({
                     <button
                       className={`btn btn-sm ${u.is_active ? "btn-outline" : "btn-danger"}`}
                       disabled={u.id === me?.id}
-                      onClick={() => patch(u, { is_active: !u.is_active })}
+                      onClick={() => {
+                        if (
+                          u.is_active &&
+                          !confirm(`Заблокировать ${u.email}? Он не сможет войти, его сессии закончатся.`)
+                        )
+                          return;
+                        void patch(u, { is_active: !u.is_active });
+                      }}
                     >
                       {u.is_active ? "Активен" : "Заблокирован"}
                     </button>

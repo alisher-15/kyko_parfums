@@ -25,6 +25,8 @@ type Filter =
   | "no_photo"
   | "no_barcode"
   | "price_check"
+  | "stock_state"
+  | "no_cost"
   | "page";
 
 /**
@@ -48,6 +50,8 @@ export function ProductsAdmin() {
   const noPhoto = params.get("no_photo") === "true";
   const noBarcode = params.get("no_barcode") === "true";
   const priceCheck = params.get("price_check") ?? "";
+  const stockState = params.get("stock_state") ?? "";
+  const noCost = params.get("no_cost") === "true";
   const page = Math.max(1, Math.floor(Number(params.get("page"))) || 1);
 
   useEffect(() => {
@@ -107,6 +111,8 @@ export function ProductsAdmin() {
       no_photo: noPhoto || undefined,
       no_barcode: noBarcode || undefined,
       price_check: priceCheck,
+      stock_state: stockState,
+      no_cost: noCost || undefined,
       page,
       page_size: PAGE_SIZE,
     },
@@ -184,6 +190,26 @@ export function ProductsAdmin() {
           <option value="markup_down">Наценка упала</option>
           <option value="markup_up">Наценка выросла</option>
         </select>
+        <select
+          className="input w-auto"
+          value={stockState}
+          onChange={(e) => setFilters({ stock_state: e.target.value })}
+          aria-label="Остаток"
+        >
+          <option value="">Остаток: любой</option>
+          <option value="few">Мало (1–5 шт.)</option>
+          <option value="out">Нет в наличии</option>
+          <option value="minus">В минусе (под заказ)</option>
+        </select>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-gold"
+            checked={noCost}
+            onChange={(e) => setFilters({ no_cost: e.target.checked })}
+          />
+          Без себестоимости
+        </label>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -378,7 +404,9 @@ function SearchForm({ search, onSearch }: { search: string; onSearch: (q: string
     >
       <input
         className="input min-w-48"
-        placeholder="Название или бренд"
+        type="search"
+        aria-label="Поиск товара"
+        placeholder="Название, бренд, артикул, штрихкод"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />

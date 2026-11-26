@@ -457,3 +457,59 @@ def test_database_url_gets_psycopg_driver():
     assert s.database_url == "postgresql+psycopg://u:p@h:5432/d"
     s = Settings(database_url="postgresql://u:p@h/d")
     assert s.database_url == "postgresql+psycopg://u:p@h/d"
+
+
+def test_products_found_by_article_and_barcode(client, auth, catalog, db):
+    from app.models import VariantBarcode
+
+    h = auth(UserRole.admin)
+    catalog["coco50"].sku = "CH-CM-50"
+    db.add(VariantBarcode(variant_id=catalog["sauvage100"].id, code="0348901250146"))
+    db.commit()
+    find = lambda q: [  # noqa: E731
+        p["name"]
+        for p in client.get("/api/admin/products", params={"q": q}, headers=h).json()["items"]
+    ]
+    assert find("ch-cm-50") == ["Coco Mademoiselle"]
+    assert find("0348901250146") == ["Sauvage"]
+    assert find("348901250146") == ["Sauvage"]  # UPC-A: the same code without the leading 0
+    assert find("coco") == ["Coco Mademoiselle"]
+
+
+def test_stock_tiles_and_their_lists_agree(client, auth, catalog, db):
+    h = auth(UserRole.admin)
+    # coco50: 10, coco100: 2 (few), sauvage100: 0 (out)
+    stats = client.get("/api/admin/stats", headers=h).json()
+    assert (stats["variants_few"], stats["variants_out"]) == (1, 1)
+    names = lambda **f: [  # noqa: E731
+        p["name"] for p in client.get("/api/admin/products", params=f, headers=h).json()["items"]
+    ]
+    assert names(stock_state="few") == ["Coco Mademoiselle"]
+    assert names(stock_state="out") == ["Sauvage"]
+    assert names(stock_state="minus") == []
+    catalog["coco50"].cost_price = None
+    db.commit()
+    assert names(no_cost=True) == ["Coco Mademoiselle"]
+
+
+def test_a_taken_article_names_its_volume(client, auth, catalog, db):
+    h = auth(UserRole.admin)
+    catalog["coco50"].sku = "CH-CM-50"
+    db.commit()
+    r = client.patch(
+        f"/api/admin/variants/{catalog['sauvage100'].id}", json={"sku": "CH-CM-50"}, headers=h
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"] == "Артикул CH-CM-50 уже у «Chanel Coco Mademoiselle, 50 мл»"
+
+
+def test_deleted_accounts_can_be_left_out(client, auth, db):
+    h = auth(UserRole.admin)
+    make_user(db, "deleted-99@deleted.invalid")
+    make_user(db, "anna@example.com")
+    emails = lambda **f: {  # noqa: E731
+        u["email"] for u in client.get("/api/admin/users", params=f, headers=h).json()["items"]
+    }
+    assert "deleted-99@deleted.invalid" in emails()
+    assert "deleted-99@deleted.invalid" not in emails(include_deleted=False)
+    assert "anna@example.com" in emails(include_deleted=False)

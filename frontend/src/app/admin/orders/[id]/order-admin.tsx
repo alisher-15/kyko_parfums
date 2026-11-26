@@ -11,6 +11,7 @@ import { ErrorBox, Spinner, StatusBadge, SuccessBox } from "@/components/ui";
 import { api, downloadFile } from "@/lib/api";
 import { CHANNEL_LABELS, PAYMENT_LABELS, ROLE_LABELS, STATUS_LABELS, dateTime } from "@/lib/format";
 import type { AdminOrder, OrderStatus } from "@/lib/types";
+import { customerChat, orderMessages, phoneDigits } from "@/lib/order-messages";
 import { useApi } from "@/lib/use-api";
 
 // Mirrors backend TRANSITIONS (app/services/orders.py).
@@ -213,6 +214,7 @@ export function OrderAdmin({ id }: { id: number }) {
               {order.contact_name && <div className="font-semibold">{order.contact_name}</div>}
               {order.contact_phone && <div>{order.contact_phone}</div>}
               {order.contact_email && <div>{order.contact_email}</div>}
+              <ReachCustomer order={order} />
             </>
           ) : (
             <div className="text-muted">Анонимный покупатель</div>
@@ -270,6 +272,47 @@ export function OrderAdmin({ id }: { id: number }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** WhatsApp with a ready message for the order's moment, or a call: orders are agreed there. */
+function ReachCustomer({ order }: { order: AdminOrder }) {
+  const [open, setOpen] = useState(false);
+  const digits = phoneDigits(order.contact_phone);
+  if (!digits) return null;
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="btn btn-sm bg-[#0f7b3f] text-white hover:bg-[#0b6532]"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          WhatsApp
+        </button>
+        <a className="btn btn-outline btn-sm" href={`tel:+${digits}`}>
+          Позвонить
+        </a>
+      </div>
+      {open && (
+        <ul className="divide-y divide-line rounded-lg border border-line">
+          {orderMessages(order).map((m) => (
+            <li key={m.label}>
+              <a
+                href={customerChat(digits, m.text)}
+                target="_blank"
+                rel="noopener"
+                className="block px-3 py-2 hover:bg-cream"
+              >
+                <span className="font-semibold">{m.label}</span>
+                <span className="block truncate text-xs text-muted">{m.text}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

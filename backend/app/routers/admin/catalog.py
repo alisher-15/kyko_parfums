@@ -2,13 +2,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app import availability
 from app.db import get_db
 from app.deps import require_admin
 from app.models import (
@@ -20,6 +21,7 @@ from app.models import (
     StockMovement,
     StockReason,
     User,
+    VariantBarcode,
     volume_label,
 )
 from app.schemas.admin import (
@@ -37,7 +39,7 @@ from app.schemas.admin import (
 )
 from app.schemas.catalog import BrandOut
 from app.schemas.common import Page
-from app.services import categories, markups, price_history
+from app.services import barcodes, categories, markups, price_history
 from app.services.importer import build_export
 from app.services.search import contains, product_name_match
 from app.services.stock import set_stock
@@ -177,6 +179,11 @@ def product_filters(
     no_photo: bool = False,
     no_barcode: bool = False,
     price_check: PriceCheck | None = None,
+    # Volumes by what is left: «few» 1–5 (the shop's «мало»), «out» none, «minus» owed to
+    # customers (the same as backordered).
+    stock_state: Literal["few", "out", "minus"] | None = None,
+    # In stock but without a cost: the margin of their sales is unknown.
+    no_cost: bool = False,
     # A node of the catalog tree with everything under it; 0: products not placed yet.
     category_id: int | None = None,
     db: Session = Depends(get_db),
@@ -188,7 +195,21 @@ def product_filters(
     elif category_id is not None:
         conds.append(Product.category_id.in_(categories.load_tree(db).subtree_ids(category_id)))
     if q and q.strip():
-        conds.append(product_name_match(q))
+        # A name, or a volume's article or barcode (scanned or typed, UPC-A or EAN-13).
+        code = q.strip()
+        conds.append(
+            or_(
+                product_name_match(q),
+                Product.variants.any(
+                    or_(
+                        func.lower(ProductVariant.sku) == code.lower(),
+                        ProductVariant.barcodes.any(
+                            VariantBarcode.code.in_(barcodes.candidates(barcodes.normalize(code)))
+                        ),
+                    )
+                ),
+            )
+        )
     if brand_id is not None:
         conds.append(Product.brand_id == brand_id)
     if is_active is not None:
@@ -209,6 +230,21 @@ def product_filters(
         conds.append(Product.variants.any(~ProductVariant.barcodes.any()))
     if price_check is not None:
         conds.append(_price_check(price_check))
+    active = ProductVariant.is_active
+    if stock_state == "few":
+        conds.append(
+            Product.variants.any(active & ProductVariant.stock.between(1, availability.LOW_STOCK))
+        )
+    elif stock_state == "out":
+        conds.append(Product.variants.any(active & (ProductVariant.stock == 0)))
+    elif stock_state == "minus":
+        conds.append(Product.variants.any(ProductVariant.stock < 0))
+    if no_cost:
+        conds.append(
+            Product.variants.any(
+                active & (ProductVariant.stock > 0) & ProductVariant.cost_price.is_(None)
+            )
+        )
     return ProductFilters(conds=conds, no_barcode=no_barcode)
 
 
@@ -339,6 +375,25 @@ def _check_unique_volume(
         )
 
 
+def _check_free_sku(db: Session, sku: str | None, variant_id: int | None = None) -> None:
+    """An article is one volume's: say whose it is instead of a bare «conflict»."""
+    if not sku:
+        return
+    stmt = (
+        select(ProductVariant)
+        .where(ProductVariant.sku == sku)
+        .options(joinedload(ProductVariant.product).joinedload(Product.brand))
+    )
+    if variant_id is not None:
+        stmt = stmt.where(ProductVariant.id != variant_id)
+    owner = db.scalars(stmt.limit(1)).first()
+    if owner is not None:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"Артикул {sku} уже у «{owner.label}»",
+        )
+
+
 @router.post(
     "/products/{product_id}/variants",
     response_model=AdminVariantOut,
@@ -353,6 +408,7 @@ def create_variant(
     if db.get(Product, product_id) is None:
         raise HTTPException(404, "Товар не найден")
     _check_unique_volume(db, product_id, data.volume_ml, data.is_tester)
+    _check_free_sku(db, data.sku)
     variant = ProductVariant(product_id=product_id, **data.model_dump(exclude={"stock"}), stock=0)
     markups.remember(variant)
     db.add(variant)
@@ -393,6 +449,8 @@ def update_variant(
             changes.get("is_tester", variant.is_tester),
             variant.id,
         )
+    if changes.get("sku"):
+        _check_free_sku(db, changes["sku"], variant.id)
     stock_note = changes.pop("stock_note", None)
     new_stock = changes.pop("stock", None)
     expected = changes.pop("stock_expected", None)

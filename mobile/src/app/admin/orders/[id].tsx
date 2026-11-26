@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { Linking, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { AdminScreen, Block, KV, Pill, confirm } from "@/components/admin/kit";
 import { EditItemsPanel, PickingPanel, ReturnPanel } from "@/components/admin/order-panels";
 import { StatusBadge } from "@/components/shop";
@@ -18,6 +18,7 @@ import {
   tenge,
   volumeLabel,
 } from "@/lib/format";
+import { customerChat, orderMessages, phoneDigits } from "@/lib/order-messages";
 import { useApi } from "@/lib/queries";
 import type { OrderStatus } from "@/lib/types";
 import { colors, fonts } from "@/theme";
@@ -276,6 +277,7 @@ function OrderAdmin({ id }: { id: number }) {
             {o.contact_name && <Txt style={{ fontFamily: fonts.sansSemi }}>{o.contact_name}</Txt>}
             {o.contact_phone && <Txt>{o.contact_phone}</Txt>}
             {o.contact_email && <Txt>{o.contact_email}</Txt>}
+            <ReachCustomer order={o} />
           </>
         ) : (
           <Muted>Анонимный покупатель</Muted>
@@ -348,5 +350,58 @@ function OrderAdmin({ id }: { id: number }) {
         />
       </Block>
     </ScrollView>
+  );
+}
+
+/** WhatsApp with a ready message for the order's moment, or a call: orders are agreed there. */
+function ReachCustomer({ order }: { order: AdminOrder }) {
+  const [open, setOpen] = useState(false);
+  const digits = phoneDigits(order.contact_phone);
+  if (!digits) return null;
+  return (
+    <View style={{ gap: 8, marginTop: 6 }}>
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        <Button
+          small
+          icon="logo-whatsapp"
+          title="WhatsApp"
+          onPress={() => setOpen(!open)}
+          style={{ backgroundColor: "#0f7b3f", flex: 1 }}
+          testID="order-whatsapp"
+        />
+        <Button
+          small
+          kind="outline"
+          icon="call-outline"
+          title="Позвонить"
+          onPress={() => void Linking.openURL(`tel:+${digits}`)}
+          style={{ flex: 1 }}
+        />
+      </View>
+      {open &&
+        orderMessages(order).map((m) => (
+          <Pressable
+            key={m.label}
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL(customerChat(digits, m.text))}
+            style={({ pressed }) => [
+              {
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: 10,
+                padding: 10,
+                gap: 2,
+                backgroundColor: colors.white,
+              },
+              pressed && { opacity: 0.8 },
+            ]}
+          >
+            <Txt style={{ fontFamily: fonts.sansSemi }}>{m.label}</Txt>
+            <Muted style={{ fontSize: 12 }} numberOfLines={2}>
+              {m.text}
+            </Muted>
+          </Pressable>
+        ))}
+    </View>
   );
 }

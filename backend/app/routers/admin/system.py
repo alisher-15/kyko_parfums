@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
+from app import availability
 from app.config import get_settings
 from app.db import get_db
 from app.deps import require_admin
@@ -268,4 +269,17 @@ def stats(db: Session = Depends(get_db)):
         )
         or 0,
         brands_total=db.scalar(select(func.count(Brand.id))) or 0,
+        variants_few=db.scalar(
+            select(func.count(ProductVariant.id)).where(
+                ProductVariant.is_active,
+                ProductVariant.stock.between(1, availability.LOW_STOCK),
+            )
+        )
+        or 0,
+        variants_out=db.scalar(
+            select(func.count(ProductVariant.id)).where(
+                ProductVariant.is_active, ProductVariant.stock == 0
+            )
+        )
+        or 0,
     )

@@ -66,9 +66,9 @@ function Setup() {
           токен: длинная строка с двоеточием.
         </li>
         <li>
-          На Render в сервисе сайта откройте Environment, добавьте переменную{" "}
-          <code>TELEGRAM_BOT_TOKEN</code> со значением токена и сохраните. Сайт перезапустится за
-          пару минут.
+          На сервере магазина добавьте в файл <code>deploy/vps/.env</code> переменную{" "}
+          <code>TELEGRAM_BOT_TOKEN</code> со значением токена и перезапустите сайт (
+          <code>docker compose up -d</code>).
         </li>
         <li>Обновите эту страницу и добавьте получателей.</li>
       </ol>
@@ -186,7 +186,7 @@ function Recipients({ state, reload }: { state: TelegramState; reload: () => voi
       {state.error && (
         <ErrorBox>
           Telegram не отвечает: {state.error}. Если так и остаётся, проверьте переменную
-          TELEGRAM_BOT_TOKEN на Render.
+          TELEGRAM_BOT_TOKEN на сервере магазина.
         </ErrorBox>
       )}
 

@@ -10,7 +10,7 @@ import { VariantPicker } from "@/components/admin/VariantPicker";
 import { TrashIcon } from "@/components/icons";
 import { ErrorBox, Spinner, SuccessBox } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import { dateTime, volumeLabel } from "@/lib/format";
+import { bigDifferences, dateTime, volumeLabel } from "@/lib/format";
 import type { CountLine, StockCount } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -22,6 +22,7 @@ export function CountView({ id }: { id: number }) {
   const [unknown, setUnknown] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
+  const [checkedBig, setCheckedBig] = useState(false);
   const [busy, setBusy] = useState(false);
   const router = useRouter();
   const count = doc ?? data;
@@ -101,6 +102,7 @@ export function CountView({ id }: { id: number }) {
     };
   };
 
+  const big = bigDifferences(count.items);
   const mismatches = count.items.filter((i) => i.expected !== null && i.counted !== i.expected);
 
   return (
@@ -126,7 +128,7 @@ export function CountView({ id }: { id: number }) {
             <div className="label">Сканер</div>
             <ScanField onScan={scan} cameraTitle={`Инвентаризация № ${count.id}`} />
             <p className="mt-2 text-xs text-muted">
-              Один скан — одна штука. Несколько одинаковых проще посчитать кнопками −/+.
+              Один скан — одна штука. Несколько одинаковых — впишите количество в строке.
             </p>
           </div>
           <div className="card p-4">
@@ -209,6 +211,33 @@ export function CountView({ id }: { id: number }) {
             проведения остаток станет «посчитано минус отложенное». Если во время пересчёта что-то
             продали, проводите документ сразу после подсчёта, чтобы продажи не посчитались дважды.
           </p>
+          {confirmPost && big.needsCheck && (
+            <div className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm" role="alert">
+              <div className="font-semibold">Большое расхождение — проверьте перед проведением</div>
+              {big.lines.length > 0 && (
+                <ul className="space-y-0.5">
+                  {big.lines.map((l) => (
+                    <li key={l.id}>
+                      {l.label}: было {l.expected}, посчитано {l.counted},{" "}
+                      <b>
+                        {l.counted - (l.expected ?? 0) > 0 ? "+" : ""}
+                        {l.counted - (l.expected ?? 0)}
+                      </b>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="accent-gold"
+                  checked={checkedBig}
+                  onChange={(e) => setCheckedBig(e.target.checked)}
+                />
+                Проверил, расхождения верные
+              </label>
+            </div>
+          )}
           {confirmPost ? (
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex-1 text-sm">
@@ -216,7 +245,7 @@ export function CountView({ id }: { id: number }) {
               </span>
               <button
                 className="btn btn-primary btn-sm"
-                disabled={busy}
+                disabled={busy || (big.needsCheck && !checkedBig)}
                 onClick={() => {
                   setConfirmPost(false);
                   run(
@@ -227,7 +256,13 @@ export function CountView({ id }: { id: number }) {
               >
                 Да, провести
               </button>
-              <button className="btn btn-outline btn-sm" onClick={() => setConfirmPost(false)}>
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setConfirmPost(false);
+                  setCheckedBig(false);
+                }}
+              >
                 Нет
               </button>
             </div>

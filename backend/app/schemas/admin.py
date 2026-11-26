@@ -528,3 +528,7 @@ class StatsOut(BaseModel):
     products_without_variants: int
     variants_low_stock: int
     brands_total: int
+    # Active volumes with 1–5 left (what the shop calls «мало»: app/availability.LOW_STOCK) and
+    # with none; each tile of the overview opens the products list filtered the same way.
+    variants_few: int = 0
+    variants_out: int = 0

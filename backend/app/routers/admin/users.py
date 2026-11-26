@@ -27,6 +27,9 @@ def list_users(
     q: str | None = Query(default=None, max_length=200),
     role: UserRole | None = None,
     wholesale_requested: bool | None = None,
+    # Deleted accounts (anonymized, deleted-<id>@deleted.invalid): listed by default, as before;
+    # the site hides them unless asked.
+    include_deleted: bool = True,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
@@ -44,6 +47,8 @@ def list_users(
         )
     if role is not None:
         conds.append(User.role == role)
+    if not include_deleted:
+        conds.append(~User.email.like("deleted-%@deleted.invalid"))
     if wholesale_requested is not None:
         conds.append(User.wholesale_requested == wholesale_requested)
 

@@ -129,7 +129,7 @@ export function ReceiptView({ id }: { id: number }) {
             <div className="label">Сканер</div>
             <ScanField onScan={scan} cameraTitle={`Приёмка № ${receipt.id}`} />
             <p className="mt-2 text-xs text-muted">
-              Один скан — одна штука. Несколько одинаковых коробок проще добавить кнопкой «+».
+              Один скан — одна штука. Несколько одинаковых коробок — впишите количество в строке.
             </p>
           </div>
           <div className="card p-4">

@@ -23,6 +23,9 @@ interface Filters {
   category_id: string;
   is_active: "" | "true" | "false";
   price_check: PriceCheck;
+  /** «few» 1–5 left, «out» none, «minus» owed to customers. */
+  stock_state: "" | "few" | "out" | "minus";
+  no_cost: boolean;
   no_variants: boolean;
   backordered: boolean;
   is_new: boolean;
@@ -35,6 +38,8 @@ const EMPTY: Filters = {
   category_id: "",
   is_active: "",
   price_check: "",
+  stock_state: "",
+  no_cost: false,
   no_variants: false,
   backordered: false,
   is_new: false,
@@ -43,10 +48,11 @@ const EMPTY: Filters = {
 };
 
 const TOGGLES: {
-  key: "no_variants" | "backordered" | "is_new" | "no_photo" | "no_barcode";
+  key: "no_variants" | "backordered" | "is_new" | "no_photo" | "no_barcode" | "no_cost";
   label: string;
 }[] = [
   { key: "backordered", label: "Нужно заказать у поставщика" },
+  { key: "no_cost", label: "В наличии без себестоимости" },
   { key: "no_variants", label: "Без цен / объёмов" },
   { key: "is_new", label: "Выбор Kyko" },
   { key: "no_photo", label: "Без фото" },
@@ -66,6 +72,8 @@ function Products() {
     backordered?: string;
     no_variants?: string;
     category_id?: string;
+    stock_state?: string;
+    no_cost?: string;
   }>();
   const tree = useApi<AdminCategory[]>("/admin/categories");
   const [q, setQ] = useState("");
@@ -73,6 +81,8 @@ function Products() {
     ...EMPTY,
     backordered: params.backordered === "true",
     no_variants: params.no_variants === "true",
+    no_cost: params.no_cost === "true",
+    stock_state: (["few", "out", "minus"] as const).find((v) => v === params.stock_state) ?? "",
     category_id: params.category_id ?? "",
   });
   const [open, setOpen] = useState(false);
@@ -85,6 +95,8 @@ function Products() {
       category_id: filters.category_id,
       is_active: filters.is_active,
       price_check: filters.price_check,
+      stock_state: filters.stock_state,
+      no_cost: filters.no_cost,
       no_variants: filters.no_variants,
       backordered: filters.backordered,
       is_new: filters.is_new,
@@ -101,6 +113,7 @@ function Products() {
     (filters.category_id ? 1 : 0) +
     (filters.is_active ? 1 : 0) +
     (filters.price_check ? 1 : 0) +
+    (filters.stock_state ? 1 : 0) +
     TOGGLES.filter((t) => filters[t.key]).length;
 
   /** The products of the current search and filters, in the import format. */
@@ -128,7 +141,7 @@ function Products() {
         <SearchBox
           value={q}
           onChange={setQ}
-          placeholder="Название, бренд, артикул"
+          placeholder="Название, бренд, артикул, штрихкод"
           testID="products-search"
         />
         <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
@@ -296,6 +309,26 @@ function FiltersSheet({
                 label={l}
                 active={draft.is_active === v}
                 onPress={() => setDraft({ ...draft, is_active: v })}
+              />
+            ))}
+          </View>
+        </View>
+        <View style={{ gap: 8 }}>
+          <Txt style={styles.group}>Остаток</Txt>
+          <View style={styles.chips}>
+            {(
+              [
+                ["", "Любой"],
+                ["few", "Мало (1–5 шт.)"],
+                ["out", "Нет в наличии"],
+                ["minus", "В минусе (под заказ)"],
+              ] as const
+            ).map(([v, l]) => (
+              <Chip
+                key={v}
+                label={l}
+                active={draft.stock_state === v}
+                onPress={() => setDraft({ ...draft, stock_state: v })}
               />
             ))}
           </View>

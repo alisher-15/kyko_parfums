@@ -267,6 +267,9 @@ export interface Stats {
   products_total: number;
   products_without_variants: number;
   variants_low_stock: number;
+  /** Active volumes with 1–5 left, and with none (older servers don't send them). */
+  variants_few?: number;
+  variants_out?: number;
   brands_total: number;
   /** Volumes customers ordered beyond stock: to get from a supplier. */
   variants_backordered: number;

@@ -119,6 +119,12 @@ test("склад: штрихкоды, приёмка, инвентаризаци
       draft.items.find((i: { variant_id: number }) => i.variant_id === variantId).reserved as number;
     const aventus100 = volume(await product(admin, "aventus"), 100);
     await page.getByRole("button", { name: "Провести инвентаризацию" }).click();
+    // Counted far from the system (the demo stock is bigger): «Да, провести» waits for a check.
+    const check = page.getByLabel("Проверил, расхождения верные");
+    if (await check.isVisible()) {
+      await expect(page.getByRole("button", { name: "Да, провести" })).toBeDisabled();
+      await check.check();
+    }
     await page.getByRole("button", { name: "Да, провести" }).click();
     await expect(page.getByText("Инвентаризация проведена, остатки исправлены")).toBeVisible();
     expect(volume(await product(admin, "coco"), 50).stock).toBe(3 - inOrders(coco50.id));

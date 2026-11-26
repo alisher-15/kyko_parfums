@@ -73,7 +73,7 @@ test.describe("Админка", () => {
     // No photo was added: the filter «Без фото» finds it, and loses it once a photo is set.
     await page.goto("/admin/products");
     await page.getByLabel("Без фото").check();
-    await page.getByPlaceholder("Название или бренд").fill(name);
+    await page.getByPlaceholder("Название, бренд, артикул, штрихкод").fill(name);
     await page.getByRole("button", { name: "Найти" }).click();
     await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
     await expect(page.getByRole("link", { name }).first()).toBeVisible();
@@ -83,7 +83,7 @@ test.describe("Админка", () => {
     const listIsAsLeft = async () => {
       await expect(page).toHaveURL(/\/admin\/products\?.*no_photo=true/);
       await expect(page.getByLabel("Без фото")).toBeChecked();
-      await expect(page.getByPlaceholder("Название или бренд")).toHaveValue(name);
+      await expect(page.getByPlaceholder("Название, бренд, артикул, штрихкод")).toHaveValue(name);
       await expect(page.getByRole("heading", { name: "Товары · 1" })).toBeVisible();
     };
     await page.getByRole("link", { name }).first().click();
@@ -118,7 +118,7 @@ test.describe("Админка", () => {
     await api("POST", `/admin/variants/${v50.id}/barcodes`, admin, { code: randomEan() });
 
     await page.goto("/admin/products");
-    await page.getByPlaceholder("Название или бренд").fill(name);
+    await page.getByPlaceholder("Название, бренд, артикул, штрихкод").fill(name);
     await page.getByRole("button", { name: "Найти" }).click();
     await page.getByLabel("Без штрихкода").check();
     await expect(page).toHaveURL(/no_barcode=true/);
@@ -216,6 +216,14 @@ test.describe("Админка", () => {
     await row.locator("select").selectOption("wholesale");
     await expect.poll(async () => (await api("GET", `/admin/users/${customer.id}`, admin)).role).toBe("wholesale");
 
+    // A customer's row offers customer roles only: no admin panel by a slip.
+    await expect(row.locator("select option")).toHaveText(["Розница", "Опт", "Крупный опт"]);
+
+    // Blocking asks first; «Отмена» leaves the account as it is.
+    page.once("dialog", (d) => void d.dismiss());
+    await row.getByRole("button", { name: "Активен" }).click();
+    await expect(row.getByRole("button", { name: "Активен" })).toBeVisible();
+    page.once("dialog", (d) => void d.accept());
     await row.getByRole("button", { name: "Активен" }).click();
     await expect(row.getByRole("button", { name: "Заблокирован" })).toBeVisible();
     const res = await call("POST", "/auth/login", null, { email: customer.email, password: customer.password });

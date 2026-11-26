@@ -40,6 +40,11 @@ test.describe("Витрина для гостя", () => {
       await expect(guest.getByRole("heading", { name: "Акции" })).toHaveCount(0);
       // WhatsApp on every page: orders, payment and delivery are agreed there.
       await expect(guest.getByRole("link", { name: "Написать в WhatsApp" })).toHaveAttribute("href", /^https:\/\/wa\.me\/77474848194\?text=/);
+      // «100% оригинал» leads to the shop's YouTube channel.
+      await expect(guest.getByRole("link", { name: /100% оригинал/ })).toHaveAttribute(
+        "href",
+        "https://www.youtube.com/channel/UCdWg_wKqm7KHlkq_sIsr3Vw",
+      );
       await line.getByRole("link", { name: "Creed" }).click();
       await expect(guest).toHaveURL(new RegExp(`brand_id=${creed.id}`));
     } finally {

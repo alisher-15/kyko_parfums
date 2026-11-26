@@ -8,7 +8,7 @@ import { SearchIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { useAuth } from "@/lib/auth";
 import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
-import { CONTACTS, whatsappLink } from "@/lib/contacts";
+import { CONTACTS, YOUTUBE, whatsappLink } from "@/lib/contacts";
 import { dayMonth, percentOff, plural } from "@/lib/format";
 import { useRecentlyViewed } from "@/lib/recent";
 import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
@@ -196,6 +196,7 @@ const TRUST: { title: string; text: string; href?: string; icon: ReactNode }[] =
   {
     title: "100% оригинал",
     text: "только оригинальная парфюмерия",
+    href: YOUTUBE,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-6 w-6">
         <path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" />

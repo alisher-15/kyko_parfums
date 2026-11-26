@@ -22,3 +22,6 @@ export const WHATSAPP = CONTACTS[0].href;
 export function whatsappAbout(text: string): string {
   return `${CONTACTS[0].href}?text=${encodeURIComponent(text)}`;
 }
+
+/** The shop's YouTube channel: how originals are checked and unboxed («100% оригинал»). */
+export const YOUTUBE = "https://www.youtube.com/channel/UCdWg_wKqm7KHlkq_sIsr3Vw";

@@ -15,7 +15,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { assetUrl } from "@/lib/config";
-import { CONTACTS, WHATSAPP, whatsappAbout } from "@/lib/contacts";
+import { CONTACTS, WHATSAPP, YOUTUBE, whatsappAbout } from "@/lib/contacts";
 import { plural } from "@/lib/format";
 import { useApi, type ProductFilters } from "@/lib/queries";
 import { useRecentlyViewed } from "@/lib/recent";
@@ -95,6 +95,7 @@ const TRUST: {
     icon: "shield-checkmark-outline",
     title: "100% оригинал",
     text: "только оригинальная парфюмерия",
+    href: YOUTUBE,
   },
   { icon: "car-outline", title: "Доставка по Казахстану", text: "способ подберём под вас" },
   {

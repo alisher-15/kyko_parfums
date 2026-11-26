@@ -21,7 +21,9 @@ jobs:
         run: R2_PUBLIC_URL=https://pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev BACKEND_URL=https://89-126-205-132.sslip.io npm run build
       - name: Resize R2 photos
         run: |
-          (npx next start -p 3000 > next.log 2>&1 &); sleep 6
+          cp -r public .next/standalone/ && cp -r .next/static .next/standalone/.next/
+          # As in the Docker image: the standalone server, no R2_PUBLIC_URL at run time.
+          (cd .next/standalone && PORT=3000 HOSTNAME=127.0.0.1 node server.js > ../../next.log 2>&1 &); sleep 6
           B=https://pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev
           grep -rho "pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev/" .next/static/chunks | sort | uniq -c
           for p in bottles/zirh-ikon.jpg products/8c475bc21b1e4097a6718dd7f561e52e.jpg products/2e43f3f446c34c0d933ed42b8467e512.jpg; do

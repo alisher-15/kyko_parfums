@@ -30,6 +30,8 @@ const csp = [
 const securityHeaders = [
   { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
+  // Browsers that came once over HTTPS never try plain HTTP again (ignored over http in dev).
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // The camera is used by the barcode scanner in the admin panel.

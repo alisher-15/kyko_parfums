@@ -37,15 +37,21 @@ class ClientError(BaseModel):
     url: str | None = Field(default=None, max_length=1000)
 
 
+def _one_line(text: str) -> str:
+    return " ⏎ ".join(text.splitlines())
+
+
 @router.post("/client-errors", status_code=status.HTTP_204_NO_CONTENT)
 def client_error(data: ClientError) -> Response:
     """A JavaScript error in a visitor's browser: written to the log, and to Sentry when set up."""
     if not client_errors.retry_after("all"):
         client_errors.hit("all")
         # A warning, so Sentry's logging hook doesn't report it a second time.
-        log.warning("Browser error at %s: %s\n%s", data.url or "?", data.message, data.stack or "")
+        # Line breaks in what a visitor sends would let them write lines of their own into the log.
+        message, url = _one_line(data.message), _one_line(data.url or "?")
+        log.warning("Browser error at %s: %s | %s", url, message, _one_line(data.stack or ""))
         with sentry_sdk.new_scope() as scope:
             scope.set_tag("source", "browser")
             scope.set_context("browser", {"url": data.url, "stack": data.stack})
-            sentry_sdk.capture_message(f"Browser: {data.message}", level="error")
+            sentry_sdk.capture_message(f"Browser: {message}", level="error")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

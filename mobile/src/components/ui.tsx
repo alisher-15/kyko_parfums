@@ -96,7 +96,7 @@ export function Button({
 }
 
 const buttonKinds: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.ink, fg: colors.white, border: colors.ink },
+  primary: { bg: colors.gold, fg: colors.white, border: colors.gold },
   gold: { bg: colors.gold, fg: colors.white, border: colors.gold },
   outline: { bg: colors.white, fg: colors.ink, border: colors.line },
   danger: { bg: colors.white, fg: colors.danger, border: colors.dangerLine },
@@ -373,7 +373,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipActive: { backgroundColor: colors.gold, borderColor: colors.gold },
   chipText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.ink },
   badge: {
     borderRadius: radius.pill,

@@ -294,7 +294,7 @@ function ToolButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.tool,
-        active && { borderColor: colors.ink, backgroundColor: colors.ink },
+        active && { borderColor: colors.gold, backgroundColor: colors.gold },
         pressed && { opacity: 0.7 },
       ]}
     >

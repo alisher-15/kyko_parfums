@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderWidth: 1,
     borderColor: "rgba(166,124,82,0.4)",
-    backgroundColor: "#fdf8ef",
+    backgroundColor: "#fbefea",
     borderRadius: radius.lg,
     padding: 16,
     gap: 4,

@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
@@ -17,7 +18,7 @@ import {
   Wholesale,
 } from "@/components/home";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
-import { Muted, Txt } from "@/components/ui";
+import { Muted } from "@/components/ui";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
@@ -56,9 +57,13 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <Txt style={styles.logo} accessibilityRole="header">
-            Kyko
-          </Txt>
+          <Image
+            source={require("../../../assets/images/logo-swatch.png")}
+            accessibilityRole="header"
+            accessibilityLabel="Kyko"
+            style={{ width: 134, height: 32 }}
+            contentFit="contain"
+          />
           <CurrencySwitch />
         </View>
 

@@ -1,14 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Nunito_800ExtraBold, Nunito_900Black } from "@expo-google-fonts/nunito";
 import {
-  CormorantGaramond_600SemiBold,
-  CormorantGaramond_700Bold,
-} from "@expo-google-fonts/cormorant-garamond";
-import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-} from "@expo-google-fonts/manrope";
+  Onest_400Regular,
+  Onest_500Medium,
+  Onest_600SemiBold,
+  Onest_700Bold,
+} from "@expo-google-fonts/onest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -44,12 +41,12 @@ function makeQueryClient() {
 export default function RootLayout() {
   const [queryClient] = useState(makeQueryClient);
   const [fontsLoaded, fontError] = useFonts({
-    CormorantGaramond_600SemiBold,
-    CormorantGaramond_700Bold,
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
+    Nunito_800ExtraBold,
+    Nunito_900Black,
+    Onest_400Regular,
+    Onest_500Medium,
+    Onest_600SemiBold,
+    Onest_700Bold,
     ...Ionicons.font,
   });
 

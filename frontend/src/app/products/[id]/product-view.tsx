@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ShareIcon } from "@/components/icons";
 import { UpgradeRequest } from "@/components/UpgradeRequest";
 import { Breadcrumbs, ErrorBox, ProductImage, QuantityInput, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -75,12 +76,15 @@ export function ProductView({ id }: { id: number }) {
         </div>
 
         <div>
-          <Link
-            href={`/catalog?brand_id=${product.brand.id}`}
-            className="text-sm font-semibold tracking-[0.2em] text-gold uppercase"
-          >
-            {product.brand.name}
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href={`/catalog?brand_id=${product.brand.id}`}
+              className="text-sm font-semibold tracking-[0.2em] text-gold uppercase"
+            >
+              {product.brand.name}
+            </Link>
+            <ShareButton title={`${product.brand.name} ${product.name}`} path={`/products/${product.id}`} />
+          </div>
           <h1 className="mt-2 font-serif text-5xl leading-tight font-semibold">{product.name}</h1>
           <div className="mt-3 flex flex-wrap gap-2">
             {product.type && <span className="chip">{product.type}</span>}
@@ -421,6 +425,44 @@ function ThresholdNote({ rules }: { rules: PricingRules }) {
 /** The notes as pearls on a thread: the top notes the smallest pearl, gone first; the base the
  *  largest, staying longest (the app draws the same). */
 const PEARLS = ["h-3 w-3", "h-[18px] w-[18px]", "h-6 w-6"];
+
+/**
+ * «Поделиться»: the phone's share sheet where there is one (WhatsApp, Telegram…), else the link
+ * is copied. On Android with the app installed, the link opens the product in the app
+ * (public/.well-known/assetlinks.json and the app's intent filter).
+ */
+function ShareButton({ title, path }: { title: string; path: string }) {
+  const [copied, setCopied] = useState(false);
+  const share = async () => {
+    const url = `${window.location.origin}${path}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+        return;
+      } catch (e) {
+        // Closing the share sheet is no error; anything else falls back to copying.
+        if (e instanceof DOMException && e.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      window.prompt("Скопируйте ссылку", url);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void share()}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-xs font-semibold tracking-[0.1em] uppercase hover:border-ink"
+    >
+      <ShareIcon width={16} height={16} />
+      <span aria-live="polite">{copied ? "Ссылка скопирована" : "Поделиться"}</span>
+    </button>
+  );
+}
 
 function NotesPyramid({ product }: { product: ProductDetail }) {
   const levels = [

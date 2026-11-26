@@ -51,7 +51,12 @@ export function CartButton({ boxed = false }: { boxed?: boolean }) {
         pressed && { opacity: 0.6 },
       ]}
     >
-      <Ionicons name={count ? "bag" : "bag-outline"} size={22} color={colors.ink} />
+      <Ionicons
+        name={count ? "bag" : "bag-outline"}
+        size={22}
+        // In the header it sits on the frame color; boxed, on the light page.
+        color={boxed ? colors.ink : colors.cream}
+      />
       {count > 0 && (
         <View style={styles.cartBadge}>
           <Text style={styles.cartBadgeText}>{count > 99 ? "99+" : count}</Text>
@@ -345,21 +350,21 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     paddingHorizontal: 4,
-    backgroundColor: colors.gold,
+    backgroundColor: colors.champagne,
     alignItems: "center",
     justifyContent: "center",
   },
-  cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.white },
+  cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.velvet },
   bold: { fontFamily: fonts.sansBold },
   card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
   cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },
   cardBadge: {
-    backgroundColor: colors.gold,
+    backgroundColor: colors.champagne,
     borderRadius: radius.pill,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
-  cardBadgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.white },
+  cardBadgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.velvet },
   cardDates: { fontFamily: fonts.sansMedium, fontSize: 11, color: "#e7e5e4" },
   cardTitle: { fontFamily: fonts.serifBold, fontSize: 15, lineHeight: 17, color: colors.white },
   switch: {

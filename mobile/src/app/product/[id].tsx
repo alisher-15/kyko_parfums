@@ -73,6 +73,7 @@ export default function ProductScreen() {
             <View style={{ flexDirection: "row" }}>
               <IconButton
                 name="share-outline"
+                color={colors.cream}
                 label="Поделиться"
                 onPress={() => {
                   const p = product.data;
@@ -87,7 +88,7 @@ export default function ProductScreen() {
               <IconButton
                 testID="product-favorite"
                 name={favorites.has(productId) ? "heart" : "heart-outline"}
-                color={favorites.has(productId) ? colors.gold : colors.ink}
+                color={favorites.has(productId) ? colors.champagne : colors.cream}
                 label={favorites.has(productId) ? "Убрать из избранного" : "В избранное"}
                 onPress={() => favorites.toggle(productId)}
               />
@@ -303,7 +304,7 @@ function ProductBody({
               </Txt>
               <Txt
                 style={{
-                  color: colors.gold,
+                  color: colors.champagne,
                   fontFamily: fonts.sansSemi,
                   fontSize: 13,
                   marginTop: 4,
@@ -566,8 +567,8 @@ function hasThresholds(rules: PricingRules): boolean {
 }
 
 /**
- * The notes as they open on a blotter (мушетка): the top notes are a small pale spot that is
- * gone first, the base a large deep one that stays longest. The spots sit on one strip.
+ * The notes as pearls on a thread («Каждая — жемчужина»): the top notes are the smallest
+ * pearl, gone first; the base the largest, staying longest.
  */
 function NotesPyramid({ product }: { product: ProductDetail }) {
   const levels = [
@@ -586,7 +587,9 @@ function NotesPyramid({ product }: { product: ProductDetail }) {
         {levels.map((l) => (
           <View key={l.title} style={styles.level}>
             <View style={styles.spotCell}>
-              <View style={[styles.spot, SPOTS[l.depth]]} />
+              <View style={[styles.spot, SPOTS[l.depth]]}>
+                <View style={styles.shine} />
+              </View>
             </View>
             <View style={{ flex: 1, gap: 2 }}>
               <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 14 }}>{l.title}</Txt>
@@ -604,11 +607,11 @@ function NotesPyramid({ product }: { product: ProductDetail }) {
   );
 }
 
-/** A spot per level: it grows and deepens from the top notes to the base. */
+/** A pearl per level: it grows from the top notes to the base. */
 const SPOTS = [
-  { width: 10, height: 10, borderRadius: 5, opacity: 0.45 },
-  { width: 16, height: 16, borderRadius: 8, opacity: 0.75 },
-  { width: 22, height: 22, borderRadius: 11, opacity: 1 },
+  { width: 12, height: 12, borderRadius: 6 },
+  { width: 18, height: 18, borderRadius: 9 },
+  { width: 24, height: 24, borderRadius: 12 },
 ];
 
 const styles = StyleSheet.create({
@@ -620,18 +623,32 @@ const styles = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
   blotter: {
     position: "absolute",
-    left: 11,
-    top: 4,
-    bottom: 4,
-    width: 6,
-    borderRadius: 3,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
+    left: 13,
+    top: 10,
+    bottom: 10,
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: "#dcbdb1",
   },
   level: { flexDirection: "row", gap: 12, paddingVertical: 8 },
   spotCell: { width: 28, alignItems: "center", paddingTop: 2 },
-  spot: { backgroundColor: colors.champagne },
+  // A pearl: mother-of-pearl with a darker rim and a white shine at the top left.
+  spot: {
+    backgroundColor: "#ecd9cf",
+    borderWidth: 1,
+    borderColor: "#dcbdb1",
+    overflow: "hidden",
+  },
+  shine: {
+    position: "absolute",
+    top: "14%",
+    left: "18%",
+    width: "42%",
+    height: "42%",
+    borderRadius: 99,
+    backgroundColor: colors.white,
+    opacity: 0.9,
+  },
   label: {
     fontFamily: fonts.sansBold,
     fontSize: 11,

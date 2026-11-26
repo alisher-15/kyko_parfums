@@ -4,11 +4,11 @@ import {
   CormorantGaramond_700Bold,
 } from "@expo-google-fonts/cormorant-garamond";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+  Manrope_400Regular,
+  Manrope_500Medium,
+  Manrope_600SemiBold,
+  Manrope_700Bold,
+} from "@expo-google-fonts/manrope";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -46,10 +46,10 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_600SemiBold,
     CormorantGaramond_700Bold,
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
     ...Ionicons.font,
   });
 

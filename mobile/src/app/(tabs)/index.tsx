@@ -59,10 +59,10 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <Image
-            source={require("../../../assets/images/logo-velvet.png")}
+            source={require("../../../assets/images/logo-pearl.png")}
             accessibilityRole="header"
             accessibilityLabel="Kyko"
-            style={{ width: 106, height: 44 }}
+            style={{ width: 120, height: 32 }}
             contentFit="contain"
           />
           <CurrencySwitch />

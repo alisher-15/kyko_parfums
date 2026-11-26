@@ -312,7 +312,7 @@ export function Testers() {
           hitSlop={8}
           onPress={() => openCollection("Тестеры", { tester: "true" })}
         >
-          <Txt style={[styles.more, { color: "#d9b98a" }]}>Все →</Txt>
+          <Txt style={[styles.more, { color: colors.champagne }]}>Все →</Txt>
         </Pressable>
       </View>
       <Rail
@@ -374,7 +374,7 @@ function BudgetTile({ label, value, params, dark }: (typeof BUDGETS)[number]) {
     >
       <Muted style={[{ fontSize: 11 }, dark && { color: "#d6d3d1" }]}>{label}</Muted>
       <Text style={[styles.budgetValue, dark && { color: colors.white }]}>{value}</Text>
-      <Text style={[styles.budgetCount, dark && { color: "#d9b98a" }]}>
+      <Text style={[styles.budgetCount, dark && { color: colors.champagne }]}>
         {data.total} {plural(data.total, "аромат", "аромата", "ароматов")} →
       </Text>
       {image && (
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.goldSoft,
     borderWidth: 1,
-    borderColor: "#d9b98a",
+    borderColor: "#e3c9bf",
   },
   startHead: { flexDirection: "row", alignItems: "flex-end", gap: 12, marginBottom: 10 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: TILE_GAP },

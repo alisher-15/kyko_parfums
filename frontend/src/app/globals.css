@@ -4,15 +4,25 @@
   --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-cormorant), ui-serif, Georgia, serif;
 
-  --color-ink: #1c1917;
-  --color-muted: #78716c;
-  --color-line: #e7e5e4;
-  --color-cream: #faf8f5;
-  /* Text-safe gold: 4.7:1 on the cream ground and white on it (WCAG AA for body text). */
-  --color-gold: #8c6945;
-  --color-gold-dark: #6f5235;
+  /* «Шкатулка» (the brand file «Каждая — жемчужина»): velvet text and dark bands, cherry for
+     what the customer does, a light pearl page, mother-of-pearl as the mark. The app has the
+     same (mobile/src/theme.ts). */
+  --color-ink: #2a070e;
+  --color-muted: #6b4a50;
+  --color-line: #eadfd6;
+  --color-cream: #faf6f1;
+  /* «gold» stays the accent's name: cherry, 12.7:1 on the page and for white on it. */
+  --color-gold: #5c1020;
+  --color-gold-dark: #451019;
+  --color-gold-soft: #f2e8e1;
+  --color-deep: #2a070e;
+  --color-cherry: #5c1020;
+  --color-cherry-light: #7a2136;
+  --color-pearl: #f4ede4;
+  --color-nacre: #e9c9be;
+  --color-nacre-muted: #e0bcc2;
   /* Field borders: 3:1 on white, so a text field is seen as one (WCAG 1.4.11). */
-  --color-field: #948d87;
+  --color-field: #9a7c81;
 }
 
 body {
@@ -21,17 +31,18 @@ body {
 }
 
 @layer components {
+  /* Square, uppercase buttons: luxury retail draws edges. Cherry for the main action. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-xs font-semibold tracking-[0.12em] uppercase transition disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply bg-ink text-white hover:bg-stone-700;
+    @apply bg-cherry text-white hover:bg-gold-dark;
   }
   .btn-gold {
-    @apply bg-gold text-white hover:bg-gold-dark;
+    @apply bg-nacre text-cherry hover:bg-[#dfb9ab];
   }
   .btn-outline {
-    @apply border border-line bg-white text-ink hover:border-ink;
+    @apply border border-ink bg-transparent text-ink hover:bg-white;
   }
   .btn-danger {
     @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
@@ -40,16 +51,26 @@ body {
     @apply px-3 py-1.5 text-xs;
   }
   .input {
-    @apply w-full rounded-lg border border-field bg-white px-3 py-2 text-sm outline-none transition placeholder:text-stone-500 focus:border-gold focus:ring-2 focus:ring-gold/25;
+    @apply w-full rounded-md border border-field bg-white px-3 py-2 text-sm outline-none transition placeholder:text-stone-500 focus:border-gold focus:ring-2 focus:ring-gold/20;
   }
   .label {
     @apply mb-1 block text-xs font-semibold tracking-wide text-muted uppercase;
   }
   .card {
-    @apply rounded-2xl border border-line bg-white;
+    @apply rounded-lg border border-line bg-white;
   }
   .chip {
-    @apply inline-flex items-center rounded-full border border-line bg-white px-2.5 py-0.5 text-xs text-muted;
+    @apply inline-flex items-center rounded-md border border-gold-soft bg-gold-soft px-2.5 py-0.5 text-xs text-ink;
+  }
+  /* The brand's pearl (KYKO's O): mother-of-pearl lit from the top left. */
+  .pearl {
+    @apply rounded-full;
+    background: radial-gradient(circle at 34% 28%, #fff 0 9%, #f3e6de 32%, #e3cbc1 66%, #c9a397 100%);
+    box-shadow: 0 3px 10px rgb(42 7 14 / 0.22);
+  }
+  /* The jewel box's velvet: velvet into cherry. */
+  .velvet {
+    background: linear-gradient(140deg, #2a070e 0%, #5c1020 70%, #7a2136 100%);
   }
   .table-base {
     @apply w-full text-left text-sm;

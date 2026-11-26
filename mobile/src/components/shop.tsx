@@ -68,12 +68,12 @@ export function CartButton({ boxed = false }: { boxed?: boolean }) {
 
 // ---------- Promotions ----------
 
-/** Cards in view: one and a sliver on phones, two on small tablets, four on wide screens. */
+/** Cards in view: a card and a half on phones, two and a half on small tablets, four on wide screens. */
 function railShare(width: number): number {
   if (width >= 768) return 0.25;
-  if (width >= 640) return 0.48;
-  // On phones one banner fills the row, with the next one showing at the edge.
-  return 0.9;
+  if (width >= 640) return 0.4;
+  // On phones a banner and a half: the next one shows that the row scrolls.
+  return 0.62;
 }
 
 /**
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.white },
   bold: { fontFamily: fonts.sansBold },
   card: { borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.deep },
-  cardText: { position: "absolute", left: 16, right: 16, bottom: 14, gap: 6 },
+  cardText: { position: "absolute", left: 12, right: 12, bottom: 10, gap: 4 },
   cardBadge: {
     backgroundColor: colors.pearl,
     borderRadius: 2,
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: "#efe4dc",
   },
-  cardTitle: { fontFamily: fonts.serif, fontSize: 26, lineHeight: 28, color: colors.white },
+  cardTitle: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 21, color: colors.white },
   // ₸ | $ as two quiet letters; the chosen one is ink and underlined.
   switch: { flexDirection: "row", gap: 2 },
   switchItem: {

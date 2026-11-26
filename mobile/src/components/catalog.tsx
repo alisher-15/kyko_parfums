@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -45,20 +45,30 @@ function countFilters(f: UserFilters): number {
 /**
  * The catalog: search, filters, sort and a grid that loads more as the customer scrolls.
  * `fixed` filters come from where the customer came from (a brand, a promotion) and stay on.
+ * `query`: a search typed elsewhere (the home screen), shown in the field and run at once.
+ * `focusKey`: when it changes, the search field takes the focus (the keyboard opens).
  */
 export function CatalogView({
   fixed = {},
   autoFocus,
+  query,
+  focusKey,
 }: {
   fixed?: ProductFilters;
   autoFocus?: boolean;
+  query?: string;
+  focusKey?: string;
 }) {
   const { width } = useWindowDimensions();
   const columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
   const cardWidth = (Math.min(width, 1200) - 32 - 12 * (columns - 1)) / columns;
 
-  const [text, setText] = useState("");
-  const [q, setQ] = useState("");
+  const [text, setText] = useState(query ?? "");
+  const [q, setQ] = useState((query ?? "").trim());
+  const input = useRef<ComponentRef<typeof TextInput>>(null);
+  useEffect(() => {
+    if (focusKey) input.current?.focus();
+  }, [focusKey]);
   const [sort, setSort] = useState<ProductSort>(fixed.sort ?? "default");
   const [chosen, setChosen] = useState<UserFilters>({});
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -99,6 +109,7 @@ export function CatalogView({
         <View style={styles.search}>
           <Ionicons name="search" size={18} color={colors.muted} />
           <TextInput
+            ref={input}
             testID="catalog-search"
             value={text}
             onChangeText={setText}

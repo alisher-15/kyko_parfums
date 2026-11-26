@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import { router, useIsFocused } from "expo-router";
+import { useIsFocused } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Animated, Pressable, RefreshControl, StyleSheet, View } from "react-native";
@@ -18,7 +18,7 @@ import {
   TrustRow,
   Wholesale,
 } from "@/components/home";
-import { Stage } from "@/components/jewel";
+import { Stage, searchCatalog } from "@/components/jewel";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
@@ -133,7 +133,7 @@ export default function HomeScreen() {
             accessibilityRole="search"
             accessibilityLabel="Поиск"
             hitSlop={10}
-            onPress={() => router.navigate("/catalog")}
+            onPress={() => searchCatalog("")}
           >
             <Ionicons name="search-outline" size={22} color={colors.ink} />
           </Pressable>

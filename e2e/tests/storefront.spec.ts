@@ -125,6 +125,21 @@ test.describe("Витрина для гостя", () => {
     }
   });
 
+  test("«Поделиться» в карточке товара и ссылки, которые открывает приложение", async ({ page, context, request }) => {
+    // Android opens the site's product links in the app when it is installed: the site vouches for it.
+    const links = await (await request.get("/.well-known/assetlinks.json")).json();
+    expect(links[0].target.package_name).toBe("kz.kyko.parfums");
+    expect(links[0].relation).toContain("delegate_permission/common.handle_all_urls");
+
+    // No share sheet in this browser: the link is copied.
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const coco = (await api("GET", "/products?q=coco")).items[0];
+    await page.goto(`/products/${coco.id}`);
+    await page.getByRole("button", { name: "Поделиться" }).click();
+    await expect(page.getByText("Ссылка скопирована")).toBeVisible();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`/products/${coco.id}$`));
+  });
+
   test("страница брендов", async ({ page }) => {
     await page.goto("/brands");
     await expect(page.getByText("Chanel").first()).toBeVisible();

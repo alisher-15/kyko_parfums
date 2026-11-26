@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "kz.kyko.parfums",
+      "sha256_cert_fingerprints": [
+        "EF:33:92:9F:F1:5A:9A:1C:98:27:C3:9D:20:A2:47:BF:02:87:5D:D9:9A:62:3B:70:61:4D:2D:FA:6F:64:51:20"
+      ]
+    }
+  }
+]

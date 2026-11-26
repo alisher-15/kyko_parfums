@@ -28,6 +28,14 @@ export const SearchIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const ShareIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 15V3" />
+    <path d="m7 8 5-5 5 5" />
+    <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+  </Icon>
+);
+
 export const BagIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M5 8h14l-1 12H6L5 8Z" />

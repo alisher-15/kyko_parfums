@@ -1,0 +1,35 @@
+# Temporary: checks the image optimizer against the live R2 bucket. Deleted after use.
+name: Speed probe
+on:
+  push:
+    branches: [speed-probe]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Build with the bucket
+        run: R2_PUBLIC_URL=https://pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev BACKEND_URL=https://89-126-205-132.sslip.io npm run build
+      - name: Resize R2 photos
+        run: |
+          (npx next start -p 3000 > next.log 2>&1 &); sleep 6
+          B=https://pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev
+          grep -rho "pub-37b5ade5331b47279a8c2f2f1634fd50.r2.dev/" .next/static/chunks | sort | uniq -c
+          for p in bottles/zirh-ikon.jpg products/8c475bc21b1e4097a6718dd7f561e52e.jpg products/2e43f3f446c34c0d933ed42b8467e512.jpg; do
+            curl -s -o /dev/null -w "original $p %{http_code} %{size_download}\n" "$B/$p"
+            for w in 256 384 640; do
+              curl -s -o /dev/null -w "w=$w $p %{http_code} %{content_type} %{size_download}\n" -H "Accept: image/avif,image/webp,*/*" "http://localhost:3000/_next/image?url=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1],safe=''))" "$B/$p")&w=$w&q=75"
+            done
+          done
+          echo "== another host is refused"
+          curl -s -w " %{http_code}\n" "http://localhost:3000/_next/image?url=https%3A%2F%2Fexample.com%2Fa.jpg&w=256&q=75"
+          tail -5 next.log

@@ -215,7 +215,7 @@ export function CurrencySwitch() {
           onPress={() => setCurrency(c)}
           style={[styles.switchItem, currency === c && styles.switchActive]}
         >
-          <Text style={[styles.switchText, currency === c && { color: colors.white }]}>
+          <Text style={[styles.switchText, currency === c && { color: colors.velvet }]}>
             {c === "KZT" ? "₸" : "$"}
           </Text>
         </Pressable>
@@ -365,8 +365,8 @@ const styles = StyleSheet.create({
   switch: {
     flexDirection: "row",
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
+    borderColor: colors.velvetSoft,
+    backgroundColor: colors.velvetSoft,
     borderRadius: radius.pill,
     padding: 2,
   },
@@ -377,8 +377,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  switchActive: { backgroundColor: colors.ink },
-  switchText: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.muted },
+  switchActive: { backgroundColor: colors.rose },
+  switchText: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.onVelvetMuted },
   status: {
     borderWidth: 1,
     borderRadius: radius.pill,

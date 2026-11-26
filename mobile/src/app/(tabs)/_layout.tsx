@@ -32,18 +32,18 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.faint,
+        tabBarActiveTintColor: colors.pearl,
+        tabBarInactiveTintColor: "#b08f95",
         tabBarLabelStyle: { fontFamily: fonts.sansSemi, fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.white, borderTopColor: colors.line },
+        tabBarStyle: { backgroundColor: colors.velvet, borderTopColor: colors.velvet },
         tabBarBadgeStyle: {
           backgroundColor: colors.gold,
           fontFamily: fonts.sansBold,
           fontSize: 11,
         },
-        headerStyle: { backgroundColor: colors.cream },
+        headerStyle: { backgroundColor: colors.velvet },
         headerShadowVisible: false,
-        headerTintColor: colors.ink,
+        headerTintColor: colors.cream,
         headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 24 },
         headerTitleAlign: "left",
         sceneStyle: { backgroundColor: colors.cream },

@@ -33,7 +33,7 @@ export function UnknownBarcode({
   return (
     <Block
       title="Штрихкод не найден"
-      style={{ borderColor: colors.gold, backgroundColor: "#fdf8ef" }}
+      style={{ borderColor: colors.gold, backgroundColor: "#f8ecea" }}
       right={<Button small kind="ghost" title="Отмена" onPress={onCancel} />}
     >
       <Txt style={{ fontFamily: fonts.sansBold }}>{code}</Txt>

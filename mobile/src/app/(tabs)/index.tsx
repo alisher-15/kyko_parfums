@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
@@ -17,7 +18,7 @@ import {
   Wholesale,
 } from "@/components/home";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
-import { Muted, Txt } from "@/components/ui";
+import { Muted } from "@/components/ui";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
@@ -45,7 +46,8 @@ export default function HomeScreen() {
 
   return (
     // The status bar's room is outside the scroll, so the search sticks just below it.
-    <View style={{ flex: 1, backgroundColor: colors.cream, paddingTop: insets.top }}>
+    <View style={{ flex: 1, backgroundColor: colors.cream }}>
+      <View style={{ height: insets.top, backgroundColor: colors.velvet }} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
@@ -56,9 +58,13 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
-          <Txt style={styles.logo} accessibilityRole="header">
-            Kyko
-          </Txt>
+          <Image
+            source={require("../../../assets/images/logo-velvet.png")}
+            accessibilityRole="header"
+            accessibilityLabel="Kyko"
+            style={{ width: 106, height: 44 }}
+            contentFit="contain"
+          />
           <CurrencySwitch />
         </View>
 
@@ -69,8 +75,8 @@ export default function HomeScreen() {
             onPress={() => router.navigate("/catalog")}
             style={styles.search}
           >
-            <Ionicons name="search" size={18} color={colors.muted} />
-            <Muted>Поиск по аромату или бренду</Muted>
+            <Ionicons name="search" size={18} color={colors.onVelvetMuted} />
+            <Muted style={{ color: colors.onVelvetMuted }}>Поиск по аромату или бренду</Muted>
           </Pressable>
         </View>
 
@@ -101,17 +107,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
+    paddingTop: 6,
+    backgroundColor: colors.velvet,
   },
   logo: { fontFamily: fonts.serifBold, fontSize: 30, lineHeight: 36 },
-  searchBar: { backgroundColor: colors.cream, paddingTop: 12, paddingBottom: 8 },
+  searchBar: { backgroundColor: colors.velvet, paddingTop: 10, paddingBottom: 14, marginBottom: 10 },
   search: {
     marginHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: colors.white,
+    backgroundColor: colors.velvetSoft,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.velvetSoft,
     borderRadius: radius.pill,
     paddingHorizontal: 16,
     height: 46,

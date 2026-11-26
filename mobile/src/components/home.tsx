@@ -312,7 +312,7 @@ export function Testers() {
           hitSlop={8}
           onPress={() => openCollection("Тестеры", { tester: "true" })}
         >
-          <Txt style={[styles.more, { color: "#e9dccb" }]}>Все →</Txt>
+          <Txt style={[styles.more, { color: "#e9c9be" }]}>Все →</Txt>
         </Pressable>
       </View>
       <Rail
@@ -374,7 +374,7 @@ function BudgetTile({ label, value, params, dark }: (typeof BUDGETS)[number]) {
     >
       <Muted style={[{ fontSize: 11 }, dark && { color: "#d6d3d1" }]}>{label}</Muted>
       <Text style={[styles.budgetValue, dark && { color: colors.white }]}>{value}</Text>
-      <Text style={[styles.budgetCount, dark && { color: "#e9dccb" }]}>
+      <Text style={[styles.budgetCount, dark && { color: "#e9c9be" }]}>
         {data.total} {plural(data.total, "аромат", "аромата", "ароматов")} →
       </Text>
       {image && (
@@ -405,7 +405,7 @@ export function Consult() {
   return (
     <View style={styles.consult}>
       <Title style={{ fontSize: 26 }}>Не знаете, что выбрать?</Title>
-      <Txt style={{ color: "#57534e", marginTop: 6, lineHeight: 20 }}>
+      <Txt style={{ color: "#5a3a40", marginTop: 6, lineHeight: 20 }}>
         Расскажите, какие ароматы нравятся и для кого подарок, — подберём несколько вариантов и
         пришлём фото и цены. Бесплатно.
       </Txt>
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     backgroundColor: colors.goldSoft,
     borderWidth: 1,
-    borderColor: "#ead9c4",
+    borderColor: "#e9c9be",
   },
   startHead: { flexDirection: "row", alignItems: "flex-end", gap: 12, marginBottom: 10 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: TILE_GAP },

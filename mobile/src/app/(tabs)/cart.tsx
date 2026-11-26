@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   teaser: {
     borderWidth: 1,
     borderColor: "rgba(166,124,82,0.4)",
-    backgroundColor: "#fdf8ef",
+    backgroundColor: "#f8ecea",
     borderRadius: radius.md,
     padding: 14,
     gap: 4,

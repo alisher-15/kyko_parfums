@@ -96,7 +96,7 @@ export function Button({
 }
 
 const buttonKinds: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.ink, fg: colors.white, border: colors.ink },
+  primary: { bg: colors.rose, fg: colors.velvet, border: colors.rose },
   gold: { bg: colors.gold, fg: colors.white, border: colors.gold },
   outline: { bg: colors.white, fg: colors.ink, border: colors.line },
   danger: { bg: colors.white, fg: colors.danger, border: colors.dangerLine },

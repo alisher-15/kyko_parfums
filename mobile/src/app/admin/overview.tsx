@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 4,
   },
-  accent: { borderColor: colors.gold, backgroundColor: "#fdf8ef" },
+  accent: { borderColor: colors.gold, backgroundColor: "#f8ecea" },
   tileLabel: {
     fontSize: 11,
     lineHeight: 15,

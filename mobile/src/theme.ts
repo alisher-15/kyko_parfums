@@ -3,18 +3,25 @@
  * and one gold accent. Cormorant Garamond for titles and perfume names, Manrope for the UI.
  */
 export const colors = {
-  ink: "#1c1917",
+  ink: "#2a070e",
   // Text-safe gold: 4.7:1 on cream and white on it (WCAG AA), the same as the website's.
-  gold: "#8c6945",
-  goldDark: "#6f5235",
-  goldSoft: "#f3ebe1",
-  cream: "#faf8f5",
+  gold: "#a8385a",
+  goldDark: "#8a2b48",
+  goldSoft: "#f3e3df",
+  cream: "#f6eee6",
   white: "#ffffff",
-  line: "#e7e5e4",
+  line: "#e6d6d0",
   // Text field borders: 3:1 on white (WCAG 1.4.11), the same as the website's.
-  field: "#948d87",
-  muted: "#78716c",
-  faint: "#a8a29e",
+  field: "#9a7c81",
+  muted: "#6b4a50",
+  faint: "#a88f94",
+  // Velvet direction: the dark ground of headers and bars, its lighter fold, the rose of a
+  // scent spot (buttons, on velvet text) and pearl (text and marks on velvet).
+  velvet: "#2a070e",
+  velvetSoft: "#3d0f19",
+  rose: "#d4627f",
+  pearl: "#e9c9be",
+  onVelvetMuted: "#cdb0b5",
   ok: "#047857",
   okSoft: "#ecfdf5",
   warn: "#b45309",
@@ -28,10 +35,10 @@ export const colors = {
 export const fonts = {
   serif: "CormorantGaramond_600SemiBold",
   serifBold: "CormorantGaramond_700Bold",
-  sans: "Manrope_400Regular",
-  sansMedium: "Manrope_500Medium",
-  sansSemi: "Manrope_600SemiBold",
-  sansBold: "Manrope_700Bold",
+  sans: "Inter_400Regular",
+  sansMedium: "Inter_500Medium",
+  sansSemi: "Inter_600SemiBold",
+  sansBold: "Inter_700Bold",
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, pill: 999 } as const;
@@ -42,8 +49,8 @@ export const statusColors = {
   processing: { bg: "#fffbeb", fg: "#b45309", line: "#fde68a" },
   shipped: { bg: "#f5f3ff", fg: "#6d28d9", line: "#ddd6fe" },
   delivered: { bg: "#ecfdf5", fg: "#047857", line: "#a7f3d0" },
-  cancelled: { bg: "#f5f5f4", fg: "#78716c", line: "#e7e5e4" },
+  cancelled: { bg: "#f5f5f4", fg: "#78716c", line: "#e6d6d0" },
 } as const;
 
 /** Soft backgrounds for products without a photo (like the website's placeholder). */
-export const placeholderTints = ["#fdf2e4", "#fce8ec", "#efe9f7", "#e8f1ec", "#f6efe2", "#eaeef6"];
+export const placeholderTints = ["#e9c9be", "#f1dcd5", "#efe0e3", "#e6d3cf", "#f4e6e0", "#eadbe0"];

@@ -4,11 +4,11 @@ import {
   CormorantGaramond_700Bold,
 } from "@expo-google-fonts/cormorant-garamond";
 import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_600SemiBold,
-  Manrope_700Bold,
-} from "@expo-google-fonts/manrope";
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
@@ -46,10 +46,10 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     CormorantGaramond_600SemiBold,
     CormorantGaramond_700Bold,
-    Manrope_400Regular,
-    Manrope_500Medium,
-    Manrope_600SemiBold,
-    Manrope_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
     ...Ionicons.font,
   });
 
@@ -59,7 +59,7 @@ export default function RootLayout() {
         <CurrencyProvider>
           <CartProvider>
             <FavoritesProvider>
-              <StatusBar style="dark" />
+              <StatusBar style="light" />
               {(fontsLoaded || fontError) && <Navigation />}
             </FavoritesProvider>
           </CartProvider>
@@ -88,9 +88,9 @@ function Navigation() {
     <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.cream },
+          headerStyle: { backgroundColor: colors.velvet },
           headerShadowVisible: false,
-          headerTintColor: colors.ink,
+          headerTintColor: colors.cream,
           headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 22 },
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.cream },

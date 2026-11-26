@@ -68,6 +68,8 @@ export default function ProductScreen() {
     <Stack.Screen
       options={{
         title: "",
+        // Once the product is here, its studio stage runs up under a transparent header.
+        headerTransparent: !!product.data,
         headerRight: () =>
           valid ? (
             <View style={{ flexDirection: "row" }}>
@@ -153,8 +155,8 @@ function ProductBody({
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  // The photo leaves room for the name and the price on the first screen.
-  const photoHeight = Math.min(width, Math.round(height * 0.42));
+  // The stage: the bottle large, under the transparent header; the sheet slides over its foot.
+  const photoHeight = Math.max(360, Math.round(height * 0.58));
   const { user } = useAuth();
   const { add, count } = useCart();
   const { money } = useCurrency();
@@ -201,6 +203,7 @@ function ProductBody({
           seed={product.id}
           style={[styles.photo, { height: photoHeight }]}
           iconSize={56}
+          studio
         />
         <View style={styles.content}>
           {(product.category_path ?? []).length > 0 && (
@@ -607,7 +610,15 @@ const SPOTS = [
 
 const styles = StyleSheet.create({
   photo: { width: "100%" },
-  content: { paddingHorizontal: 20, paddingTop: 20 },
+  // The sheet: rounded at the top, over the stage's foot.
+  content: {
+    marginTop: -28,
+    paddingHorizontal: 20,
+    paddingTop: 26,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: colors.cream,
+  },
   name: { ...type.display, marginTop: 6 },
   facts: { fontSize: 13, marginTop: 10 },
   link: {

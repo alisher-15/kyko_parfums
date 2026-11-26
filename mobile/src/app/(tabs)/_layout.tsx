@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
+import { JewelTabBar } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { isStaff } from "@/lib/staff";
@@ -31,6 +32,7 @@ export default function TabsLayout() {
   const favorites = useFavorites();
   return (
     <Tabs
+      tabBar={(props) => <JewelTabBar {...props} />}
       screenOptions={{
         tabBarActiveTintColor: colors.gold,
         tabBarInactiveTintColor: colors.muted,

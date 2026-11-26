@@ -2,18 +2,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
 import { router, type Href } from "expo-router";
 import type { ReactNode } from "react";
-import {
-  FlatList,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { FlatList, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "@/lib/auth";
-import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { assetUrl } from "@/lib/config";
 import { CONTACTS, YOUTUBE, whatsappAbout } from "@/lib/contacts";
 import { plural } from "@/lib/format";
@@ -118,127 +108,6 @@ export function TrustRow() {
           <Text style={styles.trustText}>{t.title}</Text>
         </Pressable>
       ))}
-    </View>
-  );
-}
-
-/**
- * A way into the catalog with its count and a picture: a section's own (`image`, set in
- * «Категории»), else a photo of its most popular product (a query of one product, sorted by
- * sales). Hidden while it has no products.
- */
-function EntryTile({
-  title,
-  params,
-  size,
-  note,
-  image: ownImage,
-  dark = false,
-  onPress,
-}: {
-  title: string;
-  params: Params;
-  /** A section's own picture (set in «Категории»), instead of its most popular product's. */
-  image?: string | null;
-  /** The tile's side in points: the grid works it out from the screen's width. */
-  size: number;
-  note?: (total: number) => string;
-  dark?: boolean;
-  /** Instead of opening the collection with `params`. */
-  onPress?: () => void;
-}) {
-  const { data } = useApi<Page<ProductListItem>>("/products", {
-    ...params,
-    sort: "popular",
-    page_size: 1,
-  } as ProductFilters & Params);
-  // A grey tile while it loads, so the grid doesn't jump.
-  const box = { width: size, height: size };
-  if (!data) return <View style={[styles.entry, box, styles.placeholder]} />;
-  if (data.total === 0) return null;
-  const image = assetUrl(ownImage || data.items[0]?.image_url);
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={title}
-      onPress={onPress ?? (() => openCollection(title, params))}
-      style={({ pressed }) => [
-        styles.entry,
-        box,
-        dark && { backgroundColor: colors.velvet },
-        pressed && { opacity: 0.8 },
-      ]}
-    >
-      <Text style={[styles.entryTitle, dark && { color: colors.white }]}>{title}</Text>
-      <Text style={[styles.entryNote, dark && { color: colors.onVelvetMuted }]}>
-        {note
-          ? note(data.total)
-          : `${data.total} ${plural(data.total, "аромат", "аромата", "ароматов")}`}
-      </Text>
-      {image && (
-        <View style={[styles.entryPic, dark && styles.entryPicDark]}>
-          <Image
-            source={image}
-            style={StyleSheet.absoluteFill}
-            contentFit="contain"
-            contentPosition="right bottom"
-            accessibilityIgnoresInvertColors
-          />
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
-/**
- * «С чего начнём?»: for her, for him, unisex, testers, niche, then the catalog's other sections
- * (sets, make-up…) as they appear. Three in a row.
- */
-export function StartGrid() {
-  const { width } = useWindowDimensions();
-  const tree = useCategories().data;
-  const sections = tree ? childrenOf(tree, null) : [];
-  const perfume = sections.find((c) => c.kind === "perfume");
-  const others = sections.filter((c) => c !== perfume);
-  // Three tiles in a row on phones, more on tablets. The side is worked out here, not as a
-  // percentage: a percentage of a wrapping row left a third of the row empty on Android.
-  const cols = width >= 700 ? 6 : width >= 520 ? 4 : 3;
-  // The screen less the page's margins.
-  const inner = Math.min(width, 1100) - 2 * 16;
-  // Rounded down, and a point spare, so the last tile of a row never wraps.
-  const size = Math.floor((inner - (cols - 1) * TILE_GAP - 1) / cols);
-  return (
-    <View style={styles.start} testID="start-grid">
-      <View style={styles.startHead}>
-        <Title style={{ flex: 1 }}>С чего начнём?</Title>
-        <Pressable accessibilityRole="link" onPress={() => router.push("/categories")} hitSlop={8}>
-          <Txt style={styles.more}>Категории</Txt>
-        </Pressable>
-      </View>
-      <View style={styles.grid}>
-        <EntryTile size={size} title="Для неё" params={{ gender: "female" }} />
-        <EntryTile size={size} title="Для него" params={{ gender: "male" }} />
-        <EntryTile size={size} title="Унисекс" params={{ gender: "unisex" }} />
-        <EntryTile
-          size={size}
-          title="Тестеры"
-          params={{ tester: "true" }}
-          note={() => "дешевле флакона"}
-          dark
-        />
-        <EntryTile size={size} title="Ниша и люкс" params={{ top: "true" }} />
-        {others.map((c) => (
-          <EntryTile
-            key={c.id}
-            size={size}
-            title={c.name}
-            params={{ category_id: c.id }}
-            note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
-            image={c.image_url}
-            onPress={() => openCategory(tree ?? [], c)}
-          />
-        ))}
-      </View>
     </View>
   );
 }

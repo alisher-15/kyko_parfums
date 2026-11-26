@@ -11,8 +11,8 @@ const SHOWN = ["/", "/catalog", "/cart", "/brands", "/categories", "/collection"
 const SHOWN_UNDER = ["/product/"];
 // The tab screens: the button sits above the tab bar.
 const TABS = ["/", "/catalog", "/favorites", "/cart", "/account"];
-/** The tab bar's height above the safe area, about the same on iOS and Android. */
-const TAB_BAR = 56;
+/** The floating tab bar's pill and its margins above the safe area (components/tab-bar.tsx). */
+const TAB_BAR = 62 + 16;
 /** The product screen's «В корзину» bar above the safe area. */
 const PRODUCT_BAR = 76;
 /** The cart's «Оформить заказ» bar above the tab bar: the button covered its right end. */

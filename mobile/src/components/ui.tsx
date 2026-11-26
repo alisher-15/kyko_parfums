@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Children, type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -213,6 +214,14 @@ export function Pearl({ size, style }: { size: number; style?: StyleProp<ViewSty
         style,
       ]}
     >
+      {/* Light from the top left: white into mother-of-pearl into a warm rim. */}
+      <LinearGradient
+        colors={["#ffffff", "#f3e6de", "#d6b4a7"]}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0.2, y: 0.1 }}
+        end={{ x: 0.85, y: 0.95 }}
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.pearlShine} />
     </View>
   );
@@ -427,13 +436,14 @@ export const styles = StyleSheet.create({
   },
   pearlShine: {
     position: "absolute",
-    top: "12%",
-    left: "16%",
-    width: "46%",
-    height: "46%",
+    top: "16%",
+    left: "22%",
+    width: "24%",
+    height: "18%",
     borderRadius: 999,
     backgroundColor: colors.white,
-    opacity: 0.85,
+    opacity: 0.9,
+    transform: [{ rotate: "-30deg" }],
   },
   card: {
     backgroundColor: colors.white,

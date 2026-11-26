@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { assetUrl } from "@/lib/config";
@@ -7,22 +8,48 @@ import { useCurrency } from "@/lib/currency";
 import { useFavorites } from "@/lib/favorites";
 import { GENDER_LABELS, percentOff } from "@/lib/format";
 import type { ProductListItem } from "@/lib/types";
-import { colors, fonts, placeholderTints, radius, type } from "@/theme";
+import { colors, fonts, placeholderTints, radius, studioTints, type } from "@/theme";
 import { Badge, Eyebrow, Muted, Txt } from "./ui";
 
-/** A bottle photo, or a soft tint with a drop while the product has none (like the website). */
+/**
+ * A bottle photo, or a soft tint with a drop while the product has none (like the website).
+ * `studio`: the bottle on a colored backdrop, the photo's white
+ * multiplied away (the photos are bottles on white squares, scripts/normalize_photos.py).
+ */
 export function ProductImage({
   uri,
   seed,
   style,
   iconSize = 32,
+  studio = false,
 }: {
   uri: string | null | undefined;
   seed: number;
   style?: StyleProp<ViewStyle>;
   iconSize?: number;
+  studio?: boolean;
 }) {
   const src = assetUrl(uri);
+  if (src && studio) {
+    const tint = studioTints[seed % studioTints.length];
+    return (
+      <View style={style}>
+        <LinearGradient
+          colors={["#ffffff", tint]}
+          locations={[0.05, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+        <Image
+          source={src}
+          style={[StyleSheet.absoluteFill, styles.studioPhoto]}
+          contentFit="contain"
+          transition={150}
+          recyclingKey={src}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
+    );
+  }
   if (src) {
     return (
       <View style={[{ backgroundColor: colors.white }, style]}>
@@ -107,8 +134,9 @@ export function ProductCard({
         <ProductImage
           uri={product.image_url}
           seed={product.id}
-          style={[styles.photo, compact && styles.photoCompact]}
+          style={StyleSheet.absoluteFill}
           iconSize={compact ? 22 : undefined}
+          studio
         />
         {badge && (
           <View style={styles.badges}>
@@ -215,11 +243,14 @@ export function QuantityStepper({
 
 const styles = StyleSheet.create({
   struck: { textDecorationLine: "line-through" },
+  studioPhoto: { margin: "12%", mixBlendMode: "multiply" },
+
   // No frame: the bottle in a white window, the words under it on the page.
   card: { flexShrink: 0 },
   pressed: { opacity: 0.8 },
+  // A 4:5 window: the bottle stands taller than in a square, like a studio shot.
   photoBox: {
-    aspectRatio: 1,
+    aspectRatio: 0.8,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
     overflow: "hidden",

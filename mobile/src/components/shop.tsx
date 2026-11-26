@@ -206,8 +206,9 @@ export function TengeNote({ total }: { total: number | null | undefined }) {
 
 // ---------- Currency ----------
 
-/** ₸ / $. Hidden while the shop has no dollar rate. */
-export function CurrencySwitch() {
+/** ₸ / $. Hidden while the shop has no dollar rate. `tone="dark"`: on the velvet stage. */
+export function CurrencySwitch({ tone = "light" }: { tone?: "light" | "dark" }) {
+  const dark = tone === "dark";
   const { currency, rate, setCurrency } = useCurrency();
   if (!rate) return null;
   return (
@@ -219,9 +220,19 @@ export function CurrencySwitch() {
           accessibilityState={{ checked: currency === c }}
           accessibilityLabel={c === "KZT" ? "Цены в тенге" : "Цены в долларах"}
           onPress={() => setCurrency(c)}
-          style={[styles.switchItem, currency === c && styles.switchActive]}
+          style={[
+            styles.switchItem,
+            currency === c && styles.switchActive,
+            currency === c && dark && { borderBottomColor: colors.champagne },
+          ]}
         >
-          <Text style={[styles.switchText, currency === c && { color: colors.ink }]}>
+          <Text
+            style={[
+              styles.switchText,
+              dark && { color: colors.onVelvetMuted },
+              currency === c && { color: dark ? colors.pearl : colors.ink },
+            ]}
+          >
             {c === "KZT" ? "₸" : "$"}
           </Text>
         </Pressable>

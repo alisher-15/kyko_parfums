@@ -45,6 +45,8 @@ export const colors = {
 export const fonts = {
   serif: "CormorantGaramond_600SemiBold",
   serifBold: "CormorantGaramond_700Bold",
+  // The brand line «Каждая — жемчужина» and the stage's headline.
+  serifItalic: "CormorantGaramond_500Medium_Italic",
   sans: "Manrope_400Regular",
   sansMedium: "Manrope_500Medium",
   sansSemi: "Manrope_600SemiBold",
@@ -83,6 +85,12 @@ export const statusColors = {
   delivered: { bg: "#ecfdf5", fg: "#047857", line: "#a7f3d0" },
   cancelled: { bg: "#f5f5f4", fg: "#78716c", line: "#eadfd6" },
 } as const;
+
+/**
+ * The studio's backdrops: soft jewel tones a bottle stands on (by product, so a card keeps its
+ * color). The photo's white is multiplied into them, as if shot on colored paper.
+ */
+export const studioTints = ["#efe1d8", "#ebe3d3", "#e2e6dc", "#e0e5eb", "#e9e0e8", "#f1dfd9"];
 
 /** Soft backgrounds for products without a photo (like the website's placeholder). */
 export const placeholderTints = ["#f4ede4", "#f2e8e1", "#f6efe9", "#efe4dc", "#f5ece6", "#f1e7e0"];

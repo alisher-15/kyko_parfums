@@ -59,7 +59,7 @@ export default function RootLayout() {
         <CurrencyProvider>
           <CartProvider>
             <FavoritesProvider>
-              <StatusBar style="light" />
+              <StatusBar style="dark" />
               {(fontsLoaded || fontError) && <Navigation />}
             </FavoritesProvider>
           </CartProvider>
@@ -88,10 +88,10 @@ function Navigation() {
     <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
-          headerStyle: { backgroundColor: colors.velvet },
+          headerStyle: { backgroundColor: colors.cream },
           headerShadowVisible: false,
-          headerTintColor: colors.cream,
-          headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 22 },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { fontFamily: fonts.serif, fontSize: 22 },
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.cream },
         }}

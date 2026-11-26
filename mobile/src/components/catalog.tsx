@@ -294,7 +294,7 @@ function ToolButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.tool,
-        active && { borderColor: colors.ink, backgroundColor: colors.ink },
+        active && { borderColor: colors.velvet, backgroundColor: colors.velvet },
         pressed && { opacity: 0.7 },
       ]}
     >
@@ -651,7 +651,7 @@ function CardSkeletons({ columns, width }: { columns: number; width: number }) {
       {Array.from({ length: columns * 2 }, (_, i) => (
         <View key={i} style={[styles.skeleton, { width }]}>
           <View style={[styles.skeletonPhoto, { height: width }]} />
-          <View style={{ padding: 10, gap: 8 }}>
+          <View style={{ paddingTop: 12, gap: 8 }}>
             <View style={[styles.skeletonBar, { width: "40%" }]} />
             <View style={[styles.skeletonBar, { width: "80%", height: 14 }]} />
             <View style={[styles.skeletonBar, { width: "55%" }]} />
@@ -664,14 +664,9 @@ function CardSkeletons({ columns, width }: { columns: number; width: number }) {
 
 const styles = StyleSheet.create({
   skeletons: { flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 16, paddingTop: 4 },
-  skeleton: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    overflow: "hidden",
-  },
-  skeletonPhoto: { backgroundColor: colors.goldSoft },
+  // The card's shape: a photo window and three lines under it, no frame.
+  skeleton: {},
+  skeletonPhoto: { backgroundColor: colors.goldSoft, borderRadius: radius.lg },
   skeletonBar: { height: 10, borderRadius: 5, backgroundColor: colors.goldSoft },
   top: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
   search: {
@@ -679,11 +674,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
     backgroundColor: colors.white,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
-    borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    height: 46,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    height: 44,
   },
   searchInput: {
     flex: 1,
@@ -700,12 +695,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
     height: 36,
     maxWidth: 190,
   },
-  toolText: { fontFamily: fonts.sansSemi, fontSize: 13 },
+  toolText: { fontFamily: fonts.sansMedium, fontSize: 13 },
   backdrop: { flex: 1, backgroundColor: "rgba(28,25,23,0.35)" },
   sheet: {
     backgroundColor: colors.cream,

@@ -21,7 +21,7 @@ import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { Muted } from "@/components/ui";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
-import { colors, fonts, radius } from "@/theme";
+import { colors, radius } from "@/theme";
 
 // The home screen, as the website's (frontend/src/app/page.tsx): search, banners, then the blocks
 // of components/home.tsx. WhatsApp floats over every screen (components/whatsapp-button.tsx).
@@ -47,7 +47,7 @@ export default function HomeScreen() {
   return (
     // The status bar's room is outside the scroll, so the search sticks just below it.
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
-      <View style={{ height: insets.top, backgroundColor: colors.velvet }} />
+      <View style={{ height: insets.top, backgroundColor: colors.cream }} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
@@ -58,14 +58,18 @@ export default function HomeScreen() {
         }
       >
         <View style={styles.header}>
+          {/* The logo in the middle; the currency at the right, the same room at the left. */}
+          <View style={styles.side} />
           <Image
             source={require("../../../assets/images/logo-pearl.png")}
             accessibilityRole="header"
             accessibilityLabel="Kyko"
-            style={{ width: 120, height: 32 }}
+            style={{ width: 112, height: 30 }}
             contentFit="contain"
           />
-          <CurrencySwitch />
+          <View style={[styles.side, { alignItems: "flex-end" }]}>
+            <CurrencySwitch />
+          </View>
         </View>
 
         <View style={styles.searchBar}>
@@ -75,13 +79,13 @@ export default function HomeScreen() {
             onPress={() => router.navigate("/catalog")}
             style={styles.search}
           >
-            <Ionicons name="search" size={18} color={colors.onVelvetMuted} />
-            <Muted style={{ color: colors.onVelvetMuted }}>Поиск по аромату или бренду</Muted>
+            <Ionicons name="search-outline" size={18} color={colors.muted} />
+            <Muted style={{ fontSize: 14 }}>Аромат, бренд или нота</Muted>
           </Pressable>
         </View>
 
         {!!promotions.data?.length && (
-          <View style={{ marginTop: 4 }}>
+          <View style={{ marginTop: 8 }}>
             <PromotionRail promotions={promotions.data} />
           </View>
         )}
@@ -107,26 +111,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 6,
-    backgroundColor: colors.velvet,
+    paddingTop: 4,
+    paddingBottom: 4,
   },
-  logo: { fontFamily: fonts.serifBold, fontSize: 30, lineHeight: 36 },
-  searchBar: {
-    backgroundColor: colors.velvet,
-    paddingTop: 10,
-    paddingBottom: 14,
-    marginBottom: 10,
-  },
+  side: { width: 72 },
+  searchBar: { backgroundColor: colors.cream, paddingTop: 8, paddingBottom: 12 },
   search: {
     marginHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: colors.velvetSoft,
-    borderWidth: 1,
-    borderColor: colors.velvetSoft,
-    borderRadius: radius.pill,
-    paddingHorizontal: 16,
-    height: 46,
+    backgroundColor: colors.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: 14,
+    height: 44,
   },
 });

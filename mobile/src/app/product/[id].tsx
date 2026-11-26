@@ -48,7 +48,7 @@ import {
 import { useApi } from "@/lib/queries";
 import { rememberViewed } from "@/lib/recent";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
-import { colors, fonts, radius } from "@/theme";
+import { colors, fonts, radius, type } from "@/theme";
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -73,7 +73,6 @@ export default function ProductScreen() {
             <View style={{ flexDirection: "row" }}>
               <IconButton
                 name="share-outline"
-                color={colors.cream}
                 label="Поделиться"
                 onPress={() => {
                   const p = product.data;
@@ -88,7 +87,7 @@ export default function ProductScreen() {
               <IconButton
                 testID="product-favorite"
                 name={favorites.has(productId) ? "heart" : "heart-outline"}
-                color={favorites.has(productId) ? colors.champagne : colors.cream}
+                color={favorites.has(productId) ? colors.gold : colors.ink}
                 label={favorites.has(productId) ? "Убрать из избранного" : "В избранное"}
                 onPress={() => favorites.toggle(productId)}
               />
@@ -242,13 +241,7 @@ function ProductBody({
           <Title style={styles.name} accessibilityRole="header">
             {product.name}
           </Title>
-          {chips.length > 0 && (
-            <View style={styles.chips}>
-              {chips.map((c) => (
-                <Chip key={c} label={c} />
-              ))}
-            </View>
-          )}
+          {chips.length > 0 && <Muted style={styles.facts}>{chips.join("  ·  ")}</Muted>}
 
           {!variant ? (
             <Card style={{ marginTop: 20 }}>
@@ -295,23 +288,18 @@ function ProductBody({
               }
               style={styles.wholesale}
             >
-              <Txt style={{ fontFamily: fonts.serifBold, fontSize: 20, color: colors.white }}>
-                Для магазинов и салонов
-              </Txt>
-              <Txt style={{ color: "#d6d3d1", fontSize: 13 }}>
-                Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит статус, и цены в
-                каталоге обновятся.
-              </Txt>
-              <Txt
-                style={{
-                  color: colors.champagne,
-                  fontFamily: fonts.sansSemi,
-                  fontSize: 13,
-                  marginTop: 4,
-                }}
-              >
-                {user ? "Оставить заявку →" : "Зарегистрироваться и оставить заявку →"}
-              </Txt>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt style={{ fontFamily: fonts.serif, fontSize: 21, lineHeight: 24 }}>
+                  Для магазинов и салонов
+                </Txt>
+                <Muted style={{ fontSize: 13, lineHeight: 19 }}>
+                  Оптовые цены для бизнеса — после заявки и подтверждения менеджером.
+                </Muted>
+                <Txt style={styles.link}>
+                  {user ? "Оставить заявку" : "Зарегистрироваться и оставить заявку"}
+                </Txt>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
             </Pressable>
           )}
 
@@ -335,8 +323,11 @@ function ProductBody({
             }
             style={styles.ask}
           >
-            <Ionicons name="logo-whatsapp" size={20} color={colors.gold} />
-            <Txt style={{ fontFamily: fonts.sansSemi }}>Спросить об аромате в WhatsApp</Txt>
+            <Ionicons name="logo-whatsapp" size={20} color="#1fa855" />
+            <Txt style={{ flex: 1, fontFamily: fonts.sansMedium }}>
+              Спросить об аромате в WhatsApp
+            </Txt>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
         </View>
       </ScrollView>
@@ -438,15 +429,15 @@ function Purchase({
                 onPress={() => onSelect(v)}
                 style={[styles.volume, on && styles.volumeOn]}
               >
-                <Txt style={[styles.volumeMl, on && { color: colors.white }]}>{v.volume_ml} мл</Txt>
-                <Txt style={[styles.volumePrice, on && { color: "#d6d3d1" }]}>{money(v.price)}</Txt>
+                <Txt style={styles.volumeMl}>{v.volume_ml} мл</Txt>
+                <Txt style={styles.volumePrice}>{money(v.price)}</Txt>
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <Card style={{ gap: 10 }}>
+      <View style={styles.priceBlock}>
         <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
           <Txt style={styles.price} testID="product-price">
             {money(variant.price)}
@@ -457,9 +448,9 @@ function Purchase({
           {variant.deal ? (
             <Badge label={`Акция ${percentOff(variant.deal.discount_percent)}`} />
           ) : (
-            <Chip label={TIER_LABELS[variant.price_tier]} />
+            <Eyebrow>{TIER_LABELS[variant.price_tier]}</Eyebrow>
           )}
-          {variant.is_tester && <Chip label="Тестер" />}
+          {variant.is_tester && <Eyebrow>· Тестер</Eyebrow>}
         </View>
         {variant.deal && (
           <Muted style={{ fontSize: 13 }}>
@@ -506,7 +497,7 @@ function Purchase({
             {variant.sku && <Muted style={{ fontSize: 12 }}>Артикул: {variant.sku}</Muted>}
           </View>
         )}
-      </Card>
+      </View>
     </View>
   );
 }
@@ -525,9 +516,9 @@ function KindButton({
       accessibilityRole="radio"
       accessibilityState={{ checked: active }}
       onPress={onPress}
-      style={[styles.kind, active && { backgroundColor: colors.ink }]}
+      style={[styles.kind, active && styles.kindOn]}
     >
-      <Txt style={[styles.kindText, active && { color: colors.white }]}>{title}</Txt>
+      <Txt style={[styles.kindText, active && { color: colors.ink }]}>{title}</Txt>
     </Pressable>
   );
 }
@@ -616,8 +607,22 @@ const SPOTS = [
 
 const styles = StyleSheet.create({
   photo: { width: "100%" },
-  content: { paddingHorizontal: 16, paddingTop: 16 },
-  name: { fontSize: 36, lineHeight: 38, marginTop: 4 },
+  content: { paddingHorizontal: 20, paddingTop: 20 },
+  name: { ...type.display, marginTop: 6 },
+  facts: { fontSize: 13, marginTop: 10 },
+  link: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 13,
+    color: colors.gold,
+    textDecorationLine: "underline",
+    marginTop: 4,
+  },
+  priceBlock: {
+    gap: 10,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
   path: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
   pathText: { fontSize: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
@@ -656,73 +661,74 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.muted,
   },
-  kinds: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: 3,
+  // «Товар | Тестер» as two words with an underline, like a printed tab.
+  kinds: { flexDirection: "row", alignSelf: "flex-start", gap: 20 },
+  kind: {
+    paddingVertical: 6,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "transparent",
   },
-  kind: { borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 8 },
-  kindText: { fontFamily: fonts.sansSemi, fontSize: 14 },
+  kindOn: { borderBottomColor: colors.ink },
+  kindText: { ...type.label, fontSize: 12, color: colors.muted },
   volumes: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  // A volume: a white tile with a hairline; the chosen one has an ink frame.
   volume: {
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    minWidth: 92,
+    paddingVertical: 10,
+    minWidth: 96,
+    gap: 2,
   },
-  volumeOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  volumeMl: { fontFamily: fonts.sansBold, fontSize: 15 },
+  volumeOn: { borderColor: colors.ink, borderWidth: 1.5 },
+  volumeMl: { fontFamily: fonts.sansSemi, fontSize: 15 },
   volumePrice: { fontSize: 12, color: colors.muted },
-  price: { fontFamily: fonts.sansBold, fontSize: 30, lineHeight: 36 },
+  price: { fontFamily: fonts.sansSemi, fontSize: 28, lineHeight: 34 },
   oldPrice: { fontSize: 17, color: colors.muted, textDecorationLine: "line-through" },
   cell: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.white,
     borderRadius: radius.sm,
     padding: 8,
     alignItems: "center",
     gap: 2,
   },
   teaser: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "rgba(166,124,82,0.4)",
-    backgroundColor: "#f8f1e6",
+    marginTop: 20,
+    backgroundColor: colors.goldSoft,
     borderRadius: radius.lg,
     padding: 16,
     gap: 4,
   },
+  // Rows between hairlines: wholesale and the question in WhatsApp.
   wholesale: {
-    marginTop: 16,
-    backgroundColor: colors.ink,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 4,
+    marginTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
   },
   ask: {
     marginTop: 24,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
+    gap: 12,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: 14,
   },
   bar: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 12,
     gap: 8,
   },
   added: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center" },

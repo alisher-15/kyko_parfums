@@ -55,7 +55,7 @@ export function CartButton({ boxed = false }: { boxed?: boolean }) {
         name={count ? "bag" : "bag-outline"}
         size={22}
         // In the header it sits on the frame color; boxed, on the light page.
-        color={boxed ? colors.ink : colors.cream}
+        color={colors.ink}
       />
       {count > 0 && (
         <View style={styles.cartBadge}>
@@ -68,11 +68,12 @@ export function CartButton({ boxed = false }: { boxed?: boolean }) {
 
 // ---------- Promotions ----------
 
-/** Cards in view: two and a bit on phones, three on tablets, four on wide screens (as the site). */
+/** Cards in view: one and a sliver on phones, two on small tablets, four on wide screens. */
 function railShare(width: number): number {
   if (width >= 768) return 0.25;
-  if (width >= 640) return 0.31;
-  return 0.44;
+  if (width >= 640) return 0.48;
+  // On phones one banner fills the row, with the next one showing at the edge.
+  return 0.9;
 }
 
 /**
@@ -220,7 +221,7 @@ export function CurrencySwitch() {
           onPress={() => setCurrency(c)}
           style={[styles.switchItem, currency === c && styles.switchActive]}
         >
-          <Text style={[styles.switchText, currency === c && { color: colors.velvet }]}>
+          <Text style={[styles.switchText, currency === c && { color: colors.ink }]}>
             {c === "KZT" ? "₸" : "$"}
           </Text>
         </Pressable>
@@ -333,11 +334,11 @@ export function UpgradeForm({ onDone }: { onDone?: (user: User) => void }) {
 const styles = StyleSheet.create({
   cartIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   cartBox: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.pill,
+    width: 52,
+    height: 52,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    borderColor: colors.line,
+    borderColor: colors.ink,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -350,40 +351,46 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     paddingHorizontal: 4,
-    backgroundColor: colors.champagne,
+    backgroundColor: colors.velvet,
     alignItems: "center",
     justifyContent: "center",
   },
-  cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.velvet },
+  cartBadgeText: { fontFamily: fonts.sansBold, fontSize: 10, color: colors.white },
   bold: { fontFamily: fonts.sansBold },
-  card: { borderRadius: radius.lg, overflow: "hidden", backgroundColor: colors.ink },
-  cardText: { position: "absolute", left: 10, right: 10, bottom: 10, gap: 4 },
+  card: { borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.deep },
+  cardText: { position: "absolute", left: 16, right: 16, bottom: 14, gap: 6 },
   cardBadge: {
-    backgroundColor: colors.champagne,
-    borderRadius: radius.pill,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    backgroundColor: colors.pearl,
+    borderRadius: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
   },
-  cardBadgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.velvet },
-  cardDates: { fontFamily: fonts.sansMedium, fontSize: 11, color: "#e7e5e4" },
-  cardTitle: { fontFamily: fonts.serifBold, fontSize: 15, lineHeight: 17, color: colors.white },
-  switch: {
-    flexDirection: "row",
-    borderWidth: 1,
-    borderColor: colors.velvetSoft,
-    backgroundColor: colors.velvetSoft,
-    borderRadius: radius.pill,
-    padding: 2,
+  cardBadgeText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: colors.velvet,
   },
+  cardDates: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    color: "#efe4dc",
+  },
+  cardTitle: { fontFamily: fonts.serif, fontSize: 26, lineHeight: 28, color: colors.white },
+  // ₸ | $ as two quiet letters; the chosen one is ink and underlined.
+  switch: { flexDirection: "row", gap: 2 },
   switchItem: {
-    width: 34,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
+    borderBottomWidth: 1.5,
+    borderBottomColor: "transparent",
   },
-  switchActive: { backgroundColor: colors.champagne },
-  switchText: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.onVelvetMuted },
+  switchActive: { borderBottomColor: colors.ink },
+  switchText: { fontFamily: fonts.sansSemi, fontSize: 15, color: colors.faint },
   status: {
     borderWidth: 1,
     borderRadius: radius.pill,

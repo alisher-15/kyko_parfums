@@ -7,7 +7,7 @@ import { useCurrency } from "@/lib/currency";
 import { useFavorites } from "@/lib/favorites";
 import { GENDER_LABELS, percentOff } from "@/lib/format";
 import type { ProductListItem } from "@/lib/types";
-import { colors, fonts, placeholderTints, radius } from "@/theme";
+import { colors, fonts, placeholderTints, radius, type } from "@/theme";
 import { Badge, Eyebrow, Muted, Txt } from "./ui";
 
 /** A bottle photo, or a soft tint with a drop while the product has none (like the website). */
@@ -48,7 +48,7 @@ export function ProductImage({
         },
       ]}
     >
-      <Ionicons name="water-outline" size={iconSize} color="rgba(166,124,82,0.6)" />
+      <Ionicons name="water-outline" size={iconSize} color="rgba(92,16,32,0.35)" />
     </View>
   );
 }
@@ -78,6 +78,19 @@ export function ProductCard({
   const meta = [product.gender && GENDER_LABELS[product.gender], product.category]
     .filter(Boolean)
     .join(" · ");
+  // One mark on the photo at most: the saving first, then what the shop says about it.
+  const badge = offer
+    ? {
+        label: `−${Math.round((1 - offer.price / offer.bottle_price) * 100)}%`,
+        tone: "gold" as const,
+      }
+    : product.deal
+      ? { label: percentOff(product.deal.discount_percent), tone: "gold" as const }
+      : note
+        ? { label: note, tone: "ink" as const }
+        : product.is_new
+          ? { label: "Выбор Kyko", tone: "ink" as const }
+          : null;
   return (
     <Pressable
       testID={`product-${product.id}`}
@@ -97,21 +110,11 @@ export function ProductCard({
           style={[styles.photo, compact && styles.photoCompact]}
           iconSize={compact ? 22 : undefined}
         />
-        <View style={styles.badges}>
-          {!!note && <Badge small={compact} label={note} tone="ink" />}
-          {offer && (
-            <Badge
-              small={compact}
-              label={`−${Math.round((1 - offer.price / offer.bottle_price) * 100)}%`}
-            />
-          )}
-          {product.deal && !offer && (
-            <Badge small={compact} label={percentOff(product.deal.discount_percent)} />
-          )}
-          {product.is_new && !note && !offer && (
-            <Badge small={compact} label="Выбор Kyko" tone="ink" />
-          )}
-        </View>
+        {badge && (
+          <View style={styles.badges}>
+            <Badge small={compact} label={badge.label} tone={badge.tone} />
+          </View>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={liked ? "Убрать из избранного" : "В избранное"}
@@ -121,13 +124,13 @@ export function ProductCard({
         >
           <Ionicons
             name={liked ? "heart" : "heart-outline"}
-            size={compact ? 15 : 18}
-            color={liked ? colors.gold : colors.muted}
+            size={compact ? 17 : 19}
+            color={liked ? colors.gold : colors.ink}
           />
         </Pressable>
       </View>
       <View style={[styles.body, compact && styles.bodyCompact]}>
-        <Eyebrow numberOfLines={1} style={{ fontSize: compact ? 9 : 10 }}>
+        <Eyebrow numberOfLines={1} style={{ fontSize: compact ? 9 : 10, letterSpacing: 1.4 }}>
           {product.brand.name}
         </Eyebrow>
         <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>
@@ -212,64 +215,48 @@ export function QuantityStepper({
 
 const styles = StyleSheet.create({
   struck: { textDecorationLine: "line-through" },
-  card: {
-    flexShrink: 0,
+  // No frame: the bottle in a white window, the words under it on the page.
+  card: { flexShrink: 0 },
+  pressed: { opacity: 0.8 },
+  photoBox: {
+    aspectRatio: 1,
     backgroundColor: colors.white,
     borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
     overflow: "hidden",
   },
-  pressed: { opacity: 0.85 },
-  photoBox: { aspectRatio: 1, backgroundColor: colors.white },
-  photo: {
-    position: "absolute",
-    top: 10,
-    left: 10,
-    right: 10,
-    bottom: 10,
-    borderRadius: radius.sm,
-  },
-  photoCompact: { top: 6, left: 6, right: 6, bottom: 6 },
-  badges: { position: "absolute", top: 6, left: 6, gap: 3 },
+  photo: { position: "absolute", top: 14, left: 14, right: 14, bottom: 14 },
+  photoCompact: { top: 10, left: 10, right: 10, bottom: 10 },
+  badges: { position: "absolute", top: 8, left: 8 },
   heart: {
     position: "absolute",
-    top: 6,
-    right: 6,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.9)",
+    top: 2,
+    right: 2,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
-  heartCompact: { top: 4, right: 4, width: 26, height: 26, borderRadius: 13 },
-  body: {
-    padding: 12,
-    gap: 2,
-    flex: 1,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-  },
-  bodyCompact: { padding: 8, gap: 1 },
-  name: { fontFamily: fonts.serif, fontSize: 19, lineHeight: 21, color: colors.ink },
-  nameCompact: { fontSize: 15, lineHeight: 17 },
+  heartCompact: { width: 34, height: 34 },
+  body: { paddingTop: 10, paddingHorizontal: 2, gap: 3, flex: 1 },
+  bodyCompact: { paddingTop: 8, gap: 2 },
+  name: { ...type.name, color: colors.ink },
+  nameCompact: { fontSize: 16, lineHeight: 19 },
   meta: { fontSize: 12, lineHeight: 16 },
-  bottom: { marginTop: "auto", paddingTop: 8, gap: 2 },
-  price: { fontFamily: fonts.sansBold, fontSize: 15 },
+  bottom: { marginTop: "auto", paddingTop: 6, gap: 1 },
+  price: { fontFamily: fonts.sansSemi, fontSize: 14, color: colors.ink },
   priceCompact: { fontSize: 13 },
   metaCompact: { fontSize: 11, lineHeight: 14 },
-  from: { fontFamily: fonts.sans, color: colors.muted, fontSize: 13 },
+  from: { fontFamily: fonts.sans, color: colors.muted, fontSize: 12 },
   stepper: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: radius.pill,
+    borderRadius: radius.sm,
     backgroundColor: colors.white,
-    height: 44,
+    height: 52,
   },
-  stepButton: { width: 40, height: 42, alignItems: "center", justifyContent: "center" },
+  stepButton: { width: 40, height: 50, alignItems: "center", justifyContent: "center" },
   stepValue: {
     minWidth: 28,
     textAlign: "center",

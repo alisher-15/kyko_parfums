@@ -35,7 +35,7 @@ def decode(preview: str) -> Image.Image:
 
 
 @pytest.mark.parametrize(("fmt", "size"), [("banner", (1200, 800)), ("story", (1080, 1920))])
-@pytest.mark.parametrize("theme", ["dark", "light", "gold"])
+@pytest.mark.parametrize("theme", ["jewel", "dark", "light", "gold"])
 def test_preview_has_the_format_size(client, auth, catalog, media, db, fmt, size, theme):
     catalog["coco"].image_url = bottle_photo(media, "coco.jpg")
     db.commit()
@@ -71,6 +71,24 @@ def test_the_bottle_is_on_the_picture(client, auth, catalog, media, db):
     im = decode(r.json()["preview"]).convert("RGB")
     blue = sum(1 for r_, g, b in im.get_flattened_data() if b > 150 and r_ < 60 and g < 90)
     assert blue > 10_000
+
+
+def test_the_jewel_box_banner(client, auth, catalog, media, db):
+    """«Шкатулка», the default: a velvet corner, and the bottle melted into a light studio
+    backdrop (its own blue, no white square around it)."""
+    catalog["coco"].image_url = bottle_photo(media, "coco.jpg", colour=(10, 40, 200))
+    db.commit()
+    r = client.post(
+        URL,
+        json={"title": "Синий", "product_ids": [catalog["coco"].id]},
+        headers=auth(UserRole.admin),
+    )
+    im = decode(r.json()["preview"]).convert("RGB")
+    assert max(im.getpixel((4, 4))) < 70  # velvet
+    blue = sum(1 for r_, g, b in im.get_flattened_data() if b > 150 and r_ < 60 and g < 90)
+    assert blue > 10_000
+    # The backdrop under the bottle is light, not the velvet ground.
+    assert min(im.getpixel((1200 - 64 - 30, 800 - 64 - 20))) > 200
 
 
 def test_save_stores_the_picture(client, auth, catalog, media):

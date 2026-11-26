@@ -13,18 +13,17 @@ export function Footer() {
   if (pathname.startsWith("/admin")) return null;
 
   return (
-    <footer className="mt-16 border-t border-line bg-white">
-      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-muted sm:px-6 md:grid-cols-4">
+    // The jewel box's velvet, as the header.
+    <footer className="velvet mt-16 text-pearl">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-nacre-muted sm:px-6 md:grid-cols-4">
         <div>
-          <div className="font-serif text-xl font-bold text-ink">
-            Kyko
-          </div>
+          <img src="/logo-pearl-light.png" alt="Kyko" width={105} height={28} className="h-7 w-auto" />
           <p className="mt-2 max-w-xs">
             Оригинальная парфюмерия и косметика. Розничные и оптовые продажи.
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <span className="font-semibold text-ink">Покупателям</span>
+          <span className="font-semibold text-pearl">Покупателям</span>
           <Link href="/catalog">Каталог</Link>
           <Link href="/categories">Категории</Link>
           <Link href="/brands">Бренды</Link>
@@ -33,17 +32,17 @@ export function Footer() {
           <Link href="/privacy">Политика конфиденциальности</Link>
         </div>
         <div className="flex flex-col gap-2">
-          <span className="font-semibold text-ink">Оптовым клиентам</span>
+          <span className="font-semibold text-pearl">Оптовым клиентам</span>
           <p>
             Для получения оптовых цен зарегистрируйтесь и отправьте заявку в{" "}
-            <Link href="/account" className="text-gold underline">
+            <Link href="/account" className="text-nacre underline">
               личном кабинете
             </Link>
             . Статус присваивает менеджер.
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <span className="font-semibold text-ink">Связаться с нами</span>
+          <span className="font-semibold text-pearl">Связаться с нами</span>
           {CONTACTS.map((c) => {
             const ContactIcon = CONTACT_ICONS[c.kind];
             return (
@@ -53,16 +52,16 @@ export function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`${CONTACT_NAMES[c.kind]}: ${c.label}`}
-                className="flex items-center gap-2 hover:text-ink"
+                className="flex items-center gap-2 hover:text-white"
               >
-                <ContactIcon className="shrink-0 text-gold" />
+                <ContactIcon className="shrink-0 text-nacre" />
                 {c.label}
               </a>
             );
           })}
         </div>
       </div>
-      <div className="border-t border-line py-4 text-center text-xs text-muted">
+      <div className="border-t border-white/15 py-4 text-center text-xs text-nacre-muted">
         {/* The page is built once: in a new year the client's year differs from the built one. */}
         © <span suppressHydrationWarning>{new Date().getFullYear()}</span> Kyko. Оплата по факту или переводом — онлайн-оплата
         появится позже.

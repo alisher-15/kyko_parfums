@@ -48,7 +48,7 @@ import {
 import { useApi } from "@/lib/queries";
 import { rememberViewed } from "@/lib/recent";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
-import { colors, fonts, radius } from "@/theme";
+import { colors, fonts, radius, type } from "@/theme";
 
 export default function ProductScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -68,6 +68,8 @@ export default function ProductScreen() {
     <Stack.Screen
       options={{
         title: "",
+        // Once the product is here, its studio stage runs up under a transparent header.
+        headerTransparent: !!product.data,
         headerRight: () =>
           valid ? (
             <View style={{ flexDirection: "row" }}>
@@ -153,8 +155,8 @@ function ProductBody({
 }) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  // The photo leaves room for the name and the price on the first screen.
-  const photoHeight = Math.min(width, Math.round(height * 0.42));
+  // The stage: the bottle large, under the transparent header; the sheet slides over its foot.
+  const photoHeight = Math.max(360, Math.round(height * 0.58));
   const { user } = useAuth();
   const { add, count } = useCart();
   const { money } = useCurrency();
@@ -201,6 +203,7 @@ function ProductBody({
           seed={product.id}
           style={[styles.photo, { height: photoHeight }]}
           iconSize={56}
+          studio
         />
         <View style={styles.content}>
           {(product.category_path ?? []).length > 0 && (
@@ -241,13 +244,7 @@ function ProductBody({
           <Title style={styles.name} accessibilityRole="header">
             {product.name}
           </Title>
-          {chips.length > 0 && (
-            <View style={styles.chips}>
-              {chips.map((c) => (
-                <Chip key={c} label={c} />
-              ))}
-            </View>
-          )}
+          {chips.length > 0 && <Muted style={styles.facts}>{chips.join("  ·  ")}</Muted>}
 
           {!variant ? (
             <Card style={{ marginTop: 20 }}>
@@ -294,23 +291,18 @@ function ProductBody({
               }
               style={styles.wholesale}
             >
-              <Txt style={{ fontFamily: fonts.serifBold, fontSize: 20, color: colors.white }}>
-                Для магазинов и салонов
-              </Txt>
-              <Txt style={{ color: "#d6d3d1", fontSize: 13 }}>
-                Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит статус, и цены в
-                каталоге обновятся.
-              </Txt>
-              <Txt
-                style={{
-                  color: colors.gold,
-                  fontFamily: fonts.sansSemi,
-                  fontSize: 13,
-                  marginTop: 4,
-                }}
-              >
-                {user ? "Оставить заявку →" : "Зарегистрироваться и оставить заявку →"}
-              </Txt>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Txt style={{ fontFamily: fonts.serif, fontSize: 21, lineHeight: 24 }}>
+                  Для магазинов и салонов
+                </Txt>
+                <Muted style={{ fontSize: 13, lineHeight: 19 }}>
+                  Оптовые цены для бизнеса — после заявки и подтверждения менеджером.
+                </Muted>
+                <Txt style={styles.link}>
+                  {user ? "Оставить заявку" : "Зарегистрироваться и оставить заявку"}
+                </Txt>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.muted} />
             </Pressable>
           )}
 
@@ -334,8 +326,11 @@ function ProductBody({
             }
             style={styles.ask}
           >
-            <Ionicons name="logo-whatsapp" size={20} color={colors.gold} />
-            <Txt style={{ fontFamily: fonts.sansSemi }}>Спросить об аромате в WhatsApp</Txt>
+            <Ionicons name="logo-whatsapp" size={20} color="#1fa855" />
+            <Txt style={{ flex: 1, fontFamily: fonts.sansMedium }}>
+              Спросить об аромате в WhatsApp
+            </Txt>
+            <Ionicons name="chevron-forward" size={18} color={colors.muted} />
           </Pressable>
         </View>
       </ScrollView>
@@ -437,15 +432,15 @@ function Purchase({
                 onPress={() => onSelect(v)}
                 style={[styles.volume, on && styles.volumeOn]}
               >
-                <Txt style={[styles.volumeMl, on && { color: colors.white }]}>{v.volume_ml} мл</Txt>
-                <Txt style={[styles.volumePrice, on && { color: "#d6d3d1" }]}>{money(v.price)}</Txt>
+                <Txt style={styles.volumeMl}>{v.volume_ml} мл</Txt>
+                <Txt style={styles.volumePrice}>{money(v.price)}</Txt>
               </Pressable>
             );
           })}
         </View>
       </View>
 
-      <Card style={{ gap: 10 }}>
+      <View style={styles.priceBlock}>
         <View style={{ flexDirection: "row", alignItems: "baseline", flexWrap: "wrap", gap: 10 }}>
           <Txt style={styles.price} testID="product-price">
             {money(variant.price)}
@@ -456,9 +451,9 @@ function Purchase({
           {variant.deal ? (
             <Badge label={`Акция ${percentOff(variant.deal.discount_percent)}`} />
           ) : (
-            <Chip label={TIER_LABELS[variant.price_tier]} />
+            <Eyebrow>{TIER_LABELS[variant.price_tier]}</Eyebrow>
           )}
-          {variant.is_tester && <Chip label="Тестер" />}
+          {variant.is_tester && <Eyebrow>· Тестер</Eyebrow>}
         </View>
         {variant.deal && (
           <Muted style={{ fontSize: 13 }}>
@@ -505,7 +500,7 @@ function Purchase({
             {variant.sku && <Muted style={{ fontSize: 12 }}>Артикул: {variant.sku}</Muted>}
           </View>
         )}
-      </Card>
+      </View>
     </View>
   );
 }
@@ -524,9 +519,9 @@ function KindButton({
       accessibilityRole="radio"
       accessibilityState={{ checked: active }}
       onPress={onPress}
-      style={[styles.kind, active && { backgroundColor: colors.ink }]}
+      style={[styles.kind, active && styles.kindOn]}
     >
-      <Txt style={[styles.kindText, active && { color: colors.white }]}>{title}</Txt>
+      <Txt style={[styles.kindText, active && { color: colors.ink }]}>{title}</Txt>
     </Pressable>
   );
 }
@@ -565,37 +560,111 @@ function hasThresholds(rules: PricingRules): boolean {
     : (rules.wholesale_min_item_qty ?? 1) > 1 || (rules.bulk_min_item_qty ?? 1) > 1;
 }
 
+/**
+ * The notes as pearls on a thread («Каждая — жемчужина»): the top notes are the smallest
+ * pearl, gone first; the base the largest, staying longest.
+ */
 function NotesPyramid({ product }: { product: ProductDetail }) {
   const levels = [
-    { title: "Верхние ноты", notes: splitNotes(product.top_notes) },
-    { title: "Ноты сердца", notes: splitNotes(product.mid_notes) },
-    { title: "Базовые ноты", notes: splitNotes(product.base_notes) },
-  ].filter((l) => l.notes.length > 0);
+    { title: "Верхние ноты", when: "первые 15 минут", notes: splitNotes(product.top_notes) },
+    { title: "Ноты сердца", when: "следующие 2–4 часа", notes: splitNotes(product.mid_notes) },
+    { title: "Базовые ноты", when: "до конца дня", notes: splitNotes(product.base_notes) },
+  ]
+    .map((l, depth) => ({ ...l, depth }))
+    .filter((l) => l.notes.length > 0);
   if (levels.length === 0) return null;
   return (
-    <View style={{ marginTop: 24, gap: 12 }}>
+    <View style={{ marginTop: 24, gap: 14 }}>
       <Txt style={styles.label}>Пирамида аромата</Txt>
-      {levels.map((l) => (
-        <View key={l.title} style={{ gap: 6 }}>
-          <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 14 }}>{l.title}</Txt>
-          <View style={styles.chips}>
-            {l.notes.map((n) => (
-              <Chip key={n} label={n} />
-            ))}
+      <View>
+        <View style={styles.blotter} />
+        {levels.map((l) => (
+          <View key={l.title} style={styles.level}>
+            <View style={styles.spotCell}>
+              <View style={[styles.spot, SPOTS[l.depth]]}>
+                <View style={styles.shine} />
+              </View>
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 14 }}>{l.title}</Txt>
+              <Muted style={{ fontSize: 12 }}>{l.when}</Muted>
+              <View style={[styles.chips, { marginTop: 6 }]}>
+                {l.notes.map((n) => (
+                  <Chip key={n} label={n} />
+                ))}
+              </View>
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   );
 }
 
+/** A pearl per level: it grows from the top notes to the base. */
+const SPOTS = [
+  { width: 12, height: 12, borderRadius: 6 },
+  { width: 18, height: 18, borderRadius: 9 },
+  { width: 24, height: 24, borderRadius: 12 },
+];
+
 const styles = StyleSheet.create({
   photo: { width: "100%" },
-  content: { paddingHorizontal: 16, paddingTop: 16 },
-  name: { fontSize: 36, lineHeight: 38, marginTop: 4 },
+  // The sheet: rounded at the top, over the stage's foot.
+  content: {
+    marginTop: -28,
+    paddingHorizontal: 20,
+    paddingTop: 26,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: colors.cream,
+  },
+  name: { ...type.display, marginTop: 6 },
+  facts: { fontSize: 13, marginTop: 10 },
+  link: {
+    fontFamily: fonts.sansSemi,
+    fontSize: 13,
+    color: colors.gold,
+    textDecorationLine: "underline",
+    marginTop: 4,
+  },
+  priceBlock: {
+    gap: 10,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.line,
+  },
   path: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
   pathText: { fontSize: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  blotter: {
+    position: "absolute",
+    left: 13,
+    top: 10,
+    bottom: 10,
+    width: 2,
+    borderRadius: 1,
+    backgroundColor: "#dcbdb1",
+  },
+  level: { flexDirection: "row", gap: 12, paddingVertical: 8 },
+  spotCell: { width: 28, alignItems: "center", paddingTop: 2 },
+  // A pearl: mother-of-pearl with a darker rim and a white shine at the top left.
+  spot: {
+    backgroundColor: "#ecd9cf",
+    borderWidth: 1,
+    borderColor: "#dcbdb1",
+    overflow: "hidden",
+  },
+  shine: {
+    position: "absolute",
+    top: "14%",
+    left: "18%",
+    width: "42%",
+    height: "42%",
+    borderRadius: 99,
+    backgroundColor: colors.white,
+    opacity: 0.9,
+  },
   label: {
     fontFamily: fonts.sansBold,
     fontSize: 11,
@@ -603,73 +672,74 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     color: colors.muted,
   },
-  kinds: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: 3,
+  // «Товар | Тестер» as two words with an underline, like a printed tab.
+  kinds: { flexDirection: "row", alignSelf: "flex-start", gap: 20 },
+  kind: {
+    paddingVertical: 6,
+    borderBottomWidth: 1.5,
+    borderBottomColor: "transparent",
   },
-  kind: { borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 8 },
-  kindText: { fontFamily: fonts.sansSemi, fontSize: 14 },
+  kindOn: { borderBottomColor: colors.ink },
+  kindText: { ...type.label, fontSize: 12, color: colors.muted },
   volumes: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  // A volume: a white tile with a hairline; the chosen one has an ink frame.
   volume: {
     borderWidth: 1,
     borderColor: colors.line,
     backgroundColor: colors.white,
-    borderRadius: radius.md,
+    borderRadius: radius.sm,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    minWidth: 92,
+    paddingVertical: 10,
+    minWidth: 96,
+    gap: 2,
   },
-  volumeOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  volumeMl: { fontFamily: fonts.sansBold, fontSize: 15 },
+  volumeOn: { borderColor: colors.ink, borderWidth: 1.5 },
+  volumeMl: { fontFamily: fonts.sansSemi, fontSize: 15 },
   volumePrice: { fontSize: 12, color: colors.muted },
-  price: { fontFamily: fonts.sansBold, fontSize: 30, lineHeight: 36 },
+  price: { fontFamily: fonts.sansSemi, fontSize: 28, lineHeight: 34 },
   oldPrice: { fontSize: 17, color: colors.muted, textDecorationLine: "line-through" },
   cell: {
     flex: 1,
-    backgroundColor: colors.cream,
+    backgroundColor: colors.white,
     borderRadius: radius.sm,
     padding: 8,
     alignItems: "center",
     gap: 2,
   },
   teaser: {
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: "rgba(166,124,82,0.4)",
-    backgroundColor: "#fdf8ef",
+    marginTop: 20,
+    backgroundColor: colors.goldSoft,
     borderRadius: radius.lg,
     padding: 16,
     gap: 4,
   },
+  // Rows between hairlines: wholesale and the question in WhatsApp.
   wholesale: {
-    marginTop: 16,
-    backgroundColor: colors.ink,
-    borderRadius: radius.lg,
-    padding: 16,
-    gap: 4,
+    marginTop: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
   },
   ask: {
     marginTop: 24,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    borderWidth: 1,
+    gap: 12,
+    paddingVertical: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.line,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    padding: 14,
   },
   bar: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.line,
-    backgroundColor: colors.white,
+    backgroundColor: colors.cream,
     paddingHorizontal: 16,
-    paddingTop: 10,
+    paddingTop: 12,
     gap: 8,
   },
   added: { flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center" },

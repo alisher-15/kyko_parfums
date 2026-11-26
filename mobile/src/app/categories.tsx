@@ -141,10 +141,15 @@ function CategoryCard({
 }
 
 const styles = StyleSheet.create({
-  allCard: { backgroundColor: colors.ink, justifyContent: "space-between", paddingBottom: 10 },
-  allCount: { fontFamily: fonts.sans, fontSize: 11, color: "#d6d3d1", paddingHorizontal: 10 },
+  allCard: { backgroundColor: colors.velvet, justifyContent: "space-between", paddingBottom: 10 },
+  allCount: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.onVelvetMuted,
+    paddingHorizontal: 10,
+  },
   card: {
-    backgroundColor: "#f5f5f4",
+    backgroundColor: colors.white,
     borderRadius: radius.lg,
     overflow: "hidden",
   },

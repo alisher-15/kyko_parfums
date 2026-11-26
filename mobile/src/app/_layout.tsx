@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
+  CormorantGaramond_500Medium_Italic,
   CormorantGaramond_600SemiBold,
   CormorantGaramond_700Bold,
 } from "@expo-google-fonts/cormorant-garamond";
@@ -44,6 +45,7 @@ function makeQueryClient() {
 export default function RootLayout() {
   const [queryClient] = useState(makeQueryClient);
   const [fontsLoaded, fontError] = useFonts({
+    CormorantGaramond_500Medium_Italic,
     CormorantGaramond_600SemiBold,
     CormorantGaramond_700Bold,
     Manrope_400Regular,
@@ -91,7 +93,7 @@ function Navigation() {
           headerStyle: { backgroundColor: colors.cream },
           headerShadowVisible: false,
           headerTintColor: colors.ink,
-          headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 22 },
+          headerTitleStyle: { fontFamily: fonts.serif, fontSize: 22 },
           headerBackButtonDisplayMode: "minimal",
           contentStyle: { backgroundColor: colors.cream },
         }}

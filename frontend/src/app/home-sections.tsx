@@ -33,7 +33,7 @@ function Section({
     <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
       <div className="mb-3 flex items-end justify-between gap-4 md:mb-4">
         <div>
-          <h2 className="font-serif text-2xl font-bold md:text-3xl">{title}</h2>
+          <h2 className="font-serif text-3xl font-semibold md:text-4xl">{title}</h2>
           {hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
         </div>
         {link}
@@ -45,7 +45,10 @@ function Section({
 
 function More({ href, children = "Все →" }: { href: string; children?: ReactNode }) {
   return (
-    <Link href={href} className="shrink-0 text-sm font-semibold text-gold hover:text-ink">
+    <Link
+      href={href}
+      className="shrink-0 text-xs font-semibold tracking-[0.14em] text-gold uppercase underline underline-offset-4 hover:text-ink"
+    >
       {children}
     </Link>
   );
@@ -56,12 +59,12 @@ function RailSkeleton() {
   return (
     <div aria-hidden className="flex gap-3 overflow-hidden">
       {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className={`${PRODUCT_RAIL_ITEM} card overflow-hidden`}>
-          <div className="aspect-square animate-pulse bg-stone-100" />
-          <div className="space-y-1.5 p-2.5">
-            <div className="h-2 w-1/2 animate-pulse rounded bg-stone-100" />
-            <div className="h-3 w-4/5 animate-pulse rounded bg-stone-100" />
-            <div className="h-3 w-2/5 animate-pulse rounded bg-stone-100" />
+        <div key={i} className={PRODUCT_RAIL_ITEM}>
+          <div className="aspect-[4/5] animate-pulse rounded-lg bg-gold-soft" />
+          <div className="space-y-1.5 pt-2.5">
+            <div className="h-2 w-1/2 animate-pulse rounded bg-gold-soft" />
+            <div className="h-3 w-4/5 animate-pulse rounded bg-gold-soft" />
+            <div className="h-3 w-2/5 animate-pulse rounded bg-gold-soft" />
           </div>
         </div>
       ))}
@@ -90,7 +93,7 @@ function ProductRail({
       ))}
       <Link
         href={more}
-        className={`${PRODUCT_RAIL_ITEM} card flex items-center justify-center p-3 text-center text-sm font-semibold text-gold hover:border-gold`}
+        className={`${PRODUCT_RAIL_ITEM} flex aspect-[4/5] items-center justify-center self-start rounded-lg bg-white p-3 text-center text-xs font-semibold tracking-[0.12em] text-cherry uppercase hover:bg-pearl`}
       >
         Смотреть все →
       </Link>
@@ -108,7 +111,7 @@ export function HomeSearch() {
   };
   return (
     <form onSubmit={submit} role="search" className="px-4 pt-3 lg:hidden">
-      <label className="flex h-11 items-center gap-2 rounded-full border border-line bg-white px-4">
+      <label className="flex h-11 items-center gap-2 rounded-md border border-line bg-white px-4">
         <SearchIcon width={18} height={18} className="shrink-0 text-muted" />
         <input
           value={q}
@@ -153,7 +156,7 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
   const href = `/catalog?promotion_id=${p.id}`;
   if (p.image_only && p.image_url) {
     return (
-      <Link href={href} className="relative block aspect-[3/2] overflow-hidden rounded-2xl bg-ink">
+      <Link href={href} className="relative block aspect-[3/2] overflow-hidden rounded-lg bg-deep">
         <img
           src={p.image_url}
           alt=""
@@ -167,7 +170,7 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
   return (
     <Link
       href={href}
-      className="group relative flex aspect-[3/2] flex-col justify-end overflow-hidden rounded-2xl bg-ink p-3 text-white md:p-4"
+      className="group velvet relative flex aspect-[3/2] flex-col justify-end overflow-hidden rounded-lg p-3 text-white md:p-4"
     >
       {p.image_url && (
         <img
@@ -180,13 +183,13 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
       <div className="relative">
         <div className="flex flex-wrap items-center gap-1.5">
           {p.discount_percent !== null && (
-            <span className="rounded-full bg-gold px-2 py-0.5 text-[11px] font-bold md:text-xs">
+            <span className="rounded-sm bg-pearl px-2 py-0.5 text-[11px] font-bold text-cherry md:text-xs">
               {percentOff(p.discount_percent)}
             </span>
           )}
           {p.ends_on && <span className="text-[11px] text-stone-200 md:text-xs">до {dayMonth(p.ends_on)}</span>}
         </div>
-        <div className="mt-1 line-clamp-2 font-serif text-sm leading-tight font-bold md:text-lg">{p.title}</div>
+        <div className="mt-1 line-clamp-2 font-serif text-base leading-tight font-semibold md:text-xl">{p.title}</div>
       </div>
     </Link>
   );
@@ -242,16 +245,18 @@ export function HomeTrust() {
         {TRUST.map((t) => {
           const body = (
             <>
-              <span className="shrink-0 text-gold">{t.icon}</span>
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gold-soft text-cherry">
+                {t.icon}
+              </span>
               <span className="leading-tight">
                 <b className="block text-sm font-semibold">{t.title}</b>
                 <span className="text-xs text-muted">{t.text}</span>
               </span>
             </>
           );
-          const cls = "flex shrink-0 items-center gap-2.5 rounded-2xl border border-line bg-white px-3.5 py-3";
+          const cls = "flex shrink-0 items-center gap-2.5 rounded-lg bg-white px-3.5 py-3";
           return t.href ? (
-            <a key={t.title} href={t.href} target="_blank" rel="noopener" className={`${cls} hover:border-gold`}>
+            <a key={t.title} href={t.href} target="_blank" rel="noopener" className={`${cls} hover:shadow-md hover:shadow-stone-200/60`}>
               {body}
             </a>
           ) : (
@@ -288,32 +293,28 @@ function EntryTile({
   const { data } = useApi<Page<ProductListItem>>("/products", {
     query: { ...query, sort: "popular", page_size: 1 },
   });
-  if (!data) return <div aria-hidden className="aspect-square animate-pulse rounded-2xl bg-stone-100" />;
+  if (!data) return <div aria-hidden className="aspect-square animate-pulse rounded-md bg-white/15" />;
   if (data.total === 0) return null;
   const image = ownImage || data.items[0]?.image_url;
   return (
     <Link
       href={href}
-      className={`group relative aspect-square overflow-hidden rounded-2xl p-2.5 transition md:p-3.5 ${
-        dark ? "bg-ink text-white" : "bg-stone-100 hover:bg-stone-200"
+      className={`group relative aspect-square overflow-hidden rounded-md p-2.5 text-ink transition md:p-3.5 ${
+        dark ? "bg-nacre hover:bg-[#e3bfb3]" : "bg-white hover:bg-pearl"
       }`}
     >
-      <span className="relative z-10 block text-[13px] leading-tight font-semibold md:text-base">{title}</span>
-      <span className={`relative z-10 mt-0.5 block text-[11px] md:text-xs ${dark ? "text-stone-300" : "text-muted"}`}>
+      <span className="relative z-10 block font-serif text-base leading-tight font-semibold md:text-xl">{title}</span>
+      <span className="relative z-10 mt-0.5 block text-[11px] text-muted md:text-xs">
         {note ? note(data.total) : `${data.total} ${plural(data.total, "аромат", "аромата", "ароматов")}`}
       </span>
       {image && (
         <span
-          className={`absolute right-0 bottom-0 overflow-hidden ${
-            dark ? "h-[52%] w-[58%] rounded-tl-2xl bg-white" : "h-[64%] w-[70%]"
-          }`}
+          className="absolute right-0 bottom-0 h-[64%] w-[70%] overflow-hidden"
         >
           <img
             src={image}
             alt=""
-            className={`h-full w-full object-contain object-right-bottom transition group-hover:scale-105 ${
-              dark ? "" : "mix-blend-multiply"
-            }`}
+            className="h-full w-full object-contain object-right-bottom mix-blend-multiply transition group-hover:scale-105"
           />
         </span>
       )}
@@ -332,31 +333,43 @@ export function HomeStart() {
   const perfume = sections.find((c) => c.kind === "perfume");
   const others = sections.filter((c) => c !== perfume);
   return (
-    <Section title="С чего начнём?" link={<More href="/categories">Все категории →</More>}>
-      <nav aria-label="С чего начнём" className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-3">
-        <EntryTile href="/catalog?gender=female" title="Для неё" query={{ gender: "female" }} />
-        <EntryTile href="/catalog?gender=male" title="Для него" query={{ gender: "male" }} />
-        <EntryTile href="/catalog?gender=unisex" title="Унисекс" query={{ gender: "unisex" }} />
-        <EntryTile
-          href="/catalog?tester=true"
-          title="Тестеры"
-          note={() => "дешевле флакона"}
-          query={{ tester: true }}
-          dark
-        />
-        <EntryTile href="/catalog?top=true" title="Ниша и люкс" query={{ top: true }} />
-        {others.map((c) => (
+    // On a velvet panel of its own, white tiles and a mother-of-pearl «Тестеры».
+    <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
+      <div className="velvet rounded-xl p-4 md:p-6">
+        <div className="mb-3 flex items-end justify-between gap-4 md:mb-4">
+          <h2 className="font-serif text-3xl font-semibold text-pearl md:text-4xl">С чего начнём?</h2>
+          <Link
+            href="/categories"
+            className="shrink-0 text-xs font-semibold tracking-[0.14em] text-nacre uppercase underline underline-offset-4 hover:text-white"
+          >
+            Все категории →
+          </Link>
+        </div>
+        <nav aria-label="С чего начнём" className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-3">
+          <EntryTile href="/catalog?gender=female" title="Для неё" query={{ gender: "female" }} />
+          <EntryTile href="/catalog?gender=male" title="Для него" query={{ gender: "male" }} />
+          <EntryTile href="/catalog?gender=unisex" title="Унисекс" query={{ gender: "unisex" }} />
           <EntryTile
-            key={c.id}
-            href={tree ? categoryHref(tree, c) : `/catalog?category_id=${c.id}`}
-            title={c.name}
-            note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
-            query={{ category_id: c.id }}
-            image={c.image_url}
+            href="/catalog?tester=true"
+            title="Тестеры"
+            note={() => "дешевле флакона"}
+            query={{ tester: true }}
+            dark
           />
-        ))}
-      </nav>
-    </Section>
+          <EntryTile href="/catalog?top=true" title="Ниша и люкс" query={{ top: true }} />
+          {others.map((c) => (
+            <EntryTile
+              key={c.id}
+              href={tree ? categoryHref(tree, c) : `/catalog?category_id=${c.id}`}
+              title={c.name}
+              note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
+              query={{ category_id: c.id }}
+              image={c.image_url}
+            />
+          ))}
+        </nav>
+      </div>
+    </section>
   );
 }
 
@@ -403,26 +416,27 @@ export function HomeTesters() {
   if (!data || data.total === 0) return null;
   return (
     <section className="mx-auto max-w-7xl pt-9 md:px-6 md:pt-12">
-      <div className="bg-ink px-4 py-6 text-white md:rounded-3xl md:px-6">
+      <div className="velvet px-4 py-6 text-white md:rounded-xl md:px-6">
         <div className="mb-3 flex items-end justify-between gap-4 md:mb-4">
           <div>
-            <h2 className="font-serif text-2xl font-bold md:text-3xl">Тестеры — тот же аромат дешевле</h2>
-            <p className="mt-0.5 text-sm text-stone-300">
+            <h2 className="font-serif text-3xl font-semibold text-pearl md:text-4xl">Тестеры — тот же аромат дешевле</h2>
+            <p className="mt-0.5 text-sm text-nacre-muted">
               Оригинальный парфюм в простой упаковке: без крышки или коробки
             </p>
           </div>
-          <Link href="/catalog?tester=true" className="shrink-0 text-sm font-semibold text-[#e9dccb] hover:text-white">
+          <Link
+            href="/catalog?tester=true"
+            className="shrink-0 text-xs font-semibold tracking-[0.14em] text-nacre uppercase underline underline-offset-4 hover:text-white"
+          >
             Все →
           </Link>
         </div>
-        <div className="text-ink">
-          <ProductRail
-            label="Тестеры"
-            items={data.items}
-            more="/catalog?tester=true"
-            card={(p) => <ProductCard product={p} compact tester />}
-          />
-        </div>
+        <ProductRail
+          label="Тестеры"
+          items={data.items}
+          more="/catalog?tester=true"
+          card={(p) => <ProductCard product={p} compact tester dark />}
+        />
       </div>
     </section>
   );
@@ -455,20 +469,20 @@ function BudgetTile({ label, value, query, dark }: (typeof BUDGETS)[number]) {
   const { data } = useApi<Page<ProductListItem>>("/products", {
     query: { ...query, sort: "popular", page_size: 1 },
   });
-  if (!data) return <div aria-hidden className="min-h-28 animate-pulse rounded-2xl bg-stone-100 md:min-h-32" />;
+  if (!data) return <div aria-hidden className="min-h-28 animate-pulse rounded-lg bg-gold-soft md:min-h-32" />;
   if (data.total === 0) return null;
   const href = `/catalog?${new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)]))}`;
   const image = data.items[0]?.image_url;
   return (
     <Link
       href={href}
-      className={`group relative min-h-28 overflow-hidden rounded-2xl border p-3.5 md:min-h-32 md:p-4 ${
-        dark ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-gold"
+      className={`group relative min-h-28 overflow-hidden rounded-lg p-3.5 md:min-h-32 md:p-4 ${
+        dark ? "velvet text-white" : "bg-white hover:shadow-md hover:shadow-stone-200/60"
       }`}
     >
-      <span className={`block text-xs ${dark ? "text-stone-300" : "text-muted"}`}>{label}</span>
-      <span className="block font-serif text-2xl leading-none font-bold md:text-3xl">{value}</span>
-      <span className={`mt-2 block text-xs font-semibold ${dark ? "text-[#e9dccb]" : "text-gold-dark"}`}>
+      <span className={`block text-[11px] tracking-[0.14em] uppercase ${dark ? "text-nacre-muted" : "text-muted"}`}>{label}</span>
+      <span className="block font-serif text-3xl leading-none font-semibold md:text-4xl">{value}</span>
+      <span className={`mt-2 block text-xs font-semibold ${dark ? "text-nacre" : "text-cherry"}`}>
         {data.total} {plural(data.total, "аромат", "аромата", "ароматов")} →
       </span>
       {image && (
@@ -498,10 +512,12 @@ export function HomeConsult() {
   const telegram = CONTACTS.find((c) => c.kind === "telegram");
   return (
     <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
-      <div className="grid items-center gap-5 rounded-3xl bg-gold-soft p-5 md:grid-cols-[1.3fr_1fr] md:p-8">
+      {/* The page's cherry moment, with the brand's pearl. */}
+      <div className="relative grid items-center gap-5 overflow-hidden rounded-xl bg-cherry p-5 text-white md:grid-cols-[1.3fr_1fr] md:p-8">
+        <span aria-hidden className="pearl absolute top-5 right-5 h-12 w-12 md:hidden" />
         <div>
-          <h2 className="font-serif text-3xl leading-tight font-bold md:text-4xl">Не знаете, что выбрать?</h2>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-stone-600 md:text-base">
+          <h2 className="pr-14 font-serif text-3xl leading-tight font-semibold md:pr-0 md:text-4xl">Не знаете, что выбрать?</h2>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-nacre-muted md:text-base">
             Расскажите, какие ароматы нравятся и для кого подарок, — подберём несколько вариантов и
             пришлём фото и цены. Бесплатно.
           </p>
@@ -510,18 +526,19 @@ export function HomeConsult() {
               href={whatsappLink("Здравствуйте! Помогите подобрать аромат")}
               target="_blank"
               rel="noopener"
-              className="btn rounded-full bg-[#1f9d55] text-white hover:bg-[#178a49]"
+              className="btn bg-pearl text-cherry hover:bg-white"
             >
               <WhatsAppIcon width={18} height={18} /> Подобрать в WhatsApp
             </a>
             {telegram && (
-              <a href={telegram.href} target="_blank" rel="noopener" className="btn btn-outline rounded-full">
+              <a href={telegram.href} target="_blank" rel="noopener" className="btn border border-white/50 text-white hover:bg-white/10">
                 <TelegramIcon width={18} height={18} /> Telegram
               </a>
             )}
           </div>
         </div>
-        <div aria-hidden className="hidden flex-col gap-2 rounded-2xl bg-white p-4 text-sm md:flex">
+        <div aria-hidden className="relative hidden flex-col gap-2 rounded-lg bg-white p-4 text-sm text-ink md:flex">
+          <span className="pearl absolute -top-5 -right-5 h-14 w-14" />
           <div className="max-w-[85%] self-end rounded-2xl bg-[#dcfce7] px-3 py-2">
             Ищу подарок девушке, любит сладкие ароматы
           </div>
@@ -572,13 +589,13 @@ export function HomeBrands() {
   return (
     <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
       <nav aria-label="Бренды" className="flex items-center gap-3">
-        <span className="shrink-0 font-serif text-lg font-bold">Бренды</span>
+        <span className="shrink-0 font-serif text-2xl font-semibold">Бренды</span>
         <div className="rail flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
           {shown.map((b) => (
             <Link
               key={b.id}
               href={`/catalog?brand_id=${b.id}`}
-              className="shrink-0 rounded-full border border-line bg-white px-3 py-1 text-xs whitespace-nowrap hover:border-gold"
+              className="shrink-0 rounded-md bg-white px-3 py-1 font-serif text-base whitespace-nowrap hover:bg-pearl"
             >
               {b.name}
             </Link>
@@ -600,12 +617,12 @@ export function HomeWholesale() {
   if (loading || (user && user.role !== "retail")) return null;
   return (
     <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
-      <div className="flex flex-col items-start justify-between gap-3 rounded-3xl border border-line bg-white p-5 md:flex-row md:items-center md:p-6">
+      <div className="flex flex-col items-start justify-between gap-3 rounded-xl bg-white p-5 md:flex-row md:items-center md:p-6">
         <div>
-          <h2 className="font-serif text-2xl font-bold">Для магазинов и салонов</h2>
+          <h2 className="font-serif text-3xl font-semibold">Для магазинов и салонов</h2>
           <p className="mt-0.5 text-sm text-muted">Оптовые цены — после регистрации и одобрения заявки</p>
         </div>
-        <Link href={user ? "/account#upgrade" : "/register"} className="btn btn-primary rounded-full">
+        <Link href={user ? "/account#upgrade" : "/register"} className="btn btn-primary">
           Стать оптовым клиентом →
         </Link>
       </div>

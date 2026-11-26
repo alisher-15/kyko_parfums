@@ -89,8 +89,15 @@ export function useCurrency(): CurrencyState {
   return ctx;
 }
 
-/** ₸ / $ in the header. Hidden while the shop has no rate. */
-export function CurrencySwitch({ className = "" }: { className?: string }) {
+/** ₸ / $ in the header, hidden while the shop has no rate. `tone="dark"`: on the velvet
+ *  header, two letters with the chosen one underlined. */
+export function CurrencySwitch({
+  className = "",
+  tone = "light",
+}: {
+  className?: string;
+  tone?: "light" | "dark";
+}) {
   const { currency, rate, setCurrency } = useCurrency();
   if (!rate) return null;
   return (
@@ -98,7 +105,9 @@ export function CurrencySwitch({ className = "" }: { className?: string }) {
       role="group"
       aria-label="Валюта"
       title={`Курс: 1 $ = ${Number(rate.toFixed(2))} ₸`}
-      className={`inline-flex rounded-full border border-line bg-white p-0.5 text-sm font-semibold ${className}`}
+      className={`inline-flex text-sm font-semibold ${
+        tone === "dark" ? "gap-0.5" : "rounded-md border border-line bg-white p-0.5"
+      } ${className}`}
     >
       {(["KZT", "USD"] as const).map((c) => (
         <button
@@ -107,8 +116,14 @@ export function CurrencySwitch({ className = "" }: { className?: string }) {
           onClick={() => setCurrency(c)}
           aria-pressed={currency === c}
           aria-label={c === "KZT" ? "Цены в тенге" : "Цены в долларах"}
-          className={`h-7 w-8 rounded-full transition ${
-            currency === c ? "bg-ink text-white" : "text-stone-600 hover:text-ink"
+          className={`h-7 w-8 transition ${
+            tone === "dark"
+              ? currency === c
+                ? "border-b-2 border-nacre text-white"
+                : "border-b-2 border-transparent text-nacre-muted hover:text-white"
+              : currency === c
+                ? "rounded bg-cherry text-white"
+                : "rounded text-stone-600 hover:text-ink"
           }`}
         >
           {c === "KZT" ? "₸" : "$"}

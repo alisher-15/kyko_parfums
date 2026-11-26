@@ -14,7 +14,7 @@ class CreativeIn(BaseModel):
     """A banner (1200×800) or a story (1080×1920) drawn from a template (services/creatives.py)."""
 
     format: Literal["banner", "story"] = "banner"
-    theme: Literal["dark", "light", "gold"] = "dark"
+    theme: Literal["jewel", "dark", "light", "gold"] = "jewel"
     title: str = Field(min_length=1, max_length=80)
     subtitle: str | None = Field(default=None, max_length=160)
     # «−15%», «Хит»: a gold pill.

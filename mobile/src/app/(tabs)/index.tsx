@@ -1,8 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
-import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { Image } from "expo-image";
+import { router, useIsFocused } from "expo-router";
+import { setStatusBarStyle } from "expo-status-bar";
+import { useEffect, useState } from "react";
+import { Animated, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   BrandsLine,
@@ -16,14 +18,18 @@ import {
   TrustRow,
   Wholesale,
 } from "@/components/home";
+import { Stage } from "@/components/jewel";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
-import { Muted, Txt } from "@/components/ui";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
-import { colors, fonts, radius } from "@/theme";
+import { colors } from "@/theme";
 
-// The home screen, as the website's (frontend/src/app/page.tsx): search, banners, then the blocks
-// of components/home.tsx. WhatsApp floats over every screen (components/whatsapp-button.tsx).
+// The home screen, as the website's (frontend/src/app/page.tsx), set in a jewel box: the compact
+// velvet stage with the search, then the blocks of components/home.tsx in the website's order.
+// A light bar with the logo and the search slides in once the stage has scrolled away.
+
+/** How far the page scrolls before the light bar shows. */
+const BAR_FROM = 130;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -31,6 +37,25 @@ export default function HomeScreen() {
   const brands = useApi<Brand[]>("/brands");
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const focused = useIsFocused();
+  const [onStage, setOnStage] = useState(true);
+
+  // Light status bar text over the velvet stage, dark once the light bar covers it.
+  useEffect(() => {
+    if (focused) setStatusBarStyle(onStage ? "light" : "dark");
+    return () => setStatusBarStyle("dark");
+  }, [focused, onStage]);
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => setOnStage(value < BAR_FROM));
+    return () => scrollY.removeListener(id);
+  }, [scrollY]);
+
+  const barOpacity = scrollY.interpolate({
+    inputRange: [BAR_FROM - 40, BAR_FROM + 20],
+    outputRange: [0, 1],
+    extrapolate: "clamp",
+  });
 
   // Every block reloads: they all read /products, /promotions, /brands or /categories.
   const refresh = async () => {
@@ -44,38 +69,44 @@ export default function HomeScreen() {
   };
 
   return (
-    // The status bar's room is outside the scroll, so the search sticks just below it.
-    <View style={{ flex: 1, backgroundColor: colors.cream, paddingTop: insets.top }}>
-      <ScrollView
+    <View style={{ flex: 1, backgroundColor: colors.cream }}>
+      <Animated.ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 8, paddingBottom: 96 }}
-        // The search (the second child) stays at the top while the page scrolls under it.
-        stickyHeaderIndices={[1]}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.gold} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.champagne}
+            progressViewOffset={insets.top}
+          />
         }
       >
-        <View style={styles.header}>
-          <Txt style={styles.logo} accessibilityRole="header">
-            Kyko
-          </Txt>
-          <CurrencySwitch />
-        </View>
-
-        <View style={styles.searchBar}>
-          <Pressable
-            accessibilityRole="search"
-            testID="home-search"
-            onPress={() => router.navigate("/catalog")}
-            style={styles.search}
-          >
-            <Ionicons name="search" size={18} color={colors.muted} />
-            <Muted>Поиск по аромату или бренду</Muted>
-          </Pressable>
-        </View>
+        <Stage
+          top={insets.top}
+          header={
+            <View style={styles.header}>
+              <View style={styles.side} />
+              <Image
+                source={require("../../../assets/images/logo-pearl-light.png")}
+                accessibilityRole="header"
+                accessibilityLabel="Kyko"
+                style={{ width: 112, height: 30 }}
+                contentFit="contain"
+              />
+              <View style={[styles.side, { alignItems: "flex-end" }]}>
+                <CurrencySwitch tone="dark" />
+              </View>
+            </View>
+          }
+        />
 
         {!!promotions.data?.length && (
-          <View style={{ marginTop: 4 }}>
+          <View style={{ marginTop: 24 }}>
             <PromotionRail promotions={promotions.data} />
           </View>
         )}
@@ -90,7 +121,33 @@ export default function HomeScreen() {
         <Recent />
         {!!brands.data?.length && <BrandsLine brands={brands.data} />}
         <Wholesale />
-      </ScrollView>
+      </Animated.ScrollView>
+
+      {/* The light bar: the dark logo and a way to search, once the stage is gone. */}
+      <Animated.View
+        pointerEvents={onStage ? "none" : "auto"}
+        style={[styles.bar, { paddingTop: insets.top + 6, opacity: barOpacity }]}
+      >
+        <View style={styles.side}>
+          <Pressable
+            accessibilityRole="search"
+            accessibilityLabel="Поиск"
+            hitSlop={10}
+            onPress={() => router.navigate("/catalog")}
+          >
+            <Ionicons name="search-outline" size={22} color={colors.ink} />
+          </Pressable>
+        </View>
+        <Image
+          source={require("../../../assets/images/logo-pearl.png")}
+          accessibilityLabel="Kyko"
+          style={{ width: 96, height: 26 }}
+          contentFit="contain"
+        />
+        <View style={[styles.side, { alignItems: "flex-end" }]}>
+          <CurrencySwitch />
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -100,20 +157,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingBottom: 4,
   },
-  logo: { fontFamily: fonts.serifBold, fontSize: 30, lineHeight: 36 },
-  searchBar: { backgroundColor: colors.cream, paddingTop: 12, paddingBottom: 8 },
-  search: {
-    marginHorizontal: 16,
+  side: { width: 72 },
+  bar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.pill,
+    justifyContent: "space-between",
     paddingHorizontal: 16,
-    height: 46,
+    paddingBottom: 10,
+    backgroundColor: colors.cream,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.line,
   },
 });

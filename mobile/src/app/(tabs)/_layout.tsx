@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
 import type { ComponentProps } from "react";
 import type { ColorValue } from "react-native";
+import { JewelTabBar } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
 import { isStaff } from "@/lib/staff";
@@ -31,20 +32,22 @@ export default function TabsLayout() {
   const favorites = useFavorites();
   return (
     <Tabs
+      tabBar={(props) => <JewelTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: colors.ink,
-        tabBarInactiveTintColor: colors.faint,
-        tabBarLabelStyle: { fontFamily: fonts.sansSemi, fontSize: 11 },
-        tabBarStyle: { backgroundColor: colors.white, borderTopColor: colors.line },
+        tabBarActiveTintColor: colors.gold,
+        tabBarInactiveTintColor: colors.muted,
+        tabBarLabelStyle: { fontFamily: fonts.sansMedium, fontSize: 10, letterSpacing: 0.3 },
+        tabBarStyle: { backgroundColor: colors.cream, borderTopColor: colors.line },
         tabBarBadgeStyle: {
-          backgroundColor: colors.gold,
+          backgroundColor: colors.velvet,
+          color: colors.white,
           fontFamily: fonts.sansBold,
           fontSize: 11,
         },
         headerStyle: { backgroundColor: colors.cream },
         headerShadowVisible: false,
         headerTintColor: colors.ink,
-        headerTitleStyle: { fontFamily: fonts.serifBold, fontSize: 24 },
+        headerTitleStyle: { fontFamily: fonts.serif, fontSize: 26 },
         headerTitleAlign: "left",
         sceneStyle: { backgroundColor: colors.cream },
       }}

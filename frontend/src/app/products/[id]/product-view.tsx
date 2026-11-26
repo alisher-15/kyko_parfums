@@ -60,13 +60,18 @@ export function ProductView({ id }: { id: number }) {
         ]}
       />
       <div className="grid gap-10 md:grid-cols-2">
-        <div className="card aspect-square overflow-hidden p-8">
-          <ProductImage
-            src={variant?.photo_url ?? product.image_url}
-            alt={`${product.brand.name} ${product.name}`}
-            seed={product.id}
-            className="rounded-xl"
-          />
+        {/* The studio: the bottle on soft mother-of-pearl, the photo's white multiplied away. */}
+        <div
+          className="aspect-square overflow-hidden rounded-xl p-10"
+          style={{ background: "linear-gradient(#fff 5%, #f1dfd9)" }}
+        >
+          <div className="h-full w-full mix-blend-multiply">
+            <ProductImage
+              src={variant?.photo_url ?? product.image_url}
+              alt={`${product.brand.name} ${product.name}`}
+              seed={product.id}
+            />
+          </div>
         </div>
 
         <div>
@@ -76,7 +81,7 @@ export function ProductView({ id }: { id: number }) {
           >
             {product.brand.name}
           </Link>
-          <h1 className="mt-2 font-serif text-5xl leading-tight font-bold">{product.name}</h1>
+          <h1 className="mt-2 font-serif text-5xl leading-tight font-semibold">{product.name}</h1>
           <div className="mt-3 flex flex-wrap gap-2">
             {product.type && <span className="chip">{product.type}</span>}
             {product.gender && <span className="chip">{GENDER_LABELS[product.gender]}</span>}
@@ -179,7 +184,7 @@ function Purchase({
     <div className="mt-8">
       {testers.length > 0 && (
         <div className="mb-6">
-          <div className="inline-flex rounded-xl border border-line bg-white p-1">
+          <div className="inline-flex rounded-md border border-line bg-white p-1">
             {bottles.length > 0 && (
               <KindButton
                 title="Товар"
@@ -208,12 +213,12 @@ function Purchase({
             key={v.id}
             onClick={() => choose(v)}
             aria-pressed={v.id === variant.id}
-            className={`rounded-xl border px-4 py-2 text-left text-sm transition ${
-              v.id === variant.id ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink"
+            className={`min-w-24 rounded-md border bg-white px-4 py-2 text-left text-sm transition ${
+              v.id === variant.id ? "border-ink ring-1 ring-ink" : "border-line hover:border-ink"
             }`}
           >
             <div className="font-semibold">{v.volume_ml} мл</div>
-            <div className={`text-xs ${v.id === variant.id ? "text-stone-300" : "text-muted"}`}>
+            <div className="text-xs text-muted">
               {money(v.price)}
             </div>
           </button>
@@ -227,7 +232,7 @@ function Purchase({
             <span className="text-lg text-muted line-through">{money(variant.retail_price)}</span>
           )}
           {variant.deal ? (
-            <span className="rounded-full bg-gold px-2.5 py-0.5 text-xs font-bold text-white">
+            <span className="rounded-sm bg-cherry px-2 py-0.5 text-xs font-bold tracking-wider text-pearl uppercase">
               Акция {percentOff(variant.deal.discount_percent)}
             </span>
           ) : (
@@ -304,7 +309,7 @@ function Purchase({
       )}
 
       {variant.next_tier_price !== null && (
-        <div className="mt-4 rounded-2xl border border-gold/40 bg-amber-50/60 p-5">
+        <div className="mt-4 rounded-lg bg-gold-soft p-5">
           <div className="text-xs font-semibold tracking-widest text-gold uppercase">
             Ваша следующая цена
           </div>
@@ -325,9 +330,9 @@ function Purchase({
       )}
 
       {(!user || user.role === "retail") && (
-        <div className="mt-4 rounded-2xl bg-ink p-5 text-white">
-          <div className="font-serif text-xl font-semibold">Для магазинов и салонов</div>
-          <p className="mt-1 text-sm text-stone-300">
+        <div className="velvet mt-4 rounded-lg p-5 text-white">
+          <div className="font-serif text-2xl font-semibold text-pearl">Для магазинов и салонов</div>
+          <p className="mt-1 text-sm text-nacre-muted">
             Оптовые цены для бизнеса. Оставьте заявку — менеджер подтвердит статус, и цены в
             каталоге обновятся.
           </p>
@@ -362,7 +367,7 @@ function KindButton({
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-lg px-5 py-2 text-sm font-semibold transition ${
+      className={`rounded px-5 py-2 text-xs font-semibold tracking-[0.12em] uppercase transition ${
         active ? "bg-ink text-white" : "text-stone-700 hover:bg-cream"
       }`}
     >
@@ -413,26 +418,39 @@ function ThresholdNote({ rules }: { rules: PricingRules }) {
   return <p className="mt-3 text-xs text-muted">{text}</p>;
 }
 
+/** The notes as pearls on a thread: the top notes the smallest pearl, gone first; the base the
+ *  largest, staying longest (the app draws the same). */
+const PEARLS = ["h-3 w-3", "h-[18px] w-[18px]", "h-6 w-6"];
+
 function NotesPyramid({ product }: { product: ProductDetail }) {
   const levels = [
-    { title: "Верхние ноты", notes: splitNotes(product.top_notes) },
-    { title: "Ноты сердца", notes: splitNotes(product.mid_notes) },
-    { title: "Базовые ноты", notes: splitNotes(product.base_notes) },
-  ].filter((l) => l.notes.length > 0);
+    { title: "Верхние ноты", when: "первые 15 минут", notes: splitNotes(product.top_notes) },
+    { title: "Ноты сердца", when: "следующие 2–4 часа", notes: splitNotes(product.mid_notes) },
+    { title: "Базовые ноты", when: "до конца дня", notes: splitNotes(product.base_notes) },
+  ]
+    .map((l, depth) => ({ ...l, depth }))
+    .filter((l) => l.notes.length > 0);
   if (levels.length === 0) return null;
   return (
     <div className="mt-8">
       <h2 className="label">Пирамида аромата</h2>
-      <div className="space-y-3">
+      <div className="relative">
+        <span aria-hidden className="absolute top-3 bottom-3 left-[13px] w-0.5 rounded bg-[#dcbdb1]" />
         {levels.map((l) => (
-          <div key={l.title} className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:gap-4">
-            <div className="w-32 shrink-0 pt-1 text-sm font-semibold">{l.title}</div>
-            <div className="flex flex-wrap gap-1.5">
-              {l.notes.map((n) => (
-                <span key={n} className="rounded-full bg-white px-3 py-1 text-sm ring-1 ring-line">
-                  {n}
-                </span>
-              ))}
+          <div key={l.title} className="relative flex gap-3 py-2">
+            <span className="flex w-7 shrink-0 justify-center pt-0.5">
+              <span aria-hidden className={`pearl ${PEARLS[l.depth]}`} />
+            </span>
+            <div>
+              <div className="text-sm font-semibold">{l.title}</div>
+              <div className="text-xs text-muted">{l.when}</div>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {l.notes.map((n) => (
+                  <span key={n} className="rounded-md bg-gold-soft px-3 py-1 text-sm">
+                    {n}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         ))}

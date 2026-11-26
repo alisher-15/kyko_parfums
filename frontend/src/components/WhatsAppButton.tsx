@@ -22,7 +22,7 @@ export function WhatsAppButton() {
       rel="noopener"
       aria-label="Написать в WhatsApp"
       title="Написать в WhatsApp"
-      className="whatsapp-float fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex h-13 w-13 items-center justify-center rounded-full bg-[#25d366] text-white shadow-lg shadow-black/20 transition hover:scale-105 md:right-6 md:bottom-6 md:h-14 md:w-14"
+      className="whatsapp-float fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex h-12 w-12 items-center justify-center rounded-full border border-line bg-white text-[#1fa855] shadow-lg shadow-[#2a070e]/15 transition hover:scale-105 md:right-6 md:bottom-6 md:h-13 md:w-13"
     >
       <WhatsAppIcon width={28} height={28} />
     </a>

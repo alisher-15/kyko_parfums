@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Children, type ComponentProps, type ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -13,7 +14,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { colors, fonts, radius } from "@/theme";
+import { colors, fonts, radius, type } from "@/theme";
 
 export type IconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -96,9 +97,9 @@ export function Button({
 }
 
 const buttonKinds: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.ink, fg: colors.white, border: colors.ink },
-  gold: { bg: colors.gold, fg: colors.white, border: colors.gold },
-  outline: { bg: colors.white, fg: colors.ink, border: colors.line },
+  primary: { bg: colors.velvet, fg: colors.white, border: colors.velvet },
+  gold: { bg: colors.champagne, fg: colors.velvet, border: colors.champagne },
+  outline: { bg: "transparent", fg: colors.ink, border: colors.ink },
   danger: { bg: colors.white, fg: colors.danger, border: colors.dangerLine },
   ghost: { bg: "transparent", fg: colors.gold, border: "transparent" },
 };
@@ -181,10 +182,47 @@ export function Badge({
       style={[
         styles.badge,
         small && { paddingHorizontal: 6, paddingVertical: 1 },
-        { backgroundColor: tone === "gold" ? colors.gold : colors.ink },
+        { backgroundColor: tone === "gold" ? colors.velvet : colors.white },
+        tone === "ink" && styles.badgeInk,
       ]}
     >
-      <Text style={[styles.badgeText, small && { fontSize: 10 }]}>{label}</Text>
+      <Text
+        style={[
+          styles.badgeText,
+          small && { fontSize: 9 },
+          tone === "ink" && { color: colors.ink },
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/**
+ * The brand's pearl (the O of KYKO): mother-of-pearl with a darker rim and a white shine at
+ * the top left. Drawn, not a picture, so it is sharp at any size.
+ */
+export function Pearl({ size, style }: { size: number; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View
+      accessible={false}
+      style={[
+        styles.pearl,
+        { width: size, height: size, borderRadius: size / 2 },
+        size >= 40 && styles.pearlShadow,
+        style,
+      ]}
+    >
+      {/* Light from the top left: white into mother-of-pearl into a warm rim. */}
+      <LinearGradient
+        colors={["#ffffff", "#f3e6de", "#d6b4a7"]}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0.2, y: 0.1 }}
+        end={{ x: 0.85, y: 0.95 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={styles.pearlShine} />
     </View>
   );
 }
@@ -337,17 +375,11 @@ export function MenuRow({
 export const styles = StyleSheet.create({
   text: { fontFamily: fonts.sans, fontSize: 15, lineHeight: 21, color: colors.ink },
   muted: { color: colors.muted },
-  title: { fontFamily: fonts.serifBold, fontSize: 28, lineHeight: 32, color: colors.ink },
-  eyebrow: {
-    fontFamily: fonts.sansBold,
-    fontSize: 11,
-    letterSpacing: 1.6,
-    textTransform: "uppercase",
-    color: colors.gold,
-  },
+  title: { ...type.h1, color: colors.ink },
+  eyebrow: { ...type.label, fontSize: 10, color: colors.muted },
   button: {
-    minHeight: 50,
-    borderRadius: radius.pill,
+    minHeight: 52,
+    borderRadius: radius.sm,
     borderWidth: 1,
     paddingHorizontal: 20,
     flexDirection: "row",
@@ -355,9 +387,9 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
   },
-  buttonSmall: { minHeight: 38, paddingHorizontal: 14 },
-  buttonText: { fontFamily: fonts.sansSemi, fontSize: 15 },
-  buttonTextSmall: { fontSize: 13 },
+  buttonSmall: { minHeight: 40, paddingHorizontal: 14 },
+  buttonText: { ...type.label, fontSize: 12, letterSpacing: 1.4 },
+  buttonTextSmall: { fontSize: 11 },
   iconButton: {
     width: 40,
     height: 40,
@@ -367,21 +399,52 @@ export const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.line,
-    backgroundColor: colors.white,
-    borderRadius: radius.pill,
+    borderColor: colors.goldSoft,
+    backgroundColor: colors.goldSoft,
+    borderRadius: radius.sm,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
   },
-  chipActive: { backgroundColor: colors.ink, borderColor: colors.ink },
+  chipActive: { backgroundColor: colors.velvet, borderColor: colors.velvet },
   chipText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.ink },
   badge: {
-    borderRadius: radius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderRadius: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     alignSelf: "flex-start",
   },
-  badgeText: { fontFamily: fonts.sansBold, fontSize: 11, color: colors.white },
+  badgeInk: { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line },
+  badgeText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    color: colors.pearl,
+  },
+  pearl: {
+    backgroundColor: "#ecdcd3",
+    borderWidth: 1,
+    borderColor: "#dcbdb1",
+    overflow: "hidden",
+  },
+  pearlShadow: {
+    shadowColor: "#2a070e",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  pearlShine: {
+    position: "absolute",
+    top: "16%",
+    left: "22%",
+    width: "24%",
+    height: "18%",
+    borderRadius: 999,
+    backgroundColor: colors.white,
+    opacity: 0.9,
+    transform: [{ rotate: "-30deg" }],
+  },
   card: {
     backgroundColor: colors.white,
     borderRadius: radius.lg,
@@ -403,7 +466,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 14,
   },
-  emptyTitle: { fontSize: 26, textAlign: "center" },
+  emptyTitle: { ...type.h1, textAlign: "center" },
   emptyText: { textAlign: "center", marginTop: 6 },
   label: {
     fontFamily: fonts.sansSemi,

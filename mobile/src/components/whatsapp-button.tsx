@@ -11,8 +11,8 @@ const SHOWN = ["/", "/catalog", "/cart", "/brands", "/categories", "/collection"
 const SHOWN_UNDER = ["/product/"];
 // The tab screens: the button sits above the tab bar.
 const TABS = ["/", "/catalog", "/favorites", "/cart", "/account"];
-/** The tab bar's height above the safe area, about the same on iOS and Android. */
-const TAB_BAR = 56;
+/** The floating tab bar's pill and its margins above the safe area (components/tab-bar.tsx). */
+const TAB_BAR = 62 + 16;
 /** The product screen's «В корзину» bar above the safe area. */
 const PRODUCT_BAR = 76;
 /** The cart's «Оформить заказ» bar above the tab bar: the button covered its right end. */
@@ -43,25 +43,29 @@ export function WhatsAppButton() {
       onPress={() => void Linking.openURL(whatsappAbout(text))}
       style={({ pressed }) => [styles.button, { bottom }, pressed && { opacity: 0.85 }]}
     >
-      <Ionicons name="logo-whatsapp" size={30} color="#fff" />
+      <Ionicons name="logo-whatsapp" size={26} color="#1fa855" />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  // A quiet white button with WhatsApp's green mark: present on every shop screen, without
+  // a loud green disc over the products.
   button: {
     position: "absolute",
     right: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#25d366",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#ffffff",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#eadfd6",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowColor: "#2a070e",
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
+    elevation: 5,
   },
 });

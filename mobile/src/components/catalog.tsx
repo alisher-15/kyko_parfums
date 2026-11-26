@@ -90,7 +90,7 @@ export function CatalogView({
   if (products.error && !products.data) {
     body = <ErrorState message={products.error.message} onRetry={() => void products.refetch()} />;
   } else if (!products.data) {
-    body = <Loader />;
+    body = <CardSkeletons columns={columns} width={cardWidth} />;
   }
 
   return (
@@ -636,7 +636,43 @@ function ToggleRow({
   );
 }
 
+/**
+ * The catalog's first load: the shape of the cards that are coming (photo, brand, name,
+ * price), so the grid doesn't jump when they arrive. Still, no shimmer.
+ */
+function CardSkeletons({ columns, width }: { columns: number; width: number }) {
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Загружаем товары"
+      style={styles.skeletons}
+    >
+      {Array.from({ length: columns * 2 }, (_, i) => (
+        <View key={i} style={[styles.skeleton, { width }]}>
+          <View style={[styles.skeletonPhoto, { height: width }]} />
+          <View style={{ padding: 10, gap: 8 }}>
+            <View style={[styles.skeletonBar, { width: "40%" }]} />
+            <View style={[styles.skeletonBar, { width: "80%", height: 14 }]} />
+            <View style={[styles.skeletonBar, { width: "55%" }]} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  skeletons: { flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 16, paddingTop: 4 },
+  skeleton: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: "hidden",
+  },
+  skeletonPhoto: { backgroundColor: colors.goldSoft },
+  skeletonBar: { height: 10, borderRadius: 5, backgroundColor: colors.goldSoft },
   top: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
   search: {
     flexDirection: "row",

@@ -96,8 +96,8 @@ export function Button({
 }
 
 const buttonKinds: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.rose, fg: colors.velvet, border: colors.rose },
-  gold: { bg: colors.gold, fg: colors.white, border: colors.gold },
+  primary: { bg: colors.velvet, fg: colors.cream, border: colors.velvet },
+  gold: { bg: colors.champagne, fg: colors.velvet, border: colors.champagne },
   outline: { bg: colors.white, fg: colors.ink, border: colors.line },
   danger: { bg: colors.white, fg: colors.danger, border: colors.dangerLine },
   ghost: { bg: "transparent", fg: colors.gold, border: "transparent" },
@@ -181,10 +181,18 @@ export function Badge({
       style={[
         styles.badge,
         small && { paddingHorizontal: 6, paddingVertical: 1 },
-        { backgroundColor: tone === "gold" ? colors.gold : colors.ink },
+        { backgroundColor: tone === "gold" ? colors.champagne : colors.ink },
       ]}
     >
-      <Text style={[styles.badgeText, small && { fontSize: 10 }]}>{label}</Text>
+      <Text
+        style={[
+          styles.badgeText,
+          small && { fontSize: 10 },
+          tone === "gold" && { color: colors.velvet },
+        ]}
+      >
+        {label}
+      </Text>
     </View>
   );
 }

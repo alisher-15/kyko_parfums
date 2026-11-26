@@ -1,13 +1,14 @@
 /**
- * The storefront's design system (frontend/src/app/globals.css): a warm light ground, ink text
- * and one gold accent. Cormorant Garamond for titles and perfume names, Manrope for the UI.
+ * «Бархат и шампань»: velvet (a near-black burgundy) frames the app — header, tab bar, dark
+ * bands — over a paper ground; champagne gold is the one accent. Cormorant Garamond for titles
+ * and perfume names, Inter for the UI. Every text color here passes WCAG AA on its ground.
  */
 export const colors = {
   ink: "#2a070e",
-  // Text-safe gold: 4.7:1 on cream and white on it (WCAG AA), the same as the website's.
-  gold: "#a8385a",
-  goldDark: "#8a2b48",
-  goldSoft: "#f3e3df",
+  // Text-safe gold: 5.4:1 on paper, 6.2:1 on white and for white on it (WCAG AA).
+  gold: "#7a5b32",
+  goldDark: "#634a28",
+  goldSoft: "#f1e7d8",
   cream: "#f6eee6",
   white: "#ffffff",
   line: "#e6d6d0",
@@ -15,12 +16,13 @@ export const colors = {
   field: "#9a7c81",
   muted: "#6b4a50",
   faint: "#a88f94",
-  // Velvet direction: the dark ground of headers and bars, its lighter fold, the rose of a
-  // scent spot (buttons, on velvet text) and pearl (text and marks on velvet).
+  // Velvet: headers, the tab bar, dark bands and the main buttons; its lighter fold for fields
+  // on velvet. Champagne: fills that carry velvet text (7.8:1) and marks on velvet;
+  // champagneLight: text and icons on velvet (9.9:1).
   velvet: "#2a070e",
   velvetSoft: "#3d0f19",
-  rose: "#d4627f",
-  pearl: "#e9c9be",
+  champagne: "#c9a26b",
+  champagneLight: "#d9b98a",
   onVelvetMuted: "#cdb0b5",
   ok: "#047857",
   okSoft: "#ecfdf5",
@@ -53,4 +55,4 @@ export const statusColors = {
 } as const;
 
 /** Soft backgrounds for products without a photo (like the website's placeholder). */
-export const placeholderTints = ["#e9c9be", "#f1dcd5", "#efe0e3", "#e6d3cf", "#f4e6e0", "#eadbe0"];
+export const placeholderTints = ["#f1e7d8", "#efe3dc", "#ece2d3", "#f4ebe2", "#e9dccb", "#f2e6df"];

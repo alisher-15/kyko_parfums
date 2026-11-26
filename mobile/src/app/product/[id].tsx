@@ -565,29 +565,51 @@ function hasThresholds(rules: PricingRules): boolean {
     : (rules.wholesale_min_item_qty ?? 1) > 1 || (rules.bulk_min_item_qty ?? 1) > 1;
 }
 
+/**
+ * The notes as they open on a blotter (мушетка): the top notes are a small pale spot that is
+ * gone first, the base a large deep one that stays longest. The spots sit on one strip.
+ */
 function NotesPyramid({ product }: { product: ProductDetail }) {
   const levels = [
-    { title: "Верхние ноты", notes: splitNotes(product.top_notes) },
-    { title: "Ноты сердца", notes: splitNotes(product.mid_notes) },
-    { title: "Базовые ноты", notes: splitNotes(product.base_notes) },
-  ].filter((l) => l.notes.length > 0);
+    { title: "Верхние ноты", when: "первые 15 минут", notes: splitNotes(product.top_notes) },
+    { title: "Ноты сердца", when: "следующие 2–4 часа", notes: splitNotes(product.mid_notes) },
+    { title: "Базовые ноты", when: "до конца дня", notes: splitNotes(product.base_notes) },
+  ]
+    .map((l, depth) => ({ ...l, depth }))
+    .filter((l) => l.notes.length > 0);
   if (levels.length === 0) return null;
   return (
-    <View style={{ marginTop: 24, gap: 12 }}>
+    <View style={{ marginTop: 24, gap: 14 }}>
       <Txt style={styles.label}>Пирамида аромата</Txt>
-      {levels.map((l) => (
-        <View key={l.title} style={{ gap: 6 }}>
-          <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 14 }}>{l.title}</Txt>
-          <View style={styles.chips}>
-            {l.notes.map((n) => (
-              <Chip key={n} label={n} />
-            ))}
+      <View>
+        <View style={styles.blotter} />
+        {levels.map((l) => (
+          <View key={l.title} style={styles.level}>
+            <View style={styles.spotCell}>
+              <View style={[styles.spot, SPOTS[l.depth]]} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt style={{ fontFamily: fonts.sansSemi, fontSize: 14 }}>{l.title}</Txt>
+              <Muted style={{ fontSize: 12 }}>{l.when}</Muted>
+              <View style={[styles.chips, { marginTop: 6 }]}>
+                {l.notes.map((n) => (
+                  <Chip key={n} label={n} />
+                ))}
+              </View>
+            </View>
           </View>
-        </View>
-      ))}
+        ))}
+      </View>
     </View>
   );
 }
+
+/** A spot per level: it grows and deepens from the top notes to the base. */
+const SPOTS = [
+  { width: 10, height: 10, borderRadius: 5, opacity: 0.45 },
+  { width: 16, height: 16, borderRadius: 8, opacity: 0.75 },
+  { width: 22, height: 22, borderRadius: 11, opacity: 1 },
+];
 
 const styles = StyleSheet.create({
   photo: { width: "100%" },
@@ -596,6 +618,20 @@ const styles = StyleSheet.create({
   path: { flexDirection: "row", flexWrap: "wrap", marginBottom: 6 },
   pathText: { fontSize: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 },
+  blotter: {
+    position: "absolute",
+    left: 11,
+    top: 4,
+    bottom: 4,
+    width: 6,
+    borderRadius: 3,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  level: { flexDirection: "row", gap: 12, paddingVertical: 8 },
+  spotCell: { width: 28, alignItems: "center", paddingTop: 2 },
+  spot: { backgroundColor: colors.champagne },
   label: {
     fontFamily: fonts.sansBold,
     fontSize: 11,
@@ -641,7 +677,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderWidth: 1,
     borderColor: "rgba(166,124,82,0.4)",
-    backgroundColor: "#f8ecea",
+    backgroundColor: "#f8f1e6",
     borderRadius: radius.lg,
     padding: 16,
     gap: 4,

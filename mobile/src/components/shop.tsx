@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  switchActive: { backgroundColor: colors.rose },
+  switchActive: { backgroundColor: colors.champagne },
   switchText: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.onVelvetMuted },
   status: {
     borderWidth: 1,

@@ -32,12 +32,13 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.pearl,
-        tabBarInactiveTintColor: "#b08f95",
+        tabBarActiveTintColor: colors.champagneLight,
+        tabBarInactiveTintColor: "#a88c90",
         tabBarLabelStyle: { fontFamily: fonts.sansSemi, fontSize: 11 },
         tabBarStyle: { backgroundColor: colors.velvet, borderTopColor: colors.velvet },
         tabBarBadgeStyle: {
-          backgroundColor: colors.gold,
+          backgroundColor: colors.champagne,
+          color: colors.velvet,
           fontFamily: fonts.sansBold,
           fontSize: 11,
         },

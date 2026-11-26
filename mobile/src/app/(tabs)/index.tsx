@@ -111,7 +111,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.velvet,
   },
   logo: { fontFamily: fonts.serifBold, fontSize: 30, lineHeight: 36 },
-  searchBar: { backgroundColor: colors.velvet, paddingTop: 10, paddingBottom: 14, marginBottom: 10 },
+  searchBar: {
+    backgroundColor: colors.velvet,
+    paddingTop: 10,
+    paddingBottom: 14,
+    marginBottom: 10,
+  },
   search: {
     marginHorizontal: 16,
     flexDirection: "row",

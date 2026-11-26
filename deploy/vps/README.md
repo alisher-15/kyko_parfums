@@ -65,10 +65,23 @@ docker compose exec -w /app/backend app python -m app.cli photos-to-r2
 
 ## Обновление
 
-После мерджа в `main`:
+**Само, после каждого мерджа в `main`.** Когда проверки CI на `main` прошли, GitHub Actions
+(`.github/workflows/deploy.yml`, «Deploy VPS») заходит на сервер по ключу деплоя и запускает
+`deploy.sh`: копия базы, `git pull`, сборка, ожидание, пока сайт ответит. Результат — на вкладке
+Actions в GitHub. Ключ настраивается один раз:
 
 ```bash
-cd /opt/kyko && git pull && cd deploy/vps && docker compose up -d --build
+sh /opt/kyko/deploy/vps/setup-deploy-key.sh
+```
+
+Скрипт выведет три значения; добавьте их в GitHub: Settings → Secrets and variables → Actions →
+New repository secret, с именами `VPS_HOST`, `VPS_KNOWN_HOSTS`, `VPS_SSH_KEY`. Ключ умеет только
+запускать `deploy.sh` (forced command в `authorized_keys`): ни входа в консоль, ни других команд.
+
+**Вручную** (то же самое):
+
+```bash
+/opt/kyko/deploy/vps/deploy.sh
 ```
 
 Миграции применяются при старте. Если новая версия не стартует, верните предыдущую:

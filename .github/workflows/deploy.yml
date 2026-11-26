@@ -1,0 +1,54 @@
+# Updates the shop on the VPS once CI has passed on `main`: GitHub's runner logs in with the
+# deploy key, whose only power is to run deploy/vps/deploy.sh (backup, git pull, build, wait for
+# the site). The three secrets come from deploy/vps/setup-deploy-key.sh; without them the job
+# says so and does nothing.
+name: Deploy VPS
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+# One update at a time; a newer one waits for the running one instead of cutting it short.
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to the VPS
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the deploy secrets
+        id: secrets
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ] || [ -z "$KNOWN" ]; then
+            echo "::warning::VPS_HOST, VPS_SSH_KEY or VPS_KNOWN_HOSTS is not set: nothing deployed (deploy/vps/setup-deploy-key.sh)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Update the shop
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          HOST: ${{ secrets.VPS_HOST }}
+          KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+          # The server runs deploy.sh whatever is asked (a forced command): no command is sent.
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 "root@$HOST"

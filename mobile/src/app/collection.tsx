@@ -13,8 +13,6 @@ export default function CollectionScreen() {
     title?: string;
     brand_id?: string;
     category_id?: string;
-    /** A scent family («Цветочные»), from the home page's «Аромат по настроению». */
-    family?: string;
     promotion_id?: string;
     on_sale?: string;
     is_new?: string;
@@ -32,7 +30,6 @@ export default function CollectionScreen() {
     if (Number.isInteger(brand) && brand > 0) f.brand_id = [brand];
     const category = Number(params.category_id);
     if (Number.isInteger(category) && category > 0) f.category_id = category;
-    if (params.family) f.category = [params.family];
     const promotion = Number(params.promotion_id);
     if (Number.isInteger(promotion) && promotion > 0) f.promotion_id = promotion;
     if (params.on_sale === "true") f.on_sale = true;
@@ -49,7 +46,6 @@ export default function CollectionScreen() {
   }, [
     params.brand_id,
     params.category_id,
-    params.family,
     params.promotion_id,
     params.on_sale,
     params.is_new,

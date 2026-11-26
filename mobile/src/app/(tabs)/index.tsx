@@ -13,18 +13,19 @@ import {
   Consult,
   Hits,
   Recent,
+  StartGrid,
   Testers,
   TrustRow,
   Wholesale,
 } from "@/components/home";
-import { CatalogIndex, Moods, Stage } from "@/components/jewel";
+import { Stage } from "@/components/jewel";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { useApi } from "@/lib/queries";
 import type { Brand, PromotionPublic } from "@/lib/types";
 import { colors } from "@/theme";
 
-// The home screen, as the website's blocks (frontend/src/app/page.tsx) set in a jewel box: the
-// compact velvet stage with the search, then the blocks of components/home.tsx and components/jewel.tsx.
+// The home screen, as the website's (frontend/src/app/page.tsx), set in a jewel box: the compact
+// velvet stage with the search, then the blocks of components/home.tsx in the website's order.
 // A light bar with the logo and the search slides in once the stage has scrolled away.
 
 /** How far the page scrolls before the light bar shows. */
@@ -56,13 +57,13 @@ export default function HomeScreen() {
     extrapolate: "clamp",
   });
 
-  // Every block reloads: they all read /products, /promotions, /brands, /categories or /filters.
+  // Every block reloads: they all read /products, /promotions, /brands or /categories.
   const refresh = async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries({
       predicate: (q) =>
         typeof q.queryKey[0] === "string" &&
-        /^\/(products|promotions|brands|categories|filters)/.test(q.queryKey[0]),
+        /^\/(products|promotions|brands|categories)/.test(q.queryKey[0]),
     });
     setRefreshing(false);
   };
@@ -111,9 +112,8 @@ export default function HomeScreen() {
         )}
 
         <TrustRow />
-        <Moods />
+        <StartGrid />
         <Hits />
-        <CatalogIndex />
         <Testers />
         <Choice />
         <Budget />

@@ -84,6 +84,7 @@ export function ProductImage({
  * A product in a grid or a sideways row. `compact`: the home page's rows, a smaller card with
  * brand, name, price and volumes only. `note`: one more badge («Купили 41 раз»). `tester`: the
  * card of the home page's «Тестеры»: the tester's price next to the bottle's, struck through.
+ * `dark`: the words on a velvet band (light text).
  */
 export function ProductCard({
   product,
@@ -91,13 +92,17 @@ export function ProductCard({
   compact = false,
   note,
   tester = false,
+  dark = false,
 }: {
   product: ProductListItem;
   width?: number;
   compact?: boolean;
   note?: string;
   tester?: boolean;
+  dark?: boolean;
 }) {
+  const light = dark ? { color: colors.pearl } : null;
+  const soft = dark ? { color: colors.onVelvetMuted } : null;
   const { money } = useCurrency();
   const offer = tester ? product.tester : null;
   const favorites = useFavorites();
@@ -158,10 +163,13 @@ export function ProductCard({
         </Pressable>
       </View>
       <View style={[styles.body, compact && styles.bodyCompact]}>
-        <Eyebrow numberOfLines={1} style={{ fontSize: compact ? 9 : 10, letterSpacing: 1.4 }}>
+        <Eyebrow
+          numberOfLines={1}
+          style={[{ fontSize: compact ? 9 : 10, letterSpacing: 1.4 }, soft]}
+        >
           {product.brand.name}
         </Eyebrow>
-        <Text style={[styles.name, compact && styles.nameCompact]} numberOfLines={2}>
+        <Text style={[styles.name, compact && styles.nameCompact, light]} numberOfLines={2}>
           {product.name}
         </Text>
         {!!meta && !compact && (
@@ -171,27 +179,27 @@ export function ProductCard({
         )}
         <View style={[styles.bottom, compact && { paddingTop: 4 }]}>
           {offer ? (
-            <Txt style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
-              <Text style={[styles.from, styles.struck, compact && { fontSize: 11 }]}>
+            <Txt style={[styles.price, compact && styles.priceCompact, light]} numberOfLines={1}>
+              <Text style={[styles.from, styles.struck, compact && { fontSize: 11 }, soft]}>
                 {money(offer.bottle_price)}
               </Text>{" "}
               {money(offer.price)}
             </Txt>
           ) : product.min_price !== null ? (
-            <Txt style={[styles.price, compact && styles.priceCompact]} numberOfLines={1}>
-              <Text style={[styles.from, compact && { fontSize: 11 }]}>от </Text>
+            <Txt style={[styles.price, compact && styles.priceCompact, light]} numberOfLines={1}>
+              <Text style={[styles.from, compact && { fontSize: 11 }, soft]}>от </Text>
               {money(product.min_price)}
             </Txt>
           ) : (
             <Muted style={{ fontSize: 13 }}>Цена по запросу</Muted>
           )}
           {offer ? (
-            <Muted style={[styles.meta, compact && styles.metaCompact]} numberOfLines={1}>
+            <Muted style={[styles.meta, compact && styles.metaCompact, soft]} numberOfLines={1}>
               тестер {offer.volume_ml} мл
             </Muted>
           ) : (
             product.volumes.length > 0 && (
-              <Muted style={[styles.meta, compact && styles.metaCompact]} numberOfLines={1}>
+              <Muted style={[styles.meta, compact && styles.metaCompact, soft]} numberOfLines={1}>
                 {product.volumes.join(" / ")} мл{product.type ? ` · ${product.type}` : ""}
               </Muted>
             )

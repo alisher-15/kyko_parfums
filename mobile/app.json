@@ -33,10 +33,7 @@
               "pathPrefix": "/products/"
             }
           ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
+          "category": ["BROWSABLE", "DEFAULT"]
         }
       ],
       "predictiveBackGestureEnabled": false,

@@ -3,8 +3,10 @@ import { secure } from "./storage";
 import type { TokenPair } from "./types";
 
 const TOKENS_KEY = "kyko.tokens";
-// The free Render plan sleeps: the first request after a pause can take about a minute.
-const TIMEOUT_MS = 70_000;
+// A request that hasn't answered by then shows «Нет связи» with a way to try again (the shop's
+// server answers in well under a second). Files (uploads, Excel) get longer on slow networks.
+const TIMEOUT_MS = 30_000;
+const FILE_TIMEOUT_MS = 120_000;
 
 interface StoredTokens {
   access_token: string;
@@ -103,6 +105,8 @@ export interface RequestOptions {
   query?: Query;
   /** Extra headers (a guest order's «X-Order-Key»). */
   headers?: Record<string, string>;
+  /** A file download (an Excel export): a longer timeout. */
+  file?: boolean;
 }
 
 export function buildQuery(query?: Query): string {
@@ -134,9 +138,13 @@ function errorMessage(detail: unknown, fallback: string): string {
   return fallback;
 }
 
-async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = TIMEOUT_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...init, signal: controller.signal });
   } catch {
@@ -157,11 +165,15 @@ function send(path: string, opts: RequestOptions, withAuth: boolean): Promise<Re
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(opts.body);
   }
-  return fetchWithTimeout(`${API_URL}${path}${buildQuery(opts.query)}`, {
-    method: opts.method ?? (body ? "POST" : "GET"),
-    headers,
-    body,
-  });
+  return fetchWithTimeout(
+    `${API_URL}${path}${buildQuery(opts.query)}`,
+    {
+      method: opts.method ?? (body ? "POST" : "GET"),
+      headers,
+      body,
+    },
+    opts.form || opts.file ? FILE_TIMEOUT_MS : TIMEOUT_MS,
+  );
 }
 
 function isRead(opts: RequestOptions): boolean {
@@ -205,7 +217,7 @@ export function errorText(err: unknown): string {
 
 /** A protected file (an invoice, an Excel template) as bytes, with the session's token. */
 export async function apiFile(path: string, query?: Query): Promise<ArrayBuffer> {
-  const res = await request(path, { query });
+  const res = await request(path, { query, file: true });
   if (!res.ok) {
     const data = await res.json().catch(() => null);
     throw new ApiError(res.status, errorMessage(data?.detail, `Ошибка ${res.status}`), data);

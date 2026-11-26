@@ -33,3 +33,14 @@ def test_browser_errors_are_logged_and_capped(client, caplog):
 
     assert client.post("/api/client-errors", json={"message": "x" * 2000}).status_code == 422
     assert client.post("/api/client-errors", json={"message": ""}).status_code == 422
+
+
+def test_a_browser_error_is_one_log_line(client, caplog):
+    """A visitor's line breaks can't forge log lines of their own."""
+    from app.routers import meta
+
+    meta.client_errors.clear()
+    body = {"message": "boom\nINFO fake: admin logged in", "stack": "at a\nat b", "url": "/x\n/y"}
+    assert client.post("/api/client-errors", json=body).status_code == 204
+    (line,) = [r.getMessage() for r in caplog.records if "Browser error" in r.getMessage()]
+    assert "\n" not in line and "boom ⏎ INFO fake" in line

@@ -11,6 +11,7 @@ import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
 import { CONTACTS, YOUTUBE, whatsappLink } from "@/lib/contacts";
 import { dayMonth, percentOff, plural } from "@/lib/format";
 import { useRecentlyViewed } from "@/lib/recent";
+import { photo } from "@/lib/images";
 import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -158,12 +159,12 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
     return (
       <Link href={href} className="relative block aspect-[3/2] overflow-hidden rounded-lg bg-deep">
         <img
-          src={p.image_url}
+          {...photo(p.image_url, 64)}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
         />
-        <img src={p.image_url} alt={p.title} className="absolute inset-0 h-full w-full object-contain" />
+        <img {...photo(p.image_url, "(min-width: 768px) 25vw, (min-width: 640px) 31vw, 44vw")} alt={p.title} className="absolute inset-0 h-full w-full object-contain" />
       </Link>
     );
   }
@@ -174,7 +175,7 @@ function PromotionCard({ promotion: p }: { promotion: PromotionPublic }) {
     >
       {p.image_url && (
         <img
-          src={p.image_url}
+          {...photo(p.image_url, "(min-width: 768px) 25vw, (min-width: 640px) 31vw, 44vw")}
           alt=""
           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
@@ -312,7 +313,7 @@ function EntryTile({
           className="absolute right-0 bottom-0 h-[64%] w-[70%] overflow-hidden"
         >
           <img
-            src={image}
+            {...photo(image, "(min-width: 768px) 15vw, 30vw")}
             alt=""
             className="h-full w-full object-contain object-right-bottom mix-blend-multiply transition group-hover:scale-105"
           />
@@ -487,7 +488,7 @@ function BudgetTile({ label, value, query, dark }: (typeof BUDGETS)[number]) {
       </span>
       {image && (
         <span className={`absolute -right-1 -bottom-1 h-16 w-16 md:h-24 md:w-24 ${dark ? "overflow-hidden rounded-tl-xl bg-white" : ""}`}>
-          <img src={image} alt="" className={`h-full w-full object-contain ${dark ? "" : "mix-blend-multiply"}`} />
+          <img {...photo(image, 96)} alt="" className={`h-full w-full object-contain ${dark ? "" : "mix-blend-multiply"}`} />
         </span>
       )}
     </Link>

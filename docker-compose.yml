@@ -45,6 +45,7 @@ services:
         NEXT_PUBLIC_YM_ID: ${YM_ID:-}
         NEXT_PUBLIC_GA_ID: ${GA_ID:-}
         SITE_URL: ${SITE_URL:-}
+        R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
     depends_on:
       - backend
     ports:

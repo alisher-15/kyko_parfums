@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ErrorBox, Spinner } from "@/components/ui";
 import { categoryHref, childrenOf, pathOf } from "@/lib/categories";
 import { plural } from "@/lib/format";
+import { photo } from "@/lib/images";
 import type { Category } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
@@ -84,7 +85,7 @@ function CategoryCard({ category: c, href }: { category: Category; href: string 
       {c.image_url ? (
         // White photo backgrounds melt into the card, as on Kaspi.
         <img
-          src={c.image_url}
+          {...photo(c.image_url, "(min-width: 640px) 20vw, 40vw")}
           alt=""
           className="absolute right-0 bottom-0 h-[68%] w-[78%] object-contain object-right-bottom mix-blend-multiply transition group-hover:scale-105"
         />

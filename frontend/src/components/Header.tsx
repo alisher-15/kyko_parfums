@@ -9,6 +9,7 @@ import { CurrencySwitch } from "@/lib/currency";
 import { ROLE_LABELS } from "@/lib/format";
 import { isStaff, staffHome } from "@/lib/staff";
 import { BagIcon, CloseIcon, MenuIcon, SearchIcon, UserIcon } from "./icons";
+import { photo } from "@/lib/images";
 
 const NAV = [
   { href: "/catalog", label: "Каталог" },
@@ -59,7 +60,7 @@ export function Header() {
 
         <Link href="/" className="shrink-0" aria-label="Kyko">
           {/* KYKO, the O a pearl (the brand file «Каждая — жемчужина»). */}
-          <img src="/logo-pearl-light.png" alt="Kyko" width={105} height={28} className="h-7 w-auto" />
+          <img {...photo("/logo-pearl-light.png", 105)} alt="Kyko" width={105} height={28} className="h-7 w-auto" />
         </Link>
 
         <nav className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">

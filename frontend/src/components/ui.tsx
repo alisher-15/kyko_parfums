@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { STATUS_COLORS, STATUS_LABELS } from "@/lib/format";
+import { photo } from "@/lib/images";
 import type { OrderStatus } from "@/lib/types";
 import { DropIcon } from "./icons";
 
@@ -20,18 +21,25 @@ export function ProductImage({
   alt,
   seed,
   className = "",
+  sizes = "(min-width: 768px) 30vw, 50vw",
+  eager = false,
 }: {
   src: string | null | undefined;
   alt: string;
   seed: number;
   className?: string;
+  /** How wide the photo is shown (a CSS sizes list or a fixed width), so the right size loads. */
+  sizes?: string | number;
+  /** The page's main photo: loaded at once, not when scrolled to. */
+  eager?: boolean;
 }) {
   if (src) {
     return (
       <img
-        src={src}
+        {...photo(src, sizes)}
         alt={alt}
-        loading="lazy"
+        loading={eager ? "eager" : "lazy"}
+        fetchPriority={eager ? "high" : undefined}
         decoding="async"
         className={`h-full w-full object-contain ${className}`}
       />

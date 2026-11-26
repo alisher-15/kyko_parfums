@@ -7,7 +7,7 @@ import type { AdminProduct, BrandBrief, CreativeOut, Page } from "@/lib/types";
 import { useApi } from "@/lib/use-api";
 
 export type CreativeFormat = "banner" | "story";
-export type CreativeTheme = "dark" | "light" | "gold";
+export type CreativeTheme = "jewel" | "dark" | "light" | "gold";
 type Chosen = { id: number; name: string; type: string | null; brand: BrandBrief };
 
 export interface CreativeDraft {
@@ -25,6 +25,7 @@ const FORMATS: { value: CreativeFormat; label: string; hint: string }[] = [
   { value: "story", label: "Сторис 1080×1920", hint: "Instagram, WhatsApp-статус" },
 ];
 const THEMES: { value: CreativeTheme; label: string; swatch: string }[] = [
+  { value: "jewel", label: "Шкатулка", swatch: "#5c1020" },
   { value: "dark", label: "Тёмный", swatch: "#1c1917" },
   { value: "light", label: "Светлый", swatch: "#faf8f5" },
   { value: "gold", label: "Золотой", swatch: "#f3ebe1" },
@@ -48,7 +49,7 @@ export function CreativeMaker({
 }) {
   const [draft, setDraft] = useState<CreativeDraft>({
     format: "banner",
-    theme: "dark",
+    theme: "jewel",
     title: "",
     subtitle: "",
     badge: "",

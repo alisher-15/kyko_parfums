@@ -6,8 +6,10 @@ chosen products' photos on the picture. The photos are the catalog's own (normal
 white), so a bottle on a banner is always the real one.
 
 Two formats: a banner 1200×800 (3:2, the home page's promotion card) and a story 1080×1920 (9:16).
-Three themes: dark (ink, the bottles on a white stage), light (cream) and gold (soft gold); on the
-light themes a bottle's white background melts into the picture (multiply).
+Four themes: jewel («Шкатулка», the shop's style: velvet into cherry, the title in Cormorant
+italic, KYKO with a pearl, the bottles on a studio backdrop), dark (ink, the bottles on a white
+stage), light (cream) and gold (soft gold); on the light themes and the studio backdrop a bottle's
+white background melts into the picture (multiply).
 """
 
 import io
@@ -20,20 +22,21 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont
 
 from app.config import BASE_DIR, get_settings
 from app.services import bottles, storage
 from app.services.images import object_box, open_image
 
 Format = Literal["banner", "story"]
-Theme = Literal["dark", "light", "gold"]
+Theme = Literal["jewel", "dark", "light", "gold"]
 
 SIZES: dict[str, tuple[int, int]] = {"banner": (1200, 800), "story": (1080, 1920)}
 MAX_PRODUCTS = 3
 
 FONTS = BASE_DIR / "app" / "assets" / "fonts"
 SERIF = FONTS / "CormorantGaramond_700Bold.ttf"
+SERIF_ITALIC = FONTS / "CormorantGaramond_500Medium_Italic.ttf"
 SANS = FONTS / "Manrope_500Medium.ttf"
 SANS_BOLD = FONTS / "Manrope_700Bold.ttf"
 
@@ -44,6 +47,14 @@ GOLD_SOFT = (243, 235, 225)
 WHITE = (255, 255, 255)
 MUTED = (120, 113, 108)
 STONE = (214, 211, 209)
+# «Шкатулка»: velvet, cherry, a lighter cherry, pearl, mother-of-pearl.
+VELVET = (42, 7, 14)
+CHERRY = (92, 16, 32)
+CHERRY_LIGHT = (122, 33, 54)
+PEARL = (244, 237, 228)
+NACRE = (233, 201, 190)
+NACRE_MUTED = (224, 188, 194)
+STUDIO = (241, 223, 217)
 
 
 @dataclass(frozen=True)
@@ -54,9 +65,17 @@ class Palette:
     accent: tuple[int, int, int]
     # The dark theme sets the bottles on a white stage; the light ones blend them in.
     stage: tuple[int, int, int] | None
+    pill_text: tuple[int, int, int] = WHITE
+    title_font: Path = SERIF
+    # «Шкатулка»: the background runs from velvet into cherry, KYKO's O is a pearl, and the
+    # bottles stand on a studio backdrop (white into mother-of-pearl) that they melt into.
+    jewel: bool = False
 
 
 PALETTES: dict[str, Palette] = {
+    "jewel": Palette(
+        VELVET, PEARL, NACRE_MUTED, NACRE, None, CHERRY, title_font=SERIF_ITALIC, jewel=True
+    ),
     "dark": Palette(INK, WHITE, STONE, GOLD, WHITE),
     "light": Palette(CREAM, INK, MUTED, GOLD, None),
     "gold": Palette(GOLD_SOFT, INK, MUTED, GOLD, None),
@@ -173,17 +192,66 @@ def _pill(draw: ImageDraw.ImageDraw, x: int, y: int, text: str, size: int, palet
     pad_x, pad_y = round(size * 0.6), round(size * 0.3)
     w = round(_width(text, SANS_BOLD, size)) + 2 * pad_x
     h = round(size * 1.25) + 2 * pad_y
-    draw.rounded_rectangle((x, y, x + w, y + h), radius=h // 2, fill=palette.accent)
-    _draw(draw, (x + pad_x, y + pad_y), text, SANS_BOLD, size, WHITE)
+    radius = h // 2 if not palette.jewel else round(size * 0.15)
+    draw.rounded_rectangle((x, y, x + w, y + h), radius=radius, fill=palette.accent)
+    _draw(draw, (x + pad_x, y + pad_y), text, SANS_BOLD, size, palette.pill_text)
     return x + w
 
 
-def _eyebrow(draw: ImageDraw.ImageDraw, x: int, y: int, size: int, palette: Palette) -> None:
-    # Letter-spaced brand line, as the storefront's eyebrows.
+def _pearl(canvas: Image.Image, cx: float, cy: float, r: float) -> None:
+    """The brand's pearl: a warm rim into mother-of-pearl into a white highlight at the top
+    left, drawn as rings at four times the size and scaled down so its edge is smooth."""
+    k = 4
+    d = max(2, round(2 * r * k))
+    pearl = Image.new("RGB", (d, d), NACRE)
+    draw = ImageDraw.Draw(pearl)
+    rim, mid, light = (214, 180, 167), (243, 230, 222), (255, 255, 255)
+    steps = max(8, d // 4)
+    for i in range(steps):
+        t = i / (steps - 1)
+        a, b, u = (rim, mid, t / 0.6) if t < 0.6 else (mid, light, (t - 0.6) / 0.4)
+        color = tuple(round(a[j] + (b[j] - a[j]) * u) for j in range(3))
+        rr = d / 2 * (1 - t * 0.92)
+        # The rings drift towards the highlight as they shrink.
+        ox, oy = d / 2 - (d * 0.16) * t, d / 2 - (d * 0.2) * t
+        draw.ellipse((ox - rr, oy - rr, ox + rr, oy + rr), fill=color)
+    mask = Image.new("L", (d, d), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, d - 1, d - 1), fill=255)
+    size = round(2 * r)
+    pearl = pearl.resize((size, size), Image.Resampling.LANCZOS)
+    mask = mask.resize((size, size), Image.Resampling.LANCZOS)
+    canvas.paste(pearl, (round(cx - r), round(cy - r)), mask)
+
+
+def _eyebrow(
+    draw: ImageDraw.ImageDraw, x: int, y: int, size: int, palette: Palette, canvas: Image.Image
+) -> None:
+    # Letter-spaced brand line, as the storefront's eyebrows; on «Шкатулка» the O is a pearl.
     font = _font(SANS_BOLD, size)
     for ch in "KYKO":
+        if ch == "O" and palette.jewel:
+            r = size * 0.42
+            _pearl(canvas, x + r, y + size * 0.62, r)
+            break
         draw.text((x, y), ch, font=font, fill=palette.accent)
         x += font.getlength(ch) + size * 0.35
+
+
+def _canvas(size: tuple[int, int], pal: Palette) -> Image.Image:
+    """The picture's ground: one colour, or on «Шкатулка» velvet into cherry from the top left,
+    with a soft glow of lighter cherry at the right."""
+    if not pal.jewel:
+        return Image.new("RGB", size, pal.background)
+    W, H = size
+    # A diagonal ramp: the mean of a top-to-bottom and a left-to-right one (no rotated edges).
+    down = Image.linear_gradient("L").resize((W, H))
+    across = Image.linear_gradient("L").rotate(90).transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    ramp = Image.blend(down, across.resize((W, H)), 0.5)
+    im = Image.composite(Image.new("RGB", size, CHERRY), Image.new("RGB", size, VELVET), ramp)
+    glow = Image.new("L", size, 0)
+    ImageDraw.Draw(glow).ellipse((W * 0.45, -H * 0.3, W * 1.35, H * 0.9), fill=110)
+    glow = glow.filter(ImageFilter.GaussianBlur(min(W, H) // 5))
+    return Image.composite(Image.new("RGB", size, CHERRY_LIGHT), im, glow)
 
 
 # ---------- Product photos ----------
@@ -320,6 +388,23 @@ def _stage(
     placed = _layout(photos, area)
     if not placed:
         return
+    if pal.jewel:
+        # The studio backdrop: white into mother-of-pearl, the bottles melted into it.
+        top = min(y for _, _, y in placed)
+        x0, _, x1, y1 = area
+        box = (x0 - pad, top - pad, x1 + pad, y1 + pad)
+        w, h = box[2] - box[0], box[3] - box[1]
+        paper = Image.composite(
+            Image.new("RGB", (w, h), STUDIO),
+            Image.new("RGB", (w, h), WHITE),
+            Image.linear_gradient("L").resize((w, h)),
+        )
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=255)
+        canvas.paste(paper, box[:2], mask)
+        for im, x, y in placed:
+            _paste(canvas, im, x, y, blend=True)
+        return
     if pal.stage:
         top = min(y for _, _, y in placed)
         x0, _, x1, y1 = area
@@ -336,7 +421,7 @@ def _stage(
 def _banner(spec: Spec, photos: list[Image.Image]) -> Image.Image:
     W, H = SIZES["banner"]
     pal = PALETTES[spec.theme]
-    im = Image.new("RGB", (W, H), pal.background)
+    im = _canvas((W, H), pal)
     d = ImageDraw.Draw(im)
     m = 64
     text_w = 540 if photos else W - 2 * m
@@ -344,10 +429,10 @@ def _banner(spec: Spec, photos: list[Image.Image]) -> Image.Image:
     if photos:
         _stage(im, photos, (668, m + 28, W - m - 28, H - m - 28), pal, pad=28, radius=36)
 
-    _eyebrow(d, m, m, 22, pal)
+    _eyebrow(d, m, m, 22, pal, im)
     y = m + 64
-    size, lines = _fit(spec.title, SERIF, text_w, range(92, 47, -4), 3)
-    y = _block(d, m, y, lines, SERIF, size, pal.title, 1.02) + 16
+    size, lines = _fit(spec.title, pal.title_font, text_w, range(92, 47, -4), 3)
+    y = _block(d, m, y, lines, pal.title_font, size, pal.title, 1.02) + 16
     if spec.subtitle:
         sub_size, sub = _fit(spec.subtitle, SANS, text_w, range(30, 21, -2), 3)
         _block(d, m, y, sub, SANS, sub_size, pal.text, 1.35)
@@ -367,17 +452,17 @@ def _banner(spec: Spec, photos: list[Image.Image]) -> Image.Image:
 def _story(spec: Spec, photos: list[Image.Image]) -> Image.Image:
     W, H = SIZES["story"]
     pal = PALETTES[spec.theme]
-    im = Image.new("RGB", (W, H), pal.background)
+    im = _canvas((W, H), pal)
     d = ImageDraw.Draw(im)
     m = 80
     text_w = W - 2 * m
 
     # Without bottles the text stands in the middle of the picture, not at its top.
     top = 150 if photos else 560
-    _eyebrow(d, m, top, 30, pal)
+    _eyebrow(d, m, top, 30, pal, im)
     y = top + 100
-    size, lines = _fit(spec.title, SERIF, text_w, range(132, 71, -4), 4)
-    y = _block(d, m, y, lines, SERIF, size, pal.title, 1.0) + 24
+    size, lines = _fit(spec.title, pal.title_font, text_w, range(132, 71, -4), 4)
+    y = _block(d, m, y, lines, pal.title_font, size, pal.title, 1.0) + 24
     if spec.subtitle:
         sub_size, sub = _fit(spec.subtitle, SANS, text_w, range(42, 29, -2), 4)
         y = _block(d, m, y, sub, SANS, sub_size, pal.text, 1.35)

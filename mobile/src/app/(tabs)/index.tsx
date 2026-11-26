@@ -24,11 +24,11 @@ import type { Brand, PromotionPublic } from "@/lib/types";
 import { colors } from "@/theme";
 
 // The home screen, as the website's blocks (frontend/src/app/page.tsx) set in a jewel box: the
-// velvet stage with the pearl, then the blocks of components/home.tsx and components/jewel.tsx.
+// compact velvet stage with the search, then the blocks of components/home.tsx and components/jewel.tsx.
 // A light bar with the logo and the search slides in once the stage has scrolled away.
 
 /** How far the page scrolls before the light bar shows. */
-const BAR_FROM = 260;
+const BAR_FROM = 130;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();

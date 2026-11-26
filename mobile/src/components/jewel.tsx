@@ -1,26 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  AccessibilityInfo,
-  Animated,
-  Easing,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import type { ReactNode } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { plural } from "@/lib/format";
 import { useApi, type ProductFilters } from "@/lib/queries";
 import type { Page, ProductListItem } from "@/lib/types";
 import { colors, fonts, radius, space, type } from "@/theme";
-import { Eyebrow, Pearl, Title } from "./ui";
+import { Eyebrow, Title } from "./ui";
 
-// «Шкатулка» (the jewel box): the home page opens on a velvet stage with the brand's pearl, the
+// «Шкатулка» (the jewel box): the home page opens on a compact velvet stage with the search, the
 // scent families as colored cards, and the catalog as a magazine's contents.
 
 type Params = Record<string, string | number>;
@@ -29,71 +19,18 @@ function openCollection(title: string, params: Params) {
   router.push({ pathname: "/collection", params: { ...params, title } });
 }
 
-/** A pearl that floats slowly up and down; still when the phone asks for less motion. */
-export function FloatingPearl({ size }: { size: number }) {
-  const [y] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    let loop: Animated.CompositeAnimation | null = null;
-    let cancelled = false;
-    void AccessibilityInfo.isReduceMotionEnabled().then((reduce) => {
-      if (reduce || cancelled) return;
-      loop = Animated.loop(
-        Animated.sequence([
-          Animated.timing(y, {
-            toValue: -10,
-            duration: 2600,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-          Animated.timing(y, {
-            toValue: 0,
-            duration: 2600,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-      loop.start();
-    });
-    return () => {
-      cancelled = true;
-      loop?.stop();
-    };
-  }, [y]);
-  return (
-    <Animated.View style={{ transform: [{ translateY: y }] }}>
-      {/* A soft halo of mother-of-pearl around it. */}
-      <View
-        style={[
-          styles.halo,
-          { width: size * 1.9, height: size * 1.9, borderRadius: size, margin: -size * 0.45 },
-        ]}
-      />
-      <Pearl size={size} />
-    </Animated.View>
-  );
-}
-
 /**
- * The stage: velvet into cherry, the floating pearl, the brand line and the search. `top`: the
- * status bar's room, painted by the stage. `header`: the logo row drawn over it.
+ * The stage: a compact velvet-into-cherry band with the light logo and the search (what the
+ * shop promises is said right below, in the trust line). `top`: the status bar's room, painted by the stage. `header`: the logo row.
  */
 export function Stage({ top, header }: { top: number; header: ReactNode }) {
-  const { height } = useWindowDimensions();
   return (
     <LinearGradient
       colors={[colors.deep, colors.velvet, "#7a2136"]}
-      locations={[0, 0.62, 1]}
-      style={[styles.stage, { paddingTop: top + 6, minHeight: Math.max(440, height * 0.6) }]}
+      locations={[0, 0.7, 1]}
+      style={[styles.stage, { paddingTop: top + 6 }]}
     >
       {header}
-      <View style={styles.stageBody}>
-        <FloatingPearl size={84} />
-        <Text style={styles.stageLine} accessibilityRole="header">
-          Каждая —{"\n"}жемчужина
-        </Text>
-        <Text style={styles.stageSub}>Оригинальная парфюмерия · доставка по Казахстану</Text>
-      </View>
       <Pressable
         accessibilityRole="search"
         testID="home-search"
@@ -251,32 +188,11 @@ export function CatalogIndex() {
 const styles = StyleSheet.create({
   stage: {
     paddingHorizontal: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 20,
+    gap: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: "hidden",
-  },
-  stageBody: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 18,
-    paddingVertical: 24,
-  },
-  halo: { position: "absolute", backgroundColor: "rgba(233,201,190,0.10)" },
-  stageLine: {
-    fontFamily: fonts.serifItalic,
-    fontSize: 46,
-    lineHeight: 48,
-    color: colors.pearl,
-    textAlign: "center",
-  },
-  stageSub: {
-    ...type.label,
-    fontSize: 10,
-    letterSpacing: 1.6,
-    color: colors.onVelvetMuted,
-    textAlign: "center",
   },
   stageSearch: {
     flexDirection: "row",

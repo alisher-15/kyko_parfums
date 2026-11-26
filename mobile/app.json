@@ -17,7 +17,7 @@
     "android": {
       "package": "kz.kyko.parfums",
       "adaptiveIcon": {
-        "backgroundColor": "#1c1917",
+        "backgroundColor": "#5c1020",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -38,15 +38,15 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "imageWidth": 160,
-          "backgroundColor": "#faf8f5"
+          "imageWidth": 220,
+          "backgroundColor": "#5c1020"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/android-icon-monochrome.png",
-          "color": "#8c6945",
+          "color": "#5c1020",
           "defaultChannel": "orders"
         }
       ],

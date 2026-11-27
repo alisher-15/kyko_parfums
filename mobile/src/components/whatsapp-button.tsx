@@ -1,9 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { GlassView } from "expo-glass-effect";
 import { usePathname } from "expo-router";
 import { Linking, Pressable, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { whatsappAbout } from "@/lib/contacts";
 import { siteUrl } from "@/lib/config";
+import { useGlass } from "./glass";
 
 // The shop's browsing screens only. Elsewhere it covered content (the account's menu rows, an
 // order's history, forms); the account has a WhatsApp row and an order its «Написать о заказе».
@@ -25,6 +27,7 @@ const CART_BAR = 76;
 export function WhatsAppButton() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
+  const glass = useGlass();
   if (!SHOWN.includes(pathname) && !SHOWN_UNDER.some((p) => pathname.startsWith(p))) return null;
   const product = pathname.startsWith("/product/");
   const bottom =
@@ -41,8 +44,15 @@ export function WhatsAppButton() {
       accessibilityLabel="Написать в WhatsApp"
       testID="whatsapp-button"
       onPress={() => void Linking.openURL(whatsappAbout(text))}
-      style={({ pressed }) => [styles.button, { bottom }, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [
+        styles.button,
+        glass && styles.glass,
+        { bottom },
+        pressed && !glass && { opacity: 0.85 },
+      ]}
     >
+      {/* iOS 26: a drop of Liquid Glass that answers the touch itself. */}
+      {glass && <GlassView isInteractive style={StyleSheet.absoluteFill} />}
       <Ionicons name="logo-whatsapp" size={26} color="#1fa855" />
     </Pressable>
   );
@@ -67,5 +77,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
+  },
+  glass: {
+    backgroundColor: "transparent",
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+    overflow: "hidden",
   },
 });

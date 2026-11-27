@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
+import { NativeTabs } from "expo-router/native-tabs";
 import type { ComponentProps } from "react";
-import type { ColorValue } from "react-native";
+import { Platform, type ColorValue } from "react-native";
 import { JewelTabBar } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth";
 import { useCart } from "@/lib/cart";
@@ -26,10 +27,69 @@ function icon(active: IconName, idle: IconName) {
   return TabIcon;
 }
 
+/**
+ * iOS: the system's own tab bar (UITabBarController), Liquid Glass on iOS 26, shrinking as the
+ * page scrolls down. The tabs' screens scroll under it and leave its room free themselves
+ * (`useTabBarInset`), so the system's automatic insets are off.
+ */
+function SystemTabs({
+  cart,
+  favorites,
+  staff,
+}: {
+  cart: number;
+  favorites: number;
+  staff: boolean;
+}) {
+  return (
+    <NativeTabs tintColor={colors.gold} minimizeBehavior="onScrollDown">
+      <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
+        <NativeTabs.Trigger.Label>Главная</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="catalog" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" />
+        <NativeTabs.Trigger.Label>Каталог</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="favorites" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: "heart", selected: "heart.fill" }} />
+        <NativeTabs.Trigger.Label>Избранное</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Badge hidden={!favorites}>{String(favorites)}</NativeTabs.Trigger.Badge>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="cart" disableAutomaticContentInsets testID="tab-cart">
+        <NativeTabs.Trigger.Icon sf={{ default: "bag", selected: "bag.fill" }} />
+        <NativeTabs.Trigger.Label>Корзина</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Badge hidden={!cart}>
+          {cart > 99 ? "99+" : String(cart)}
+        </NativeTabs.Trigger.Badge>
+      </NativeTabs.Trigger>
+      {/* Staff only: owner, cashier, warehouse (lib/staff.ts). */}
+      <NativeTabs.Trigger
+        name="admin"
+        hidden={!staff}
+        disableAutomaticContentInsets
+        testID="tab-admin"
+      >
+        <NativeTabs.Trigger.Icon sf={{ default: "briefcase", selected: "briefcase.fill" }} />
+        <NativeTabs.Trigger.Label>Админка</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="account" disableAutomaticContentInsets>
+        <NativeTabs.Trigger.Icon sf={{ default: "person", selected: "person.fill" }} />
+        <NativeTabs.Trigger.Label>Профиль</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
+  );
+}
+
 export default function TabsLayout() {
   const { count } = useCart();
   const { user } = useAuth();
   const favorites = useFavorites();
+  if (Platform.OS === "ios") {
+    return <SystemTabs cart={count} favorites={favorites.ids.length} staff={isStaff(user?.role)} />;
+  }
+  // Android and the web: the velvet pill (components/tab-bar.tsx). Each tab's header comes from
+  // its own stack (components/tab-stack.tsx), as on iOS.
   return (
     <Tabs
       tabBar={(props) => <JewelTabBar {...props} />}
@@ -50,6 +110,7 @@ export default function TabsLayout() {
         headerTitleStyle: { fontFamily: fonts.serif, fontSize: 26 },
         headerTitleAlign: "left",
         sceneStyle: { backgroundColor: colors.cream },
+        headerShown: false,
       }}
     >
       <Tabs.Screen

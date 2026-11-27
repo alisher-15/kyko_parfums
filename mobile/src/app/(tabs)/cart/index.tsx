@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Link, router } from "expo-router";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useTabBarInset } from "@/components/tab-stack";
 import { ProductImage, QuantityStepper } from "@/components/product";
 import { QuoteHints, TengeNote } from "@/components/shop";
 import { Button, Card, EmptyState, Eyebrow, Loader, Muted, Notice, Txt } from "@/components/ui";
@@ -11,6 +12,7 @@ import { useQuote } from "@/lib/queries";
 import { colors, fonts, radius } from "@/theme";
 
 export default function CartScreen() {
+  const tabInset = useTabBarInset();
   const { items, setQuantity, remove, ready } = useCart();
   const quote = useQuote(items);
   const { money } = useCurrency();
@@ -161,7 +163,7 @@ export default function CartScreen() {
         </Card>
       </ScrollView>
 
-      <View style={styles.bar}>
+      <View style={[styles.bar, { marginBottom: tabInset }]}>
         {/* Guests order too (retail prices), as on the website; the checkout offers to log in. */}
         <Button
           testID="checkout"

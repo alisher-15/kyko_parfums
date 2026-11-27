@@ -9,6 +9,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
+import { useTabBarInset } from "@/components/tab-stack";
 import { CurrencySwitch } from "@/components/shop";
 import { Button, Card, Divider, Eyebrow, MenuRow, Muted, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +24,7 @@ import type { PricingRules, User } from "@/lib/types";
 import { colors, fonts, radius } from "@/theme";
 
 export default function AccountScreen() {
+  const tabInset = useTabBarInset();
   const { user, logout, reload } = useAuth();
   const guestOrders = useGuestOrders();
   const { rate } = useCurrency();
@@ -40,7 +42,8 @@ export default function AccountScreen() {
 
   return (
     <ScrollView
-      contentContainerStyle={{ padding: 16, gap: 16 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 16 + tabInset, gap: 16 }}
+      scrollIndicatorInsets={{ bottom: tabInset }}
       refreshControl={
         user ? (
           <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.gold} />

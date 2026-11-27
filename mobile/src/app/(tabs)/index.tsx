@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useQueryClient } from "@tanstack/react-query";
+import { GlassView } from "expo-glass-effect";
 import { Image } from "expo-image";
 import { useIsFocused } from "expo-router";
 import { setStatusBarStyle } from "expo-status-bar";
@@ -18,6 +19,8 @@ import {
   TrustRow,
   Wholesale,
 } from "@/components/home";
+import { useTabBarInset } from "@/components/tab-stack";
+import { useGlass } from "@/components/glass";
 import { Stage, searchCatalog } from "@/components/jewel";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { useApi } from "@/lib/queries";
@@ -33,6 +36,8 @@ const BAR_FROM = 130;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const glass = useGlass();
+  const tabInset = useTabBarInset();
   const promotions = useApi<PromotionPublic[]>("/promotions");
   const brands = useApi<Brand[]>("/brands");
   const queryClient = useQueryClient();
@@ -72,7 +77,8 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <Animated.ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 40 + tabInset }}
+        scrollIndicatorInsets={{ bottom: tabInset }}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,
@@ -126,8 +132,14 @@ export default function HomeScreen() {
       {/* The light bar: the dark logo and a way to search, once the stage is gone. */}
       <Animated.View
         pointerEvents={onStage ? "none" : "auto"}
-        style={[styles.bar, { paddingTop: insets.top + 6, opacity: barOpacity }]}
+        style={[
+          styles.bar,
+          glass && styles.glassBar,
+          { paddingTop: insets.top + 6, opacity: barOpacity },
+        ]}
       >
+        {/* iOS 26: the page shows through a band of Liquid Glass. */}
+        {glass && <GlassView colorScheme="light" style={StyleSheet.absoluteFill} />}
         <View style={styles.side}>
           <Pressable
             accessibilityRole="search"
@@ -174,4 +186,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
   },
+  glassBar: { backgroundColor: "transparent", borderBottomWidth: 0 },
 });

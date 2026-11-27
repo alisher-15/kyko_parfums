@@ -19,7 +19,8 @@ import {
   TrustRow,
   Wholesale,
 } from "@/components/home";
-import { useGlass, useTabBarSpace } from "@/components/glass";
+import { useTabBarInset } from "@/components/tab-stack";
+import { useGlass } from "@/components/glass";
 import { Stage, searchCatalog } from "@/components/jewel";
 import { CurrencySwitch, PromotionRail } from "@/components/shop";
 import { useApi } from "@/lib/queries";
@@ -35,8 +36,8 @@ const BAR_FROM = 130;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const space = useTabBarSpace();
   const glass = useGlass();
+  const tabInset = useTabBarInset();
   const promotions = useApi<PromotionPublic[]>("/promotions");
   const brands = useApi<Brand[]>("/brands");
   const queryClient = useQueryClient();
@@ -76,8 +77,8 @@ export default function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: colors.cream }}>
       <Animated.ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 40 + space }}
-        scrollIndicatorInsets={{ bottom: space }}
+        contentContainerStyle={{ paddingBottom: 40 + tabInset }}
+        scrollIndicatorInsets={{ bottom: tabInset }}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,

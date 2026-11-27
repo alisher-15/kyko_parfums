@@ -2,7 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { useEffect } from "react";
 import { FlatList, useWindowDimensions } from "react-native";
-import { useTabBarSpace } from "@/components/glass";
+import { useTabBarInset } from "@/components/tab-stack";
 import { ProductCard } from "@/components/product";
 import { Button, EmptyState, Loader } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
@@ -12,7 +12,7 @@ import type { ProductDetail } from "@/lib/types";
 
 /** Products marked with a heart, with today's prices for this customer. */
 export default function FavoritesScreen() {
-  const space = useTabBarSpace();
+  const tabInset = useTabBarInset();
   const { ids, remove } = useFavorites();
   const { ready } = useAuth();
   const { width } = useWindowDimensions();
@@ -58,8 +58,8 @@ export default function FavoritesScreen() {
       numColumns={columns}
       keyExtractor={(p) => String(p.id)}
       columnWrapperStyle={{ gap: 12 }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 16 + space, gap: 12 }}
-      scrollIndicatorInsets={{ bottom: space }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 16 + tabInset, gap: 12 }}
+      scrollIndicatorInsets={{ bottom: tabInset }}
       renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
       ListFooterComponent={loading ? <Loader /> : undefined}
     />

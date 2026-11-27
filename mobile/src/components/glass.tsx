@@ -1,10 +1,11 @@
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { AccessibilityInfo, Platform } from "react-native";
 
-// iOS 26's Liquid Glass for the app's floating chrome (the tab bar, the WhatsApp button, the
-// home screen's bar). Everywhere else (Android, the web build, older iOS, «Reduce
-// Transparency» on) the same pieces keep their solid look.
+// iOS 26's Liquid Glass for the app's own floating pieces (the WhatsApp button, the home
+// screen's bar), drawn by the system's UIGlassEffect through expo-glass-effect. The tab bar and
+// the headers are the system's own on iOS and get the glass by themselves. Everywhere else
+// (Android, the web build, older iOS, «Reduce Transparency» on) these pieces stay solid.
 
 /** The device can draw Liquid Glass: iOS 26+, with the API really there (not every beta has it). */
 const CAN_GLASS = Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();
@@ -35,14 +36,4 @@ export function useGlass(): boolean {
     () => false,
   );
   return CAN_GLASS && !reduced;
-}
-
-/**
- * The room the floating glass tab bar takes over the bottom of a tab screen, which its scroll
- * content leaves free (0 where the bar is solid and the screen ends above it).
- */
-export const TabBarSpace = createContext(0);
-
-export function useTabBarSpace(): number {
-  return useContext(TabBarSpace);
 }

@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import { useTabBarSpace } from "./glass";
+import { useTabBarInset } from "./tab-stack";
 import { chipsFor, childrenOf, useCategories } from "@/lib/categories";
 import { useApi, useProducts, type ProductFilters } from "@/lib/queries";
 import { GENDER_LABELS, SORT_LABELS, plural } from "@/lib/format";
@@ -60,7 +60,7 @@ export function CatalogView({
   query?: string;
   focusKey?: string;
 }) {
-  const space = useTabBarSpace();
+  const tabInset = useTabBarInset();
   const { width } = useWindowDimensions();
   const columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
   const cardWidth = (Math.min(width, 1200) - 32 - 12 * (columns - 1)) / columns;
@@ -165,11 +165,11 @@ export function CatalogView({
           contentContainerStyle={{
             padding: 16,
             paddingTop: 4,
-            paddingBottom: 16 + space,
+            paddingBottom: 16 + tabInset,
             gap: 12,
             flexGrow: 1,
           }}
-          scrollIndicatorInsets={{ bottom: space }}
+          scrollIndicatorInsets={{ bottom: tabInset }}
           renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
           onEndReachedThreshold={0.6}
           onEndReached={() => {

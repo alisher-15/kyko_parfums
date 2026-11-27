@@ -40,7 +40,12 @@ export function ProductCard({
         style={{ background: `linear-gradient(#fff 5%, ${STUDIO[product.id % STUDIO.length]})` }}
       >
         <div className={`absolute mix-blend-multiply ${compact ? "inset-3" : "inset-5"}`}>
-          <ProductImage src={product.image_url} alt={product.name} seed={product.id} />
+          <ProductImage
+            src={product.image_url}
+            alt={product.name}
+            seed={product.id}
+            sizes={compact ? "(min-width: 768px) 16vw, (min-width: 640px) 22vw, 30vw" : "(min-width: 768px) 25vw, 50vw"}
+          />
         </div>
         {product.type && !(compact && (product.deal || product.is_new || note || offer)) && (
           <span className={`absolute chip ${compact ? "top-1.5 right-1.5 px-1.5 py-0 text-[10px]" : "top-3 right-3"}`}>

@@ -51,6 +51,7 @@ export default function CartPage() {
                     src={line?.image_url ?? item.imageUrl}
                     alt={item.productName}
                     seed={item.productId}
+                    sizes={96}
                   />
                 </Link>
                 <div className="flex flex-1 flex-col gap-1">

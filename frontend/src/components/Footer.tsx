@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { InstagramIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { CONTACTS } from "@/lib/contacts";
+import { photo } from "@/lib/images";
 
 const CONTACT_ICONS = { whatsapp: WhatsAppIcon, telegram: TelegramIcon, instagram: InstagramIcon };
 const CONTACT_NAMES = { whatsapp: "WhatsApp", telegram: "Telegram", instagram: "Instagram" };
@@ -17,7 +18,7 @@ export function Footer() {
     <footer className="velvet mt-16 text-pearl">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 text-sm text-nacre-muted sm:px-6 md:grid-cols-4">
         <div>
-          <img src="/logo-pearl-light.png" alt="Kyko" width={105} height={28} className="h-7 w-auto" />
+          <img {...photo("/logo-pearl-light.png", 105)} alt="Kyko" width={105} height={28} className="h-7 w-auto" />
           <p className="mt-2 max-w-xs">
             Оригинальная парфюмерия и косметика. Розничные и оптовые продажи.
           </p>

@@ -15,7 +15,10 @@ ARG NEXT_PUBLIC_GA_ID=
 # The site's address for link previews of the pages made at build time (lib/site.ts).
 ARG SITE_URL=
 ARG RENDER_EXTERNAL_URL=
-ENV BACKEND_URL=$BACKEND_URL \
+# Photos on R2 are resized by the site's image optimizer too (next.config.ts).
+ARG R2_PUBLIC_URL=
+ENV R2_PUBLIC_URL=$R2_PUBLIC_URL \
+    BACKEND_URL=$BACKEND_URL \
     SITE_URL=$SITE_URL \
     RENDER_EXTERNAL_URL=$RENDER_EXTERNAL_URL \
     NEXT_PUBLIC_CURRENCY=$NEXT_PUBLIC_CURRENCY \

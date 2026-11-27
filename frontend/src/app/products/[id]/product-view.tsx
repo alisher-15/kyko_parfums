@@ -71,6 +71,8 @@ export function ProductView({ id }: { id: number }) {
               src={variant?.photo_url ?? product.image_url}
               alt={`${product.brand.name} ${product.name}`}
               seed={product.id}
+              sizes="(min-width: 768px) 45vw, 90vw"
+              eager
             />
           </div>
         </div>

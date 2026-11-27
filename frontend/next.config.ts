@@ -38,9 +38,17 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
 ];
 
+// Photos are resized to the screen and sent as WebP by Next's image optimizer (lib/images.ts):
+// our own files, and those in the R2 bucket the backend uploads to (R2_PUBLIC_URL, read at build).
+const r2 = process.env.R2_PUBLIC_URL ? new URL(process.env.R2_PUBLIC_URL.replace(/\/*$/, "/")) : null;
+
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
+  images: {
+    remotePatterns: r2 ? [{ protocol: "https", hostname: r2.hostname, pathname: `${r2.pathname}**` }] : [],
+  },
+  env: { NEXT_PUBLIC_PHOTO_BUCKET: r2 ? r2.href : "" },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

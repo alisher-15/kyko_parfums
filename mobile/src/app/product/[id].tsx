@@ -425,7 +425,7 @@ function Purchase({
                 key={v.id}
                 testID={`volume-${v.id}`}
                 accessibilityRole="radio"
-                accessibilityState={{ checked: on }}
+                aria-checked={on}
                 onPress={() => onSelect(v)}
                 style={[styles.volume, on && styles.volumeOn]}
               >
@@ -514,7 +514,7 @@ function KindButton({
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ checked: active }}
+      aria-checked={active}
       onPress={onPress}
       style={[styles.kind, active && styles.kindOn]}
     >

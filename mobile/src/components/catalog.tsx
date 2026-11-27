@@ -254,7 +254,7 @@ export function CatalogView({
           <Pressable
             key={s}
             accessibilityRole="radio"
-            accessibilityState={{ checked: s === sort }}
+            aria-checked={s === sort}
             onPress={() => {
               setSort(s);
               setSortOpen(false);

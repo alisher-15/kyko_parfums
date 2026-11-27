@@ -63,7 +63,7 @@ export function Header() {
           <img {...photo("/logo-pearl-light.png", 105)} alt="Kyko" width={105} height={28} className="h-7 w-auto" />
         </Link>
 
-        <nav className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">
+        <nav aria-label="Меню магазина" className="ml-6 hidden items-center gap-5 text-sm font-medium lg:flex">
           {NAV.map((n) => (
             <Link key={n.href} href={n.href} className="text-nacre-muted hover:text-white">
               {n.label}
@@ -129,7 +129,7 @@ export function Header() {
               className="w-full rounded-md border border-nacre/40 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-nacre-muted focus:border-nacre"
             />
           </form>
-          <nav className="mt-2 flex flex-col text-sm font-medium">
+          <nav aria-label="Меню" className="mt-2 flex flex-col text-sm font-medium">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className="py-2">
                 {n.label}

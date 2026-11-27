@@ -144,7 +144,12 @@ export function ProductsAdmin() {
       />
       <div className="card mb-4 flex flex-wrap items-center gap-3 p-3">
         <SearchForm key={search} search={search} onSearch={(q) => setFilters({ q })} />
-        <select className="input w-auto" value={brandId} onChange={(e) => setFilters({ brand_id: e.target.value })}>
+        <select
+          className="input w-auto"
+          value={brandId}
+          onChange={(e) => setFilters({ brand_id: e.target.value })}
+          aria-label="Бренд"
+        >
           <option value="">Все бренды</option>
           {brands.data?.map((b) => (
             <option key={b.id} value={b.id}>
@@ -281,7 +286,7 @@ export function ProductsAdmin() {
                       {sectionOf(p) && <div className="text-xs text-muted">{sectionOf(p)}</div>}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                      <span className={`chip ${p.is_active ? "text-emerald-800" : ""}`}>
                         {p.is_active ? "На сайте" : "Скрыт"}
                       </span>
                       {p.is_new && <span className="chip text-gold-dark">Выбор Kyko</span>}
@@ -314,7 +319,9 @@ export function ProductsAdmin() {
             <table className="table-base">
               <thead>
                 <tr>
-                  <th className="w-14"></th>
+                  <th className="w-14">
+                    <span className="sr-only">Фото</span>
+                  </th>
                   <th>Товар</th>
                   <th>Раздел, тип / пол</th>
                   <th>Объёмы и цены (розн. / опт / кр. опт)</th>
@@ -368,7 +375,7 @@ export function ProductsAdmin() {
                     </td>
                     <td>
                       <div className="flex flex-col items-start gap-1">
-                        <span className={`chip ${p.is_active ? "text-emerald-700" : ""}`}>
+                        <span className={`chip ${p.is_active ? "text-emerald-800" : ""}`}>
                           {p.is_active ? "На сайте" : "Скрыт"}
                         </span>
                         {p.is_new && <span className="chip text-gold-dark">Выбор Kyko</span>}

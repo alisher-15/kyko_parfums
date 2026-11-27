@@ -380,7 +380,7 @@ export default function PosPage() {
           </div>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-6 lg:self-start">
+        <aside aria-label="Чек" className="space-y-4 lg:sticky lg:top-6 lg:self-start">
           <CustomerPicker customer={customer} onChange={setCustomer} />
           {!customer && (
             <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-1">

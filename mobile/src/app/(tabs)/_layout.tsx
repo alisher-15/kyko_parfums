@@ -51,12 +51,18 @@ function SystemTabs({
         <NativeTabs.Trigger.Icon sf="magnifyingglass" />
         <NativeTabs.Trigger.Label>Каталог</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="favorites" disableAutomaticContentInsets>
+      {/* The staff shop at the till, not here: no favorites and no cart for them. */}
+      <NativeTabs.Trigger name="favorites" hidden={staff} disableAutomaticContentInsets>
         <NativeTabs.Trigger.Icon sf={{ default: "heart", selected: "heart.fill" }} />
         <NativeTabs.Trigger.Label>Избранное</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Badge hidden={!favorites}>{String(favorites)}</NativeTabs.Trigger.Badge>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="cart" disableAutomaticContentInsets testID="tab-cart">
+      <NativeTabs.Trigger
+        name="cart"
+        hidden={staff}
+        disableAutomaticContentInsets
+        testID="tab-cart"
+      >
         <NativeTabs.Trigger.Icon sf={{ default: "bag", selected: "bag.fill" }} />
         <NativeTabs.Trigger.Label>Корзина</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Badge hidden={!cart}>
@@ -125,6 +131,8 @@ export default function TabsLayout() {
         name="favorites"
         options={{
           title: "Избранное",
+          // The staff shop at the till, not here (lib/shopping.ts).
+          href: isStaff(user?.role) ? null : undefined,
           tabBarIcon: icon("heart", "heart-outline"),
           tabBarBadge: favorites.ids.length || undefined,
         }}
@@ -133,6 +141,7 @@ export default function TabsLayout() {
         name="cart"
         options={{
           title: "Корзина",
+          href: isStaff(user?.role) ? null : undefined,
           tabBarIcon: icon("bag", "bag-outline"),
           tabBarBadge: count ? (count > 99 ? "99+" : count) : undefined,
           tabBarButtonTestID: "tab-cart",

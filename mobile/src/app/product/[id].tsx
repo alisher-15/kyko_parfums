@@ -47,6 +47,7 @@ import {
 } from "@/lib/format";
 import { useApi } from "@/lib/queries";
 import { rememberViewed } from "@/lib/recent";
+import { useShopping } from "@/lib/shopping";
 import type { PricingRules, ProductDetail, VariantPublic } from "@/lib/types";
 import { colors, fonts, radius, type } from "@/theme";
 
@@ -62,6 +63,7 @@ export default function ProductScreen() {
   }, [shownId]);
   const rules = useApi<PricingRules>("/pricing/rules");
   const favorites = useFavorites();
+  const shopping = useShopping();
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const header = (
@@ -86,14 +88,17 @@ export default function ProductScreen() {
                   );
                 }}
               />
-              <IconButton
-                testID="product-favorite"
-                name={favorites.has(productId) ? "heart" : "heart-outline"}
-                color={favorites.has(productId) ? colors.gold : colors.ink}
-                label={favorites.has(productId) ? "Убрать из избранного" : "В избранное"}
-                onPress={() => favorites.toggle(productId)}
-              />
-              <CartButton />
+              {/* The staff have no favorites and no cart in the app (lib/shopping.ts). */}
+              {shopping && (
+                <IconButton
+                  testID="product-favorite"
+                  name={favorites.has(productId) ? "heart" : "heart-outline"}
+                  color={favorites.has(productId) ? colors.gold : colors.ink}
+                  label={favorites.has(productId) ? "Убрать из избранного" : "В избранное"}
+                  onPress={() => favorites.toggle(productId)}
+                />
+              )}
+              {shopping && <CartButton />}
             </View>
           ) : null,
       }}
@@ -158,6 +163,7 @@ function ProductBody({
   // The stage: the bottle large, under the transparent header; the sheet slides over its foot.
   const photoHeight = Math.max(360, Math.round(height * 0.58));
   const { user } = useAuth();
+  const shopping = useShopping();
   const { add, count } = useCart();
   const { money } = useCurrency();
   const [qty, setQty] = useState(1);
@@ -200,7 +206,7 @@ function ProductBody({
 
   return (
     <View style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 24 + (shopping ? 0 : insets.bottom) }}>
         <ProductImage
           uri={variant?.photo_url ?? product.image_url}
           seed={product.id}
@@ -338,7 +344,8 @@ function ProductBody({
         </View>
       </ScrollView>
 
-      {variant && (
+      {/* «В корзину»: for those who shop (the staff sell at the till). */}
+      {variant && shopping && (
         <View style={[styles.bar, { paddingBottom: insets.bottom + 10 }]}>
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
             <QuantityStepper value={qty} onChange={setQty} />

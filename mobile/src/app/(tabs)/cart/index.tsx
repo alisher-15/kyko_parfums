@@ -1,12 +1,23 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Link, router } from "expo-router";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type AlertButton,
+} from "react-native";
 import { useTabBarInset } from "@/components/tab-stack";
 import { ProductImage, QuantityStepper } from "@/components/product";
 import { QuoteHints, TengeNote } from "@/components/shop";
 import { Button, Card, EmptyState, Eyebrow, Loader, Muted, Notice, Txt } from "@/components/ui";
-import { useCart } from "@/lib/cart";
+import { useCart, type CartItem } from "@/lib/cart";
 import { useCurrency } from "@/lib/currency";
+import { useFavorites } from "@/lib/favorites";
 import { TIER_LABELS, volumeLabel } from "@/lib/format";
 import { useQuote } from "@/lib/queries";
 import { colors, fonts, radius } from "@/theme";
@@ -16,6 +27,37 @@ export default function CartScreen() {
   const { items, setQuantity, remove, ready } = useCart();
   const quote = useQuote(items);
   const { money } = useCurrency();
+  const favorites = useFavorites();
+
+  /**
+   * «Удалить товар?» in the phone's own dialog, offering to keep it in the favorites instead (a
+   * product already there only gets «Удалить» and «Отмена»). The web build asks the browser.
+   */
+  const askRemove = (item: CartItem) => {
+    const saved = favorites.has(item.productId);
+    const toFavorites = () => {
+      if (!favorites.has(item.productId)) favorites.toggle(item.productId);
+      remove(item.variantId);
+    };
+    if (Platform.OS === "web") {
+      if (!globalThis.confirm?.(`Удалить «${item.productName}» из корзины?`)) return;
+      if (!saved && globalThis.confirm?.("Сохранить его в избранном?")) toFavorites();
+      else remove(item.variantId);
+      return;
+    }
+    const buttons: AlertButton[] = [
+      { text: "Удалить", style: "destructive", onPress: () => remove(item.variantId) },
+    ];
+    if (!saved) buttons.push({ text: "В избранное", onPress: toFavorites });
+    buttons.push({ text: "Отмена", style: "cancel" });
+    Alert.alert(
+      "Удалить товар из корзины?",
+      saved
+        ? "Он останется в избранном."
+        : "Можно перенести его в избранное, чтобы вернуться к нему позже.",
+      buttons,
+    );
+  };
 
   if (!ready) return <Loader />;
   if (items.length === 0) {
@@ -114,7 +156,7 @@ export default function CartScreen() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Удалить ${item.productName}`}
-                    onPress={() => remove(item.variantId)}
+                    onPress={() => askRemove(item)}
                     hitSlop={8}
                     style={styles.remove}
                   >

@@ -161,12 +161,10 @@ function ProductBody({
   const { add, count } = useCart();
   const { money } = useCurrency();
   const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
 
   const choose = (v: VariantPublic) => {
     onSelect(v.id);
     setQty(1);
-    setAdded(false);
   };
 
   const addToCart = () => {
@@ -183,9 +181,14 @@ function ProductBody({
       },
       qty,
     );
-    setAdded(true);
+    setQty(1);
     if (Platform.OS !== "web")
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // «Вы выбрали»: the sheet with the quantity and the way to the checkout (app/added.tsx).
+    router.push({
+      pathname: "/added",
+      params: { product: String(product.id), variant: String(variant.id) },
+    });
   };
 
   const chips = [
@@ -337,19 +340,6 @@ function ProductBody({
 
       {variant && (
         <View style={[styles.bar, { paddingBottom: insets.bottom + 10 }]}>
-          {added ? (
-            <Pressable
-              accessibilityRole="link"
-              onPress={() => router.navigate("/cart")}
-              style={styles.added}
-              testID="added-to-cart"
-            >
-              <Ionicons name="checkmark-circle" size={18} color={colors.ok} />
-              <Txt style={{ color: colors.ok, fontFamily: fonts.sansSemi, fontSize: 14 }}>
-                Добавлено · перейти в корзину →
-              </Txt>
-            </Pressable>
-          ) : null}
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
             <QuantityStepper value={qty} onChange={setQty} />
             <Button

@@ -100,6 +100,17 @@ function Navigation() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Главная" }} />
         <Stack.Screen name="product/[id]" options={{ title: "" }} />
+        {/* «Вы выбрали» after «В корзину»: the system's sheet, as tall as its content. */}
+        <Stack.Screen
+          name="added"
+          options={{
+            presentation: "formSheet",
+            sheetAllowedDetents: "fitToContents",
+            sheetGrabberVisible: true,
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.cream },
+          }}
+        />
         <Stack.Screen name="collection" options={{ title: "Каталог" }} />
         <Stack.Screen name="categories" options={{ title: "Категории" }} />
         <Stack.Screen name="brands" options={{ title: "Бренды" }} />

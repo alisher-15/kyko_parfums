@@ -21,6 +21,7 @@ from app.models import (
     Supplier,
     SupplierPrice,
     User,
+    UserRole,
 )
 from app.permissions import require_staff
 from app.routers.admin.store import variant_item
@@ -75,10 +76,27 @@ def _email(user: User | None) -> str | None:
 # ---------- Barcodes ----------
 
 
+def _owners_variant(db: Session, variant_id: int, user: User) -> AdminVariantOut:
+    """The volume as the admin variant form shows it, with the cost and the markups blanked for
+    staff other than the owner: they are the owner's alone, as at the till."""
+    out = AdminVariantOut.model_validate(_variant(db, variant_id))
+    if user.role == UserRole.admin:
+        return out
+    return out.model_copy(
+        update={
+            "cost_price": None,
+            "retail_markup": None,
+            "wholesale_markup": None,
+            "bulk_markup": None,
+        }
+    )
+
+
 @router.get("/barcodes/{code}", response_model=VariantSearchItem)
-def lookup_barcode(code: str, db: Session = Depends(get_db)):
+def lookup_barcode(code: str, db: Session = Depends(get_db), user: User = Depends(require_staff)):
     """The volume a scanned barcode (or SKU) belongs to."""
-    return variant_item(_scanned(db, code))
+    item = variant_item(_scanned(db, code))
+    return item if user.role == UserRole.admin else item.model_copy(update={"cost_price": None})
 
 
 @router.post(
@@ -86,22 +104,29 @@ def lookup_barcode(code: str, db: Session = Depends(get_db)):
     response_model=AdminVariantOut,
     status_code=status.HTTP_201_CREATED,
 )
-def add_barcode(variant_id: int, data: BarcodeIn, db: Session = Depends(get_db)):
+def add_barcode(
+    variant_id: int,
+    data: BarcodeIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(require_staff),
+):
     variant = _variant(db, variant_id)
     attach(db, variant, data.code)
     db.commit()
-    return _variant(db, variant_id)
+    return _owners_variant(db, variant_id, user)
 
 
 @router.delete("/variants/{variant_id}/barcodes/{code}", response_model=AdminVariantOut)
-def remove_barcode(variant_id: int, code: str, db: Session = Depends(get_db)):
+def remove_barcode(
+    variant_id: int, code: str, db: Session = Depends(get_db), user: User = Depends(require_staff)
+):
     variant = _variant(db, variant_id)
     barcode = next((b for b in variant.barcodes if b.code == code), None)
     if barcode is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "У этого объёма нет такого штрихкода")
     variant.barcodes.remove(barcode)
     db.commit()
-    return _variant(db, variant_id)
+    return _owners_variant(db, variant_id, user)
 
 
 # ---------- Receipts ----------

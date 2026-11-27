@@ -194,8 +194,8 @@ def edit_items(
             else f"{item.label}: {item.quantity} → {new_qty}"
         )
         item.quantity = new_qty
-        # The units taken off are the missing ones first: the order is owed no more than it has.
-        item.backordered = min(item.backordered, new_qty)
+        # The units taken off are the missing ones first: they no longer have to be bought.
+        item.backordered = max(0, item.backordered - removed)
     order.total_amount = sum((i.price_applied * i.quantity for i in order.items), Decimal(0))
     message = (
         "Менеджер изменил состав: "

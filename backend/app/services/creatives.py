@@ -15,6 +15,7 @@ white background melts into the picture (multiply).
 import io
 import ipaddress
 import socket
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -274,6 +275,20 @@ def _public_host(host: str | None) -> bool:
     return all(ipaddress.ip_address(a.split("%")[0]).is_global for a in addresses)
 
 
+class _PublicRedirects(urllib.request.HTTPRedirectHandler):
+    """Follows a redirect only to another public https address: a photo link must not bounce
+    the server to its own or the local network's addresses (or to plain http)."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: PLR0913
+        parts = urllib.parse.urlsplit(newurl)
+        if parts.scheme != "https" or not _public_host(parts.hostname):
+            raise urllib.error.HTTPError(newurl, code, "redirect refused", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_PUBLIC_OPENER = urllib.request.build_opener(_PublicRedirects)
+
+
 def _inside(base: Path, relative: str) -> Path | None:
     """``base / relative`` if it stays inside ``base`` (no «..» out of the folder)."""
     path = (base / relative).resolve()
@@ -290,7 +305,7 @@ def _photo_bytes(url: str) -> bytes | None:
             if not _public_host(urllib.parse.urlsplit(url).hostname):
                 return None
             req = urllib.request.Request(url, headers={"User-Agent": "kyko-creatives"})
-            with urllib.request.urlopen(req, timeout=15) as res:  # noqa: S310 (checked above)
+            with _PUBLIC_OPENER.open(req, timeout=15) as res:  # noqa: S310 (checked above)
                 data = res.read(MAX_PHOTO_BYTES + 1)
             return data if len(data) <= MAX_PHOTO_BYTES else None
         if url.startswith(s.media_url_prefix + "/"):

@@ -26,7 +26,14 @@ from app.models import (
     volume_label,
 )
 from app.permissions import require_staff
-from app.pricing import Deal, deal_price, discount_percent, max_tier_for_role, price_for_tier
+from app.pricing import (
+    TIER_RANK,
+    Deal,
+    deal_price,
+    discount_percent,
+    max_tier_for_role,
+    price_for_tier,
+)
 from app.schemas.admin import (
     AdminOrderOut,
     StoreQuoteIn,
@@ -149,14 +156,21 @@ class _Priced:
         return sum((ln.total for ln in self.lines), Decimal(0))
 
 
-def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced:
+def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool, user: User) -> _Priced:
     max_discount = Decimal(get_pricing_settings(db).max_store_discount_percent)
     customer = None
     if data.customer_id is not None:
         customer = db.get(User, data.customer_id)
         if customer is None:
             raise HTTPException(404, "Покупатель не найден")
-    tier = data.price_tier or max_tier_for_role(customer.role if customer else None)
+    own_tier = max_tier_for_role(customer.role if customer else None)
+    tier = data.price_tier or own_tier
+    # A price level above the customer's own is a discount past the till's cap: the owner's call.
+    if user.role != UserRole.admin and TIER_RANK[tier] > TIER_RANK[own_tier]:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Оптовую цену выше уровня покупателя может поставить только владелец",
+        )
 
     ids = sorted({i.variant_id for i in data.items})
     stmt = (
@@ -197,7 +211,7 @@ def _price(db: Session, data: StoreQuoteIn | StoreSaleIn, lock: bool) -> _Priced
 
 @router.post("/quote", response_model=StoreQuoteOut)
 def quote(data: StoreQuoteIn, db: Session = Depends(get_db), user: User = Depends(require_staff)):
-    p = _price(db, data, lock=False)
+    p = _price(db, data, lock=False, user=user)
     owner = user.role == UserRole.admin
     return StoreQuoteOut(
         price_tier=p.tier,
@@ -243,7 +257,7 @@ def create_sale(
     again = placed_before(db, data.request_key, OrderChannel.store, admin.id)
     if again is not None:
         return _sale_out(db, again)
-    p = _price(db, data, lock=True)
+    p = _price(db, data, lock=True, user=admin)
     if p.errors:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, {"message": p.errors[0], "errors": p.errors})

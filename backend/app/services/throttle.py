@@ -45,12 +45,22 @@ class Throttle:
             if len(self._hits) >= MAX_KEYS:
                 for k in list(self._hits):
                     self._prune(k, now)
-                # Still full (a flood of made-up emails): forget the oldest tenth, so memory stays
-                # bounded and a login never waits on a sweep of hundreds of thousands of keys.
+                # Still full (a flood of made-up emails): forget a tenth, so memory stays bounded
+                # and a login never waits on a sweep of hundreds of thousands of keys. The keys
+                # hit least lately go first (the dict is kept in that order), and a locked key
+                # only when nothing else is left: a flood must not unlock the email it targets.
                 if len(self._hits) >= MAX_KEYS:
-                    for k in list(self._hits)[: MAX_KEYS // 10]:
+                    order = list(self._hits)
+                    locked = {k for k in order if len(self._hits[k]) >= self.limit}
+                    victims = [k for k in order if k not in locked] + [
+                        k for k in order if k in locked
+                    ]
+                    for k in victims[: MAX_KEYS // 10]:
                         del self._hits[k]
-            self._hits.setdefault(key, deque()).append(now)
+            # Moved to the end: the dict runs from the key hit least lately to the latest.
+            hits = self._hits.pop(key, None) or deque()
+            hits.append(now)
+            self._hits[key] = hits
 
     def reset(self, key: str) -> None:
         with self._lock:

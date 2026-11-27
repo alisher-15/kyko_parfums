@@ -441,7 +441,9 @@ function Pos() {
               active={tier === ""}
               onPress={() => setTier("")}
             />
-            {TIERS.map((t) => (
+            {/* A level above the customer's own is a discount past the cap: the owner's call
+                («Авто» is the customer's level). */}
+            {TIERS.filter((t) => owner || t === "retail").map((t) => (
               <Chip
                 key={t}
                 label={t === "retail" ? "Розница" : t === "wholesale" ? "Опт" : "Кр. опт"}

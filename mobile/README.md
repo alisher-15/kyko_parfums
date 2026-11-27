@@ -129,9 +129,7 @@ npx expo export --platform ios --platform android   # собираются ли 
    `npx eas-cli@latest submit --platform ios` и `--platform android`. Ключи подписи EAS создаст
    и сохранит сам.
 5. Адрес магазина зашит в сборку (`EXPO_PUBLIC_SITE_URL` в `eas.json`, сейчас
-   `https://kyko.kz` в обоих профилях). Сборки, сделанные до домена, ходят на временный
-   `https://89-126-205-132.sslip.io`: сервер продолжает его обслуживать (`LEGACY_DOMAIN`), пока
-   такие приложения не обновлены новой сборкой.
+   `https://kyko.kz` в обоих профилях): смена домена — это новая сборка.
 
 Идентификаторы приложения: `kz.kyko.parfums` (iOS bundle id и Android package) — меняются
 в `app.json` только до первой публикации. Иконка и заставка — в `assets/` (логотип «K» сайта).

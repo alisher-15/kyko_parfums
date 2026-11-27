@@ -112,17 +112,7 @@ if [ ! -f .env ]; then
       -e "s|^ADMIN_EMAIL=.*|ADMIN_EMAIL=$admin_email|" \
       .env.example > .env
 elif [ -n "${DOMAIN:-}" ]; then
-  old=$(sed -n 's/^DOMAIN=//p' .env)
   sed -i "s|^DOMAIN=.*|DOMAIN=$DOMAIN|" .env
-  # The temporary sslip.io address keeps working: apps installed before the domain call it.
-  if [ "$old" != "$DOMAIN" ] && [[ "$old" == *.sslip.io ]]; then
-    if grep -q '^LEGACY_DOMAIN=' .env; then
-      sed -i "s|^LEGACY_DOMAIN=.*|LEGACY_DOMAIN=$old|" .env
-    else
-      echo "LEGACY_DOMAIN=$old" >> .env
-    fi
-    echo "Прежний адрес https://$old тоже продолжит работать"
-  fi
 fi
 DOMAIN=$(sed -n 's/^DOMAIN=//p' .env)
 

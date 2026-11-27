@@ -48,25 +48,21 @@ function countFilters(f: UserFilters): number {
  * `fixed` filters come from where the customer came from (a brand, a promotion) and stay on.
  * `query`: a search typed elsewhere (the home screen), shown in the field and run at once.
  * `focusKey`: when it changes, the search field takes the focus (the keyboard opens).
- * `title`: the screen's own title, shown at the top in place of a header (the catalog tab).
- * The title, the search, the filters and the sections slide away as the list scrolls down and
- * come back as soon as it scrolls up.
+ * The search, the filters and the sections slide away as the list scrolls down and come back as
+ * soon as it scrolls up; the screen's header stays.
  */
 export function CatalogView({
   fixed = {},
   autoFocus,
   query,
   focusKey,
-  title,
 }: {
   fixed?: ProductFilters;
   autoFocus?: boolean;
   query?: string;
   focusKey?: string;
-  title?: string;
 }) {
   const tabInset = useTabBarInset();
-  const insets = useSafeAreaInsets();
   // The top block's height, measured, and how far it has slid away: as far as the list
   // scrolled down since it last scrolled up, at most its height (a bounce above the top counts 0).
   const [topHeight, setTopHeight] = useState(0);
@@ -189,11 +185,6 @@ export function CatalogView({
         onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))}
         style={[styles.slider, { transform: [{ translateY: body ? 0 : slide }] }]}
       >
-        {title && (
-          <Txt accessibilityRole="header" style={[styles.title, { paddingTop: insets.top + 8 }]}>
-            {title}
-          </Txt>
-        )}
         <View style={styles.top}>
           <View style={styles.search}>
             <Ionicons name="search" size={18} color={colors.muted} />
@@ -246,8 +237,6 @@ export function CatalogView({
           show={fixed.category_id !== undefined || Object.keys(fixed).length === 0}
         />
       </Animated.View>
-      {/* The status bar's strip stays covered while the title is away. */}
-      {title && <View style={[styles.statusCover, { height: insets.top }]} />}
 
       <FiltersSheet
         visible={filtersOpen}
@@ -738,21 +727,6 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 1,
     backgroundColor: colors.cream,
-  },
-  statusCover: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 2,
-    backgroundColor: colors.cream,
-  },
-  title: {
-    fontFamily: fonts.serif,
-    fontSize: 30,
-    lineHeight: 36,
-    color: colors.ink,
-    paddingHorizontal: 16,
   },
   top: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
   search: {

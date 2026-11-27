@@ -5,10 +5,9 @@ import { colors, fonts } from "@/theme";
 
 /**
  * A tab's own stack, for its header: the system navigation bar (on iOS 26 its buttons are
- * Liquid Glass by themselves), styled like the app's other headers. `headerShown={false}`: the
- * screen shows its title itself (the catalog, whose title slides away with its filters).
+ * Liquid Glass by themselves), styled like the app's other headers.
  */
-export function TabStack({ title, headerShown = true }: { title: string; headerShown?: boolean }) {
+export function TabStack({ title }: { title: string }) {
   return (
     <Stack
       screenOptions={{
@@ -20,7 +19,7 @@ export function TabStack({ title, headerShown = true }: { title: string; headerS
         contentStyle: { backgroundColor: colors.cream },
       }}
     >
-      <Stack.Screen name="index" options={{ title, headerShown }} />
+      <Stack.Screen name="index" options={{ title }} />
     </Stack>
   );
 }

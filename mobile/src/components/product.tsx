@@ -7,6 +7,7 @@ import { assetUrl } from "@/lib/config";
 import { useCurrency } from "@/lib/currency";
 import { useFavorites } from "@/lib/favorites";
 import { GENDER_LABELS, percentOff } from "@/lib/format";
+import { useShopping } from "@/lib/shopping";
 import type { ProductListItem } from "@/lib/types";
 import { colors, fonts, placeholderTints, radius, studioTints, type } from "@/theme";
 import { Badge, Eyebrow, Muted, Txt } from "./ui";
@@ -106,6 +107,7 @@ export function ProductCard({
   const { money } = useCurrency();
   const offer = tester ? product.tester : null;
   const favorites = useFavorites();
+  const shopping = useShopping();
   const liked = favorites.has(product.id);
   const meta = [product.gender && GENDER_LABELS[product.gender], product.category]
     .filter(Boolean)
@@ -148,19 +150,21 @@ export function ProductCard({
             <Badge small={compact} label={badge.label} tone={badge.tone} />
           </View>
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={liked ? "Убрать из избранного" : "В избранное"}
-          hitSlop={6}
-          onPress={() => favorites.toggle(product.id)}
-          style={[styles.heart, compact && styles.heartCompact]}
-        >
-          <Ionicons
-            name={liked ? "heart" : "heart-outline"}
-            size={compact ? 17 : 19}
-            color={liked ? colors.gold : colors.ink}
-          />
-        </Pressable>
+        {shopping && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={liked ? "Убрать из избранного" : "В избранное"}
+            hitSlop={6}
+            onPress={() => favorites.toggle(product.id)}
+            style={[styles.heart, compact && styles.heartCompact]}
+          >
+            <Ionicons
+              name={liked ? "heart" : "heart-outline"}
+              size={compact ? 17 : 19}
+              color={liked ? colors.gold : colors.ink}
+            />
+          </Pressable>
+        )}
       </View>
       <View style={[styles.body, compact && styles.bodyCompact]}>
         <Eyebrow

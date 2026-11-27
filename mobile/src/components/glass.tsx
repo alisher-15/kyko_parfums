@@ -2,10 +2,10 @@ import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-ef
 import { useSyncExternalStore } from "react";
 import { AccessibilityInfo, Platform } from "react-native";
 
-// iOS 26's Liquid Glass for the app's own floating pieces (the WhatsApp button, the home
-// screen's bar), drawn by the system's UIGlassEffect through expo-glass-effect. The tab bar and
-// the headers are the system's own on iOS and get the glass by themselves. Everywhere else
-// (Android, the web build, older iOS, «Reduce Transparency» on) these pieces stay solid.
+// iOS 26's Liquid Glass for the app's own floating piece (the WhatsApp button), drawn by the
+// system's UIGlassEffect through expo-glass-effect. The tab bar, the headers, the sheets and the
+// currency switch are the system's own controls on iOS and get the glass by themselves.
+// Everywhere else (Android, the web build, older iOS, «Reduce Transparency» on) it stays solid.
 
 /** The device can draw Liquid Glass: iOS 26+, with the API really there (not every beta has it). */
 const CAN_GLASS = Platform.OS === "ios" && isLiquidGlassAvailable() && isGlassEffectAPIAvailable();

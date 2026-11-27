@@ -184,8 +184,18 @@ def update_me(
 def change_password(
     data: ChangePasswordIn, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    # The login's throttle: a stolen session must not be a way to guess the password.
+    wait = login_failures.retry_after(user.email)
+    if wait:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Слишком много неверных паролей. Попробуйте через {ceil(wait / 60)} мин.",
+            headers={"Retry-After": str(wait)},
+        )
     if not verify_password(data.current_password, user.password_hash):
+        login_failures.hit(user.email)
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Текущий пароль указан неверно")
+    login_failures.reset(user.email)
     user.password_hash = hash_password(data.new_password)
     user.token_version += 1  # log out other sessions
     db.commit()

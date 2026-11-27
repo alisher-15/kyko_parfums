@@ -94,6 +94,10 @@ def update_user(
     if user is None:
         raise HTTPException(404, "Пользователь не найден")
     changes = data.model_dump(exclude_unset=True)
+    # A null role, active flag or request flag means «no change»: the columns can't be empty.
+    for field in ("role", "is_active", "wholesale_requested"):
+        if field in changes and changes[field] is None:
+            del changes[field]
     if user.id == admin.id and (
         changes.get("role", UserRole.admin) != UserRole.admin or changes.get("is_active") is False
     ):

@@ -1,6 +1,7 @@
 import {
   keepPreviousData,
   useInfiniteQuery,
+  useQueries,
   useQuery,
   type UseQueryOptions,
 } from "@tanstack/react-query";
@@ -25,6 +26,28 @@ export function useApi<T>(
     queryKey: [path, query ?? null],
     queryFn: () => api<T>(path as string, { query }),
     enabled: ready && path !== null && enabled === true,
+  });
+}
+
+/**
+ * Several GETs answered together: `undefined` until every one has come back, so a block built
+ * from them appears whole instead of piece by piece. A request that fails is `null` in its place;
+ * `requests = null` skips them all. Each is cached like `useApi` with the same path and query.
+ */
+export function useApiAll<T>(
+  requests: { path: string; query?: Query }[] | null,
+): (T | null)[] | undefined {
+  const { ready } = useAuth();
+  return useQueries({
+    queries: (requests ?? []).map((r) => ({
+      queryKey: [r.path, r.query ?? null],
+      queryFn: () => api<T>(r.path, { query: r.query }),
+      enabled: ready,
+    })),
+    combine: (results) =>
+      !ready || requests === null || results.some((r) => r.isPending)
+        ? undefined
+        : results.map((r) => (r.isError ? null : (r.data ?? null))),
   });
 }
 

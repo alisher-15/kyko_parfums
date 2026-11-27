@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, type Href } from "expo-router";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import {
   FlatList,
   Linking,
@@ -18,8 +19,9 @@ import { childrenOf, openCategory, useCategories } from "@/lib/categories";
 import { assetUrl } from "@/lib/config";
 import { CONTACTS, WHATSAPP, YOUTUBE, whatsappAbout } from "@/lib/contacts";
 import { plural } from "@/lib/format";
-import { useApi, type ProductFilters } from "@/lib/queries";
+import { useApi, useApiAll, type ProductFilters } from "@/lib/queries";
 import { useRecentlyViewed } from "@/lib/recent";
+import { prefs } from "@/lib/storage";
 import type { Brand, Page, ProductListItem } from "@/lib/types";
 import { colors, fonts, radius, space, type } from "@/theme";
 import { ProductCard } from "./product";
@@ -144,58 +146,74 @@ export function TrustRow() {
   );
 }
 
-/**
- * A way into the catalog with its count and a picture: a section's own (`image`, set in
- * «Категории»), else a photo of its most popular product (a query of one product, sorted by
- * sales). Hidden while it has no products.
- */
-function EntryTile({
-  title,
-  params,
-  size,
-  note,
-  image: ownImage,
-  accent = false,
-  onPress,
-}: {
+interface StartTile {
+  key: string;
   title: string;
   params: Params;
+  note?: (total: number) => string;
   /** A section's own picture (set in «Категории»), instead of its most popular product's. */
   image?: string | null;
-  /** The tile's side in points: the grid works it out from the screen's width. */
-  size: number;
-  note?: (total: number) => string;
   /** The mother-of-pearl tile (testers), standing out among the white ones. */
   accent?: boolean;
   /** Instead of opening the collection with `params`. */
   onPress?: () => void;
+}
+
+/** The tiles that are always offered; those with no products are left out. */
+const FIXED_TILES: StartTile[] = [
+  { key: "female", title: "Для неё", params: { gender: "female" } },
+  { key: "male", title: "Для него", params: { gender: "male" } },
+  { key: "unisex", title: "Унисекс", params: { gender: "unisex" } },
+  {
+    key: "tester",
+    title: "Тестеры",
+    params: { tester: "true" },
+    note: () => "дешевле флакона",
+    accent: true,
+  },
+  { key: "top", title: "Ниша и люкс", params: { top: "true" } },
+];
+
+/** Each tile's count and picture: its most popular product (a query of one, sorted by sales). */
+const tileRequests = (tiles: StartTile[]) =>
+  tiles.map((t) => ({ path: "/products", query: { ...t.params, sort: "popular", page_size: 1 } }));
+
+// How many tiles the block showed last time, so the placeholders take the same room and the
+// block doesn't change size when it appears.
+const TILES_KEY = "kyko.start-tiles";
+const DEFAULT_TILES = 6;
+
+/**
+ * A way into the catalog with its count and a picture: the section's own, else a photo of its
+ * most popular product.
+ */
+function EntryTile({
+  tile,
+  data,
+  size,
+}: {
+  tile: StartTile;
+  data: Page<ProductListItem>;
+  /** The tile's side in points: the grid works it out from the screen's width. */
+  size: number;
 }) {
-  const { data } = useApi<Page<ProductListItem>>("/products", {
-    ...params,
-    sort: "popular",
-    page_size: 1,
-  } as ProductFilters & Params);
-  // A soft tile while it loads, so the grid doesn't jump.
-  const box = { width: size, height: size };
-  if (!data) return <View style={[styles.entry, box, styles.placeholder]} />;
-  if (data.total === 0) return null;
-  const image = assetUrl(ownImage || data.items[0]?.image_url);
+  const image = assetUrl(tile.image || data.items[0]?.image_url);
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={title}
-      onPress={onPress ?? (() => openCollection(title, params))}
+      accessibilityLabel={tile.title}
+      onPress={tile.onPress ?? (() => openCollection(tile.title, tile.params))}
       style={({ pressed }) => [
         styles.entry,
-        box,
-        accent && { backgroundColor: colors.champagne },
+        { width: size, height: size },
+        tile.accent && { backgroundColor: colors.champagne },
         pressed && { opacity: 0.8 },
       ]}
     >
-      <Text style={styles.entryTitle}>{title}</Text>
+      <Text style={styles.entryTitle}>{tile.title}</Text>
       <Text style={styles.entryNote}>
-        {note
-          ? note(data.total)
+        {tile.note
+          ? tile.note(data.total)
           : `${data.total} ${plural(data.total, "аромат", "аромата", "ароматов")}`}
       </Text>
       {image && (
@@ -215,14 +233,50 @@ function EntryTile({
 
 /**
  * «С чего начнём?»: for her, for him, unisex, testers, niche, then the catalog's other sections
- * (sets, make-up…) as they appear. Three in a row, on a velvet panel of their own.
+ * (sets, make-up…) as they appear. Three in a row, on a velvet panel of their own. As on the
+ * website, the block appears whole once every tile's count has come back (a tile with no
+ * products is left out), with as many placeholders as it had tiles last time until then.
  */
 export function StartGrid() {
   const { width } = useWindowDimensions();
-  const tree = useCategories().data;
+  const categories = useCategories();
+  // Without the sections (an error), the block still shows its own tiles.
+  const tree = categories.data ?? (categories.isError ? [] : undefined);
   const sections = tree ? childrenOf(tree, null) : [];
   const perfume = sections.find((c) => c.kind === "perfume");
-  const others = sections.filter((c) => c !== perfume);
+  const sectionTiles: StartTile[] | null = tree
+    ? sections
+        .filter((c) => c !== perfume)
+        .map((c) => ({
+          key: `category-${c.id}`,
+          title: c.name,
+          params: { category_id: c.id },
+          note: (n: number) => `${n} ${plural(n, "товар", "товара", "товаров")}`,
+          image: c.image_url,
+          onPress: () => openCategory(tree, c),
+        }))
+    : null;
+  // The fixed tiles are asked at once, the sections' as soon as the tree is here.
+  const fixed = useApiAll<Page<ProductListItem>>(tileRequests(FIXED_TILES));
+  const own = useApiAll<Page<ProductListItem>>(sectionTiles && tileRequests(sectionTiles));
+  const remembered = useQuery({
+    queryKey: ["prefs", TILES_KEY],
+    queryFn: () => prefs.get<number>(TILES_KEY, DEFAULT_TILES),
+    staleTime: Infinity,
+  }).data;
+
+  const shown =
+    fixed && own && sectionTiles
+      ? [...FIXED_TILES, ...sectionTiles].flatMap((tile, i) => {
+          const data = [...fixed, ...own][i];
+          return data && data.total > 0 ? [{ tile, data }] : [];
+        })
+      : null;
+  const count = shown?.length;
+  useEffect(() => {
+    if (count !== undefined) void prefs.set(TILES_KEY, count);
+  }, [count]);
+
   // Three tiles in a row on phones, more on tablets. The side is worked out here, not as a
   // percentage: a percentage of a wrapping row left a third of the row empty on Android.
   const cols = width >= 700 ? 6 : width >= 520 ? 4 : 3;
@@ -230,6 +284,7 @@ export function StartGrid() {
   const inner = Math.min(width, 1100) - 2 * 16 - 2 * 14;
   // Rounded down, and a point spare, so the last tile of a row never wraps.
   const size = Math.floor((inner - (cols - 1) * TILE_GAP - 1) / cols);
+  const placeholders = Math.min(Math.max(remembered ?? DEFAULT_TILES, 1), 24);
   return (
     <LinearGradient colors={[colors.deep, colors.velvet]} style={styles.start} testID="start-grid">
       <View style={styles.startHead}>
@@ -238,29 +293,17 @@ export function StartGrid() {
           <Txt style={[styles.more, { color: colors.champagne }]}>Все категории</Txt>
         </Pressable>
       </View>
-      <View style={styles.grid}>
-        <EntryTile size={size} title="Для неё" params={{ gender: "female" }} />
-        <EntryTile size={size} title="Для него" params={{ gender: "male" }} />
-        <EntryTile size={size} title="Унисекс" params={{ gender: "unisex" }} />
-        <EntryTile
-          size={size}
-          title="Тестеры"
-          params={{ tester: "true" }}
-          note={() => "дешевле флакона"}
-          accent
-        />
-        <EntryTile size={size} title="Ниша и люкс" params={{ top: "true" }} />
-        {others.map((c) => (
-          <EntryTile
-            key={c.id}
-            size={size}
-            title={c.name}
-            params={{ category_id: c.id }}
-            note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
-            image={c.image_url}
-            onPress={() => openCategory(tree ?? [], c)}
-          />
-        ))}
+      <View style={styles.grid} accessibilityState={{ busy: !shown }}>
+        {shown
+          ? shown.map(({ tile, data }) => (
+              <EntryTile key={tile.key} tile={tile} data={data} size={size} />
+            ))
+          : Array.from({ length: placeholders }, (_, i) => (
+              <View
+                key={i}
+                style={[styles.entry, { width: size, height: size }, styles.placeholder]}
+              />
+            ))}
       </View>
     </LinearGradient>
   );

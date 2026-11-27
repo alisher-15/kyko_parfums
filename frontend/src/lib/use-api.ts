@@ -54,3 +54,34 @@ export function useApi<T>(path: string | null, opts?: RequestOptions): ApiState<
     reload,
   };
 }
+
+interface AllResult<T> {
+  key: string | null;
+  data: (T | null)[] | undefined;
+}
+
+/**
+ * Several GETs answered together: `data` stays undefined until every one has come back, so a
+ * block built from them appears whole instead of piece by piece. A request that fails is `null`
+ * in its place. `null` skips them all. Refetched when the list or the session changes.
+ */
+export function useApiAll<T>(requests: { path: string; opts?: RequestOptions }[] | null): (T | null)[] | undefined {
+  const { sessionKey, loading: authLoading } = useAuth();
+  const [result, setResult] = useState<AllResult<T>>({ key: null, data: undefined });
+  const listKey = requests === null ? null : JSON.stringify(requests);
+  const key = listKey === null ? null : JSON.stringify([listKey, sessionKey]);
+
+  useEffect(() => {
+    if (key === null || listKey === null || authLoading) return;
+    let cancelled = false;
+    const list = JSON.parse(listKey) as { path: string; opts?: RequestOptions }[];
+    void Promise.all(list.map((r) => api<T>(r.path, r.opts).catch(() => null))).then((data) => {
+      if (!cancelled) setResult({ key, data });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [key, listKey, authLoading]);
+
+  return result.key === key ? result.data : undefined;
+}

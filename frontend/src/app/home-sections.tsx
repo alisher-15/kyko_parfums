@@ -2,18 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { PRODUCT_RAIL_ITEM, RAIL_ITEM, Rail } from "@/components/Carousel";
 import { SearchIcon, TelegramIcon, WhatsAppIcon } from "@/components/icons";
 import { ProductCard } from "@/components/ProductCard";
 import { useAuth } from "@/lib/auth";
-import { categoryHref, childrenOf, useCategories } from "@/lib/categories";
+import { categoryHref, childrenOf } from "@/lib/categories";
 import { CONTACTS, YOUTUBE, whatsappLink } from "@/lib/contacts";
 import { dayMonth, percentOff, plural } from "@/lib/format";
 import { useRecentlyViewed } from "@/lib/recent";
 import { photo } from "@/lib/images";
-import type { Brand, Page, ProductListItem, PromotionPublic } from "@/lib/types";
-import { useApi } from "@/lib/use-api";
+import type { Brand, Category, Page, ProductListItem, PromotionPublic } from "@/lib/types";
+import { useApi, useApiAll } from "@/lib/use-api";
 
 // The home page, top to bottom (app/page.tsx): search (phones), banners, trust, «С чего начнём?»,
 // «Хиты продаж», «Тестеры», «Выбор Kyko», «Подарок по бюджету», advice in WhatsApp, «Вы смотрели»,
@@ -271,42 +271,67 @@ export function HomeTrust() {
   );
 }
 
-/**
- * A way into the catalog with its count and a picture: a section's own (`image`, the one set in
- * «Категории»), else a photo of its most popular product (a query of one product, sorted by
- * sales). Hidden while it has no products.
- */
-function EntryTile({
-  href,
-  title,
-  note,
-  query,
-  image: ownImage,
-  dark = false,
-}: {
+interface StartTile {
+  key: string;
   href: string;
   title: string;
   note?: (total: number) => string;
   query: Record<string, string | number | boolean>;
+  /** A section's own picture (set in «Категории»), instead of its most popular product's. */
   image?: string | null;
   dark?: boolean;
-}) {
-  const { data } = useApi<Page<ProductListItem>>("/products", {
-    query: { ...query, sort: "popular", page_size: 1 },
-  });
-  if (!data) return <div aria-hidden className="aspect-square animate-pulse rounded-md bg-white/15" />;
-  if (data.total === 0) return null;
-  const image = ownImage || data.items[0]?.image_url;
+}
+
+/** The tiles that are always offered; those with no products are left out. */
+const FIXED_TILES: StartTile[] = [
+  { key: "female", href: "/catalog?gender=female", title: "Для неё", query: { gender: "female" } },
+  { key: "male", href: "/catalog?gender=male", title: "Для него", query: { gender: "male" } },
+  { key: "unisex", href: "/catalog?gender=unisex", title: "Унисекс", query: { gender: "unisex" } },
+  {
+    key: "tester",
+    href: "/catalog?tester=true",
+    title: "Тестеры",
+    note: () => "дешевле флакона",
+    query: { tester: true },
+    dark: true,
+  },
+  { key: "top", href: "/catalog?top=true", title: "Ниша и люкс", query: { top: true } },
+];
+
+/** Each tile's count and picture: its most popular product (a query of one, sorted by sales). */
+const tileRequests = (tiles: StartTile[]) =>
+  tiles.map((t) => ({ path: "/products", opts: { query: { ...t.query, sort: "popular", page_size: 1 } } }));
+
+// How many tiles the block showed last time on this device, so the placeholders take the same
+// room and the block doesn't change size when it appears.
+const TILES_KEY = "kyko.start-tiles";
+const DEFAULT_TILES = 6;
+function readTileCount(): number {
+  try {
+    const n = Number(window.localStorage.getItem(TILES_KEY));
+    return n > 0 && n <= 24 ? n : DEFAULT_TILES;
+  } catch {
+    return DEFAULT_TILES;
+  }
+}
+const noSubscribe = () => () => {};
+
+/**
+ * A way into the catalog with its count and a picture: the section's own, else a photo of its
+ * most popular product.
+ */
+function EntryTile({ tile, data }: { tile: StartTile; data: Page<ProductListItem> }) {
+  const image = tile.image || data.items[0]?.image_url;
   return (
     <Link
-      href={href}
+      href={tile.href}
       className={`group relative aspect-square overflow-hidden rounded-md p-2.5 text-ink transition md:p-3.5 ${
-        dark ? "bg-nacre hover:bg-[#e3bfb3]" : "bg-white hover:bg-pearl"
+        tile.dark ? "bg-nacre hover:bg-[#e3bfb3]" : "bg-white hover:bg-pearl"
       }`}
     >
-      <span className="relative z-10 block font-serif text-base leading-tight font-semibold md:text-xl">{title}</span>
+      <span className="relative z-10 block font-serif text-base leading-tight font-semibold md:text-xl">{tile.title}</span>
       <span className="relative z-10 mt-0.5 block text-[11px] text-muted md:text-xs">
-        {note ? note(data.total) : `${data.total} ${plural(data.total, "аромат", "аромата", "ароматов")}`}
+        {tile.note ? tile.note(data.total) : `${data.total} ${plural(data.total, "аромат", "аромата", "ароматов")}`}
       </span>
       {image && (
         <span
@@ -325,14 +350,51 @@ function EntryTile({
 
 /**
  * «С чего начнём?»: for her, for him, unisex, testers, niche, then the catalog's other sections
- * (sets, make-up…) as they appear. Three in a row on phones, six on computers.
+ * (sets, make-up…) as they appear. Three in a row on phones, six on computers. The block appears
+ * whole once every tile's count has come back (a tile with no products is left out), with as
+ * many placeholders as it had tiles last time until then, so it never jumps from 6 to 2 to 6.
  */
 export function HomeStart() {
-  const tree = useCategories();
+  const categories = useApi<Category[]>("/categories");
+  // Without the sections (an error), the block still shows its own tiles.
+  const tree = categories.data ?? (categories.error ? [] : undefined);
   // The first perfume section is what the gender tiles already show.
   const sections = tree ? childrenOf(tree, null) : [];
   const perfume = sections.find((c) => c.kind === "perfume");
-  const others = sections.filter((c) => c !== perfume);
+  const sectionTiles: StartTile[] | null = tree
+    ? sections
+        .filter((c) => c !== perfume)
+        .map((c) => ({
+          key: `category-${c.id}`,
+          href: categoryHref(tree, c),
+          title: c.name,
+          note: (n: number) => `${n} ${plural(n, "товар", "товара", "товаров")}`,
+          query: { category_id: c.id },
+          image: c.image_url,
+        }))
+    : null;
+  // The fixed tiles are asked at once, the sections' as soon as the tree is here.
+  const fixed = useApiAll<Page<ProductListItem>>(tileRequests(FIXED_TILES));
+  const own = useApiAll<Page<ProductListItem>>(sectionTiles && tileRequests(sectionTiles));
+  const placeholders = useSyncExternalStore(noSubscribe, readTileCount, () => DEFAULT_TILES);
+
+  const ready = fixed && own && sectionTiles;
+  const shown = ready
+    ? [...FIXED_TILES, ...sectionTiles].flatMap((tile, i) => {
+        const data = [...fixed, ...own][i];
+        return data && data.total > 0 ? [{ tile, data }] : [];
+      })
+    : null;
+  const count = shown?.length;
+  useEffect(() => {
+    if (count === undefined) return;
+    try {
+      window.localStorage.setItem(TILES_KEY, String(count));
+    } catch {
+      // Private mode: the placeholders keep the default count.
+    }
+  }, [count]);
+
   return (
     // On a velvet panel of its own, white tiles and a mother-of-pearl «Тестеры».
     <section className="mx-auto max-w-7xl px-4 pt-9 sm:px-6 md:pt-12">
@@ -346,28 +408,12 @@ export function HomeStart() {
             Все категории →
           </Link>
         </div>
-        <nav aria-label="С чего начнём" className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-3">
-          <EntryTile href="/catalog?gender=female" title="Для неё" query={{ gender: "female" }} />
-          <EntryTile href="/catalog?gender=male" title="Для него" query={{ gender: "male" }} />
-          <EntryTile href="/catalog?gender=unisex" title="Унисекс" query={{ gender: "unisex" }} />
-          <EntryTile
-            href="/catalog?tester=true"
-            title="Тестеры"
-            note={() => "дешевле флакона"}
-            query={{ tester: true }}
-            dark
-          />
-          <EntryTile href="/catalog?top=true" title="Ниша и люкс" query={{ top: true }} />
-          {others.map((c) => (
-            <EntryTile
-              key={c.id}
-              href={tree ? categoryHref(tree, c) : `/catalog?category_id=${c.id}`}
-              title={c.name}
-              note={(n) => `${n} ${plural(n, "товар", "товара", "товаров")}`}
-              query={{ category_id: c.id }}
-              image={c.image_url}
-            />
-          ))}
+        <nav aria-label="С чего начнём" aria-busy={!shown} className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-3">
+          {shown
+            ? shown.map(({ tile, data }) => <EntryTile key={tile.key} tile={tile} data={data} />)
+            : Array.from({ length: placeholders }, (_, i) => (
+                <div key={i} aria-hidden className="aspect-square animate-pulse rounded-md bg-white/15" />
+              ))}
         </nav>
       </div>
     </section>

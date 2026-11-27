@@ -4,14 +4,6 @@
 	reverse_proxy app:10000
 }
 
-# The shop's previous address (the temporary sslip.io one), still served as it is: the app
-# builds installed before the domain call it until they are updated. LEGACY_DOMAIN in .env;
-# «localhost» (nothing outside) when there is none.
-{$LEGACY_DOMAIN} {
-	encode zstd gzip
-	reverse_proxy app:10000
-}
-
 # www.kyko.kz → kyko.kz
 www.{$DOMAIN} {
 	redir https://{$DOMAIN}{uri} permanent

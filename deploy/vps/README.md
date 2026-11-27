@@ -32,8 +32,8 @@ curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy
 
 Без домена магазин открывается на `https://<ip-через-дефисы>.sslip.io` с настоящим сертификатом.
 Когда A-записи домена (`@` и `www`) укажут на сервер, та же команда переводит магазин на него
-(проверка: `getent hosts kyko.kz` отвечает IP сервера). Прежний адрес sslip.io при этом продолжает
-работать (`LEGACY_DOMAIN` в `.env`): им пользуются приложения, установленные до домена.
+(проверка: `getent hosts kyko.kz` отвечает IP сервера). Приложение ходит на адрес, с которым
+собрано: после смены домена нужна новая сборка.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alisher-15/kyko_parfums/main/deploy/vps/install.sh | DOMAIN=kyko.kz bash

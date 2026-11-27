@@ -10,13 +10,16 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_SITE_URL": "https://89-126-205-132.sslip.io"
+        "EXPO_PUBLIC_SITE_URL": "https://kyko.kz"
       },
       "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SITE_URL": "https://kyko.kz"
+      }
     }
   },
   "submit": {

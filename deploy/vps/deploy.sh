@@ -62,4 +62,13 @@ for path in / /catalog /api/products?page_size=1 /api/categories; do
   echo "$path $code"
   [ "$code" = "200" ] || { echo "$path answered $code" >&2; exit 1; }
 done
+# The previous address, if the shop keeps one: the app builds made before the domain call it.
+LEGACY=$(grep -E '^LEGACY_DOMAIN=' "$VPS/.env" | head -1 | cut -d= -f2- | tr -d '"'"'"' ')
+if [ -n "$LEGACY" ] && [ "$LEGACY" != "localhost" ]; then
+  for path in /api/health /.well-known/assetlinks.json; do
+    code=$(curl -s -o /dev/null --max-time 15 -w '%{http_code}' "https://$LEGACY$path")
+    echo "$LEGACY$path $code"
+    [ "$code" = "200" ] || { echo "https://$LEGACY$path answered $code" >&2; exit 1; }
+  done
+fi
 echo "== done: $after is live on https://$DOMAIN"

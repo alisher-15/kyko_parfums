@@ -152,7 +152,7 @@ export default function CartPage() {
             {!user && (
               <p className="mt-2 text-center text-xs text-muted">
                 Без регистрации или{" "}
-                <Link href="/login?next=/checkout" className="text-gold hover:underline">
+                <Link href="/login?next=/checkout" className="text-gold underline underline-offset-2">
                   войдите
                 </Link>{" "}
                 — заказы будут в личном кабинете

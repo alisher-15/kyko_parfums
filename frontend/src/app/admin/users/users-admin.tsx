@@ -96,6 +96,7 @@ export function UsersAdmin({
         </form>
         <select
           className="input w-auto"
+          aria-label="Роль"
           value={role}
           onChange={(e) => {
             setRole(e.target.value as UserRole | "");
@@ -184,6 +185,7 @@ export function UsersAdmin({
                   <td>
                     <select
                       className="input w-auto py-1"
+                      aria-label={`Роль ${u.email}`}
                       value={u.role}
                       disabled={u.id === me?.id}
                       onChange={(e) => {

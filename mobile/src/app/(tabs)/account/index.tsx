@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { useTabBarInset } from "@/components/tab-stack";
-import { CurrencySwitch } from "@/components/shop";
+import { CurrencySwitch } from "@/components/currency-switch";
 import { Button, Card, Divider, Eyebrow, MenuRow, Muted, Title, Txt } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { PRIVACY_URL } from "@/lib/config";

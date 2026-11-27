@@ -16,6 +16,8 @@ export function WhatsAppButton() {
     ? `Здравствуйте! Вопрос про этот аромат: ${absoluteUrl(pathname)}`
     : "Здравствуйте! У меня вопрос";
   return (
+    // In a landmark of its own: everything on the page is inside one.
+    <aside aria-label="Связаться">
     <a
       href={whatsappLink(text)}
       target="_blank"
@@ -26,5 +28,6 @@ export function WhatsAppButton() {
     >
       <WhatsAppIcon width={28} height={28} />
     </a>
+    </aside>
   );
 }

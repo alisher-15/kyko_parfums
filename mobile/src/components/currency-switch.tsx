@@ -16,7 +16,7 @@ export function CurrencySwitch({ tone = "light" }: { tone?: "light" | "dark" }) 
         <Pressable
           key={c}
           accessibilityRole="radio"
-          accessibilityState={{ checked: currency === c }}
+          aria-checked={currency === c}
           accessibilityLabel={c === "KZT" ? "Цены в тенге" : "Цены в долларах"}
           onPress={() => setCurrency(c)}
           style={[

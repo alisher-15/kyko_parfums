@@ -28,10 +28,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <RequireAuth roles={STAFF_ROLES}>
       <div className="min-h-screen bg-stone-50 lg:grid lg:grid-cols-[230px_1fr]">
-        <aside className="border-b border-line bg-ink text-stone-300 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
+        <aside aria-label="Меню админки" className="border-b border-line bg-ink text-stone-300 lg:sticky lg:top-0 lg:h-screen lg:border-r lg:border-b-0">
           <div className="flex items-center justify-between px-5 py-4 lg:block">
             <Link href="/" className="font-serif text-xl font-bold text-white">
-              Kyko <span className="text-gold">Admin</span>
+              Kyko <span className="text-nacre">Admin</span>
             </Link>
             <div className="hidden truncate pt-1 text-xs text-stone-400 lg:block">{user?.email}</div>
             {/* Phones and tablets: the sidebar's bottom links are here instead. */}

@@ -230,7 +230,7 @@ function Mode({
   return (
     <Pressable
       accessibilityRole="radio"
-      accessibilityState={{ selected: on }}
+      aria-checked={on}
       onPress={() => onSelect(value)}
       style={[styles.mode, on && { borderColor: colors.gold, backgroundColor: colors.goldSoft }]}
     >

@@ -28,8 +28,8 @@ function icon(active: IconName, idle: IconName) {
 }
 
 /**
- * iOS: the system's own tab bar (UITabBarController), Liquid Glass on iOS 26, shrinking as the
- * page scrolls down. The tabs' screens scroll under it and leave its room free themselves
+ * iOS: the system's own tab bar (UITabBarController), Liquid Glass on iOS 26; it stays as it is
+ * while the page scrolls. The tabs' screens scroll under it and leave its room free themselves
  * (`useTabBarInset`), so the system's automatic insets are off.
  */
 function SystemTabs({
@@ -42,7 +42,7 @@ function SystemTabs({
   staff: boolean;
 }) {
   return (
-    <NativeTabs tintColor={colors.gold} minimizeBehavior="onScrollDown">
+    <NativeTabs tintColor={colors.gold} minimizeBehavior="never">
       <NativeTabs.Trigger name="index" disableAutomaticContentInsets>
         <NativeTabs.Trigger.Icon sf={{ default: "house", selected: "house.fill" }} />
         <NativeTabs.Trigger.Label>Главная</NativeTabs.Trigger.Label>

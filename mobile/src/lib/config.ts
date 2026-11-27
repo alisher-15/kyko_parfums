@@ -3,10 +3,10 @@
  * Next.js), and photos are either absolute (Cloudflare R2) or paths on the site
  * (/bottles/…, /media/…).
  */
-// The shop's server in Kazakhstan, at its temporary address until the domain is bought. Builds
-// for the stores must name the final domain (EXPO_PUBLIC_SITE_URL in eas.json «production»):
-// installed apps keep calling the address they were built with.
-const DEFAULT_SITE_URL = "https://89-126-205-132.sslip.io";
+// The shop's site. Installed apps keep calling the address they were built with: the server
+// still serves the temporary https://89-126-205-132.sslip.io for the builds made before the
+// domain (LEGACY_DOMAIN in deploy/vps/.env).
+const DEFAULT_SITE_URL = "https://kyko.kz";
 
 export const SITE_URL = (process.env.EXPO_PUBLIC_SITE_URL || DEFAULT_SITE_URL).replace(/\/+$/, "");
 export const API_URL = `${SITE_URL}/api`;

@@ -29,6 +29,11 @@
           "data": [
             {
               "scheme": "https",
+              "host": "kyko.kz",
+              "pathPrefix": "/products/"
+            },
+            {
+              "scheme": "https",
               "host": "89-126-205-132.sslip.io",
               "pathPrefix": "/products/"
             }

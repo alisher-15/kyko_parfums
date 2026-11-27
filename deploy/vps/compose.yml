@@ -72,6 +72,7 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN}
+      LEGACY_DOMAIN: ${LEGACY_DOMAIN:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

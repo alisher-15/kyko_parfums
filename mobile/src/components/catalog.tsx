@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import {
-  FlatList,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -48,19 +48,37 @@ function countFilters(f: UserFilters): number {
  * `fixed` filters come from where the customer came from (a brand, a promotion) and stay on.
  * `query`: a search typed elsewhere (the home screen), shown in the field and run at once.
  * `focusKey`: when it changes, the search field takes the focus (the keyboard opens).
+ * `title`: the screen's own title, shown at the top in place of a header (the catalog tab).
+ * The title, the search, the filters and the sections slide away as the list scrolls down and
+ * come back as soon as it scrolls up.
  */
 export function CatalogView({
   fixed = {},
   autoFocus,
   query,
   focusKey,
+  title,
 }: {
   fixed?: ProductFilters;
   autoFocus?: boolean;
   query?: string;
   focusKey?: string;
+  title?: string;
 }) {
   const tabInset = useTabBarInset();
+  const insets = useSafeAreaInsets();
+  // The top block's height, measured, and how far it has slid away: as far as the list
+  // scrolled down since it last scrolled up, at most its height (a bounce above the top counts 0).
+  const [topHeight, setTopHeight] = useState(0);
+  const [scrollY] = useState(() => new Animated.Value(0));
+  const slide = useMemo(() => {
+    const room = Math.max(topHeight, 1);
+    return Animated.diffClamp(
+      scrollY.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolateLeft: "clamp" }),
+      0,
+      room,
+    ).interpolate({ inputRange: [0, room], outputRange: [0, -room], extrapolate: "clamp" });
+  }, [scrollY, topHeight]);
   const { width } = useWindowDimensions();
   const columns = width >= 900 ? 4 : width >= 600 ? 3 : 2;
   const cardWidth = (Math.min(width, 1200) - 32 - 12 * (columns - 1)) / columns;
@@ -105,106 +123,131 @@ export function CatalogView({
     body = <CardSkeletons columns={columns} width={cardWidth} />;
   }
 
+  const list = body ? (
+    <View style={{ flex: 1, paddingTop: topHeight }}>{body}</View>
+  ) : (
+    <Animated.FlatList
+      key={columns}
+      data={items}
+      numColumns={columns}
+      keyExtractor={(p) => String(p.id)}
+      columnWrapperStyle={{ gap: 12 }}
+      contentContainerStyle={{
+        padding: 16,
+        paddingTop: topHeight + 4,
+        paddingBottom: 16 + tabInset,
+        gap: 12,
+        flexGrow: 1,
+      }}
+      scrollIndicatorInsets={{ top: topHeight, bottom: tabInset }}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+      })}
+      scrollEventThrottle={16}
+      renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
+      onEndReachedThreshold={0.6}
+      onEndReached={() => {
+        if (products.hasNextPage && !products.isFetchingNextPage) void products.fetchNextPage();
+      }}
+      refreshControl={
+        <RefreshControl
+          refreshing={products.isRefetching && !products.isFetchingNextPage}
+          onRefresh={() => void products.refetch()}
+          tintColor={colors.gold}
+          progressViewOffset={topHeight}
+        />
+      }
+      ListFooterComponent={products.isFetchingNextPage ? <Loader /> : undefined}
+      ListEmptyComponent={
+        <EmptyState
+          icon="search-outline"
+          title="Ничего не нашлось"
+          text="Попробуйте другое название или уберите часть фильтров."
+          action={
+            (active > 0 || !!text) && (
+              <Button
+                kind="outline"
+                title="Сбросить поиск и фильтры"
+                onPress={() => {
+                  setText("");
+                  setChosen({});
+                }}
+              />
+            )
+          }
+        />
+      }
+      keyboardDismissMode="on-drag"
+    />
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      <View style={styles.top}>
-        <View style={styles.search}>
-          <Ionicons name="search" size={18} color={colors.muted} />
-          <TextInput
-            ref={input}
-            testID="catalog-search"
-            value={text}
-            onChangeText={setText}
-            placeholder="Аромат или бренд"
-            placeholderTextColor={colors.muted}
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoFocus={autoFocus}
-            accessibilityLabel="Поиск"
-          />
-          {!!text && (
-            <Pressable accessibilityLabel="Очистить поиск" onPress={() => setText("")} hitSlop={8}>
-              <Ionicons name="close-circle" size={18} color={colors.faint} />
-            </Pressable>
-          )}
-        </View>
-        <View style={styles.toolbar}>
-          <ToolButton
-            icon="options-outline"
-            label={active ? `Фильтры · ${active}` : "Фильтры"}
-            active={active > 0}
-            onPress={() => setFiltersOpen(true)}
-          />
-          <ToolButton
-            icon="swap-vertical"
-            label={SORT_LABELS[sort]}
-            onPress={() => setSortOpen(true)}
-          />
-          {total !== undefined && (
-            <Muted style={{ marginLeft: "auto", fontSize: 13 }}>
-              {total} {plural(total, "товар", "товара", "товаров")}
-            </Muted>
-          )}
-        </View>
-      </View>
-
-      <SectionChips
-        categoryId={fixed.category_id}
-        // Only the whole catalog offers the sections; a brand or a promotion keeps its own list.
-        show={fixed.category_id !== undefined || Object.keys(fixed).length === 0}
-      />
-
-      {body ?? (
-        <FlatList
-          key={columns}
-          data={items}
-          numColumns={columns}
-          keyExtractor={(p) => String(p.id)}
-          columnWrapperStyle={{ gap: 12 }}
-          contentContainerStyle={{
-            padding: 16,
-            paddingTop: 4,
-            paddingBottom: 16 + tabInset,
-            gap: 12,
-            flexGrow: 1,
-          }}
-          scrollIndicatorInsets={{ bottom: tabInset }}
-          renderItem={({ item }) => <ProductCard product={item} width={cardWidth} />}
-          onEndReachedThreshold={0.6}
-          onEndReached={() => {
-            if (products.hasNextPage && !products.isFetchingNextPage) void products.fetchNextPage();
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={products.isRefetching && !products.isFetchingNextPage}
-              onRefresh={() => void products.refetch()}
-              tintColor={colors.gold}
+      {list}
+      {/* Over the list: slides up with it, back down as soon as it scrolls up. */}
+      <Animated.View
+        onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))}
+        style={[styles.slider, { transform: [{ translateY: body ? 0 : slide }] }]}
+      >
+        {title && (
+          <Txt accessibilityRole="header" style={[styles.title, { paddingTop: insets.top + 8 }]}>
+            {title}
+          </Txt>
+        )}
+        <View style={styles.top}>
+          <View style={styles.search}>
+            <Ionicons name="search" size={18} color={colors.muted} />
+            <TextInput
+              ref={input}
+              testID="catalog-search"
+              value={text}
+              onChangeText={setText}
+              placeholder="Аромат или бренд"
+              placeholderTextColor={colors.muted}
+              style={styles.searchInput}
+              returnKeyType="search"
+              autoCorrect={false}
+              autoFocus={autoFocus}
+              accessibilityLabel="Поиск"
             />
-          }
-          ListFooterComponent={products.isFetchingNextPage ? <Loader /> : undefined}
-          ListEmptyComponent={
-            <EmptyState
-              icon="search-outline"
-              title="Ничего не нашлось"
-              text="Попробуйте другое название или уберите часть фильтров."
-              action={
-                (active > 0 || !!text) && (
-                  <Button
-                    kind="outline"
-                    title="Сбросить поиск и фильтры"
-                    onPress={() => {
-                      setText("");
-                      setChosen({});
-                    }}
-                  />
-                )
-              }
+            {!!text && (
+              <Pressable
+                accessibilityLabel="Очистить поиск"
+                onPress={() => setText("")}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle" size={18} color={colors.faint} />
+              </Pressable>
+            )}
+          </View>
+          <View style={styles.toolbar}>
+            <ToolButton
+              icon="options-outline"
+              label={active ? `Фильтры · ${active}` : "Фильтры"}
+              active={active > 0}
+              onPress={() => setFiltersOpen(true)}
             />
-          }
-          keyboardDismissMode="on-drag"
+            <ToolButton
+              icon="swap-vertical"
+              label={SORT_LABELS[sort]}
+              onPress={() => setSortOpen(true)}
+            />
+            {total !== undefined && (
+              <Muted style={{ marginLeft: "auto", fontSize: 13 }}>
+                {total} {plural(total, "товар", "товара", "товаров")}
+              </Muted>
+            )}
+          </View>
+        </View>
+
+        <SectionChips
+          categoryId={fixed.category_id}
+          // Only the whole catalog offers the sections; a brand or a promotion keeps its own list.
+          show={fixed.category_id !== undefined || Object.keys(fixed).length === 0}
         />
-      )}
+      </Animated.View>
+      {/* The status bar's strip stays covered while the title is away. */}
+      {title && <View style={[styles.statusCover, { height: insets.top }]} />}
 
       <FiltersSheet
         visible={filtersOpen}
@@ -688,6 +731,29 @@ const styles = StyleSheet.create({
   skeleton: {},
   skeletonPhoto: { backgroundColor: colors.goldSoft, borderRadius: radius.lg },
   skeletonBar: { height: 10, borderRadius: 5, backgroundColor: colors.goldSoft },
+  slider: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1,
+    backgroundColor: colors.cream,
+  },
+  statusCover: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    backgroundColor: colors.cream,
+  },
+  title: {
+    fontFamily: fonts.serif,
+    fontSize: 30,
+    lineHeight: 36,
+    color: colors.ink,
+    paddingHorizontal: 16,
+  },
   top: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 10, gap: 10 },
   search: {
     flexDirection: "row",

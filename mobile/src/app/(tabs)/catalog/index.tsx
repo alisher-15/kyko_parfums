@@ -8,5 +8,5 @@ import { CatalogView } from "@/components/catalog";
  */
 export default function CatalogScreen() {
   const { q, at, focus } = useLocalSearchParams<{ q?: string; at?: string; focus?: string }>();
-  return <CatalogView key={at ?? "catalog"} query={q} focusKey={focus} />;
+  return <CatalogView key={at ?? "catalog"} query={q} focusKey={focus} title="Каталог" />;
 }
